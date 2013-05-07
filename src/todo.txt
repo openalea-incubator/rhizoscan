@@ -1,0 +1,36 @@
+todo list in rhizoscan project
+-------------------------------
+
+make test functions for all modules
+
+move array.segmentation to 'measurement' or 'segmentation'
+
+
+    
+To think about:
+---------------
+use of upper case for first module (file&folder) name character ?? is it possible ?
+    => upper case is for classes...
+
+create a video module, with an ImageSequence class and maybe a Video (for avi...)
+    => need a parent class of all sequence type (virtual ?)
+    => maybe a Sequence class that manage sequences of any type of data
+    
+create a Image3D module (and class) ?
+
+make a (virtual?) class data parent of all data type managed
+    python-to-c pointer passing method for all these data: 'ndarray', 'image' and 'Image3D'
+    read-write to file => default using numpy array
+    
+
+    
+DONE list:
+----------
+remove 'adaptive' filter, and rename 'adaptive2' by 'adaptive'
+    => add an option 'kernel' (either gaussian, or uniform)
+
+move array.filter.[---]_kernel to array.kernel ; and remove _kernel suffixe
+
+rename 'array' by 'ndarray'
+
+

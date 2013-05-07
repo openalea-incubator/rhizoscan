@@ -1,0 +1,7 @@
+graft test
+recursive-include doc *.rst *.bat *.py Makefile
+include *.txt *.ini
+prune src/VPlants.Rhizoscan.egg-info
+global-exclude *~
+global-exclude *.pyc
+global-exclude *.pyo

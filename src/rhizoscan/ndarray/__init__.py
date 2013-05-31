@@ -1,3 +1,5 @@
+""" tools to handle numpy ndarray objects
+"""
 import numpy as _np
 import scipy.ndimage as _nd
 from numpy.lib.stride_tricks import as_strided     as _as_strided
@@ -269,39 +271,45 @@ def add_dim(array, axis=-1, size=1, shift=0):
     call:    new_array = add_dim(array, axis=-1, size=1, shift=0)
     
     :Input:
-        array: a numpy ndarray
-        axis:  the index of the virtual axis to insert
-               the axis number can be negative. If axis=-n: 
-                  the added axis is the (array.ndim-n)th dimension of output array
-                  (if n=-1, add an axis at the end of input array)
-        size:  the number of element this new axis will have
-        shift: (optional) if given, the added dimension becomes a shifted view
-               in the input array. The ith element along the shift dimension 
-               start at element i*shift, which should be the index of an element
-               in the given array.
-                                   *** warning *** 
-                with shift, some valid indices point out of given array memory. 
-                     Using it might CRASH PYTHON. Use at your own risk
-                                   ***************
-                                   
-        With default arguments (axis, size and shift), add_dim add a
-        singleton axis at the end of input array
-    
+      - array
+          a numpy ndarray
+      - axis
+          the index of the virtual axis to insert
+          the axis number can be negative. If axis=-n: 
+          the added axis is the (array.ndim-n)th dimension of output array
+          (if n=-1, add an axis at the end of input array)
+      - size
+          the number of element this new axis will have
+      - shift
+          (optional) if given, the added dimension becomes a shifted view
+          in the input array. The ith element along the shift dimension 
+          start at element i*shift, which should be the index of an element
+          in the given array.
+               
+                               ** warning ** 
+            with shift, some valid indices point out of given array memory. 
+                 Using it might CRASH PYTHON. Use at your own risk
+                               ** ******* **
+                               
     :Output:
         if input array shape is S, the returned array has shape (S[:axis], size, S[axis:])
         
     :Example:
       if A is a has 2x3x4 array, then B = add_dim(A,axis,5) will have shape:
-          (5,2,3,4)   if   axis= 0
-          (2,3,5,4)   if   axis= 2
-          (2,3,4,5)   if   axis= 3 or -1
+          - (5,2,3,4)   if   axis= 0
+          - (2,3,5,4)   if   axis= 2
+          - (2,3,4,5)   if   axis= 3 or -1
       
       B = add_dim(A,axis=-1,size=1) is the same as B = A[:,:,:,newaxis]
+      
       B = add_dim(A,axis= 0,size=1) is the same as B = A[newaxis]
       
     :Note:
         The returned array is a (broadcasted) view on the input array. 
         Changing its elements value will affect the original data.
+        
+        With default arguments (axis, size and shift), add_dim add a
+        singleton axis at the end of input array
     """
     A  = _np.asanyarray(array)
     sh = _np.array(A.shape)

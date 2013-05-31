@@ -59,29 +59,36 @@ def subimage(img=None, verbose=False):
 def label_show(label, order='shuffle', cmap=None, start=1, negative=0, weight=None, clear=True):
     """
     Display a label (integer) image:
-      0 value pixels are background, and display in black (using default config)
-      other labels are displayed with one of the following colors:
-        white, red, green, blue, cyan, pink and yellow
+      - 0 value pixels are background, and displayed in black (using default config)
+      - other labels are displayed with one of the following colors::
+            white, red, green, blue, cyan, pink and yellow
+            
+    :Inputs:
+        **order**
+            how to choose the color order - either:
+                  - shuffle: shuffle lavels id (>start)
+                  - xmin:    order label mapping by the labels minimum x coordinates
+                  - ymin:    order label mapping by the labels minimum y coordinates
+                  - an integer: use directly the label id times this number
+        **cmap**
+            the color map - either:
+                 - None (default colormap of 8 basic colors), 
+                 - a colormap (Nx3 array of N colors),
+                 - or a number (simply apply modulus, and return a grey color)
+        **start** 
+            loop into cmap starting at this label:
+               it should be less than the number of colors in the color map
+               if order is shuffle, labels below start are not shuffled
+        **negative** 
+            method to treat negative indices - a value to replace <0 labels by
     
-    order: how to choose the color order - either:
-             shuffle: shuffle lavels id (>start)
-             xmin:    order label mapping by the labels minimum x coordinates
-             ymin:    order label mapping by the labels minimum y coordinates
-             an integer: use directly the label id multiplied by this number
-    cmap:  the color map - either
-             None (default colormap of 8 basic colors), 
-             a colormap (Nx3 array of N colors),
-             or a number (simply apply modulus, and return a grey color)
-    start: loop into cmap starting at this label.
-           it should be less than the number of colors in the color map
-           if order is shuffle, labels below start are not shuffled
-    negative: method to treat negative indices - a value to replace <0 labels by
-    
-    'weight' is an optional array of the same size as input label which gives
-      a float value in [0,1] to multiply displayed image by. 0 means black and 
-      1 means full color of the colormap
+        **weight** 
+            an optional array of the same size as input label which gives a 
+            float value in [0,1] to multiply displayed image by. 
+            0 means black and 1 means full color of the colormap
       
-    'clear': if True, clear the figure before displaying labeled image
+        **clear**
+            if True, clear the figure before displaying labeled image
     """
     from .. import ndarray as arr
     if clear: _plt.clf()
@@ -243,10 +250,12 @@ def linput(n=0, p=0, timeout=30, fig=None, **key_event):
     """
     Similar to matplotlib.pyplot.ginput but allow input of a polyline.
     
-    'n' is the number of points per polyline - 0 means no limit
-    'p' is the number of polylines. 0 means no limit. if 'n' is 0, then it is 
-        meaningless. Otherwise, if p is not 0, then input automatically ends 
-        when n*p points has been entered
+    :Inputs:
+        - n is the number of points per polyline - 0 means no limit
+        - p is the number of polylines - 0 means no limit:
+            - if 'n' is 0, then it is meaningless. 
+            - Otherwise, if p is not 0, then input automatically ends when 
+              n*p points has been entered
     """
     # create BlockingInput obj, and override bugged methods
     fig  = _plt.gcf() if fig is None else fig if isinstance(fig,_Figure) else _plt.figure(fig)
@@ -258,15 +267,16 @@ def gvalue(n=1, image=None, verbose=False, **key_event):
     """
     Similar as ginput, but also return plotted image value on clicked pixels
     
-    Input
-    -----
-        n:       number of input mouse click
-        image:   image the values are taken in. If None, take the last image
-                 object of the current axe
-        verbose: if True, print pixel info at each click
+    :Inputs:
+        - n:
+            number of input mouse click
+        - image:
+            image the values are taken in. If None, take the last image
+            object of the current axe
+        - verbose:
+            if True, print pixel info at each click
         
-    Output
-    ------
+    :Outputs:
         Three lists x, y, value (of pixel) for all clicks.
     """
     if image is None: image = gci()

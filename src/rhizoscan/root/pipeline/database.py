@@ -16,24 +16,19 @@ def parse_image_db(ini_file, output='output', verbose=False):
     """
     Return an iterator over all images following parsing format
     
-    :Output:
+    :Outputs:
+        a list of objects containing the following attributes:
+            - filename: the file name of input image
+            - output:   base name for output related to this image
+            - metadata: metadata related to this image
+                
+        the list of **invalid files**: file found but could not be parsed
+        
+        the global **output directory**: ini_file dir/output
     
-    image_list: 
-        a list of objects containing the following attributes
-            . filename: the file name of input image
-            . output:   base name for output related to this image
-            . metadata: metadata related to this image
-            
-    invalid_file: 
-        the list of files that were found, but for which metadata
-        could not be parsed
-    
-    output_directory:
-        the global output directory = ini_file dir/output
-    
-    :todo: 
-        finish doc - input
-        check missing images (1 of each type for all time steps)
+    :todo:
+        - finish doc - input
+        - check missing images (1 of each type for all time steps)
     """
     import ConfigParser as cfg
     from os.path import join as pjoin
@@ -48,14 +43,19 @@ def parse_image_db(ini_file, output='output', verbose=False):
     ini = cfg.ConfigParser()
     ini.read(ini_file)
     ini = _Struct(**dict([(s,_Struct(**dict(ini.items(s)))) for s in ini.sections()])) 
+    
+    if verbose>2:
+        print 'loaded ini:'
+        print ini.multilines_str(tab=1)
         
     # find all image files that fit pattern given in ini_file
     # -------------------------------------------------------
-    base_dir = dirname(ini_file)
+    base_dir = dirname(abspath(ini_file))
     base_out = abspath(output, base_dir)
     
     # list all suitable files
     file_pattern = ini['PARSING']['pattern']
+    file_pattern = file_pattern.replace('\\','/')      # for windows
     file_pattern = re.split('[\[\]]',file_pattern)
     
     glob_pattern = pjoin(base_dir,'*'.join(file_pattern[::2]))
@@ -63,7 +63,8 @@ def parse_image_db(ini_file, output='output', verbose=False):
     
     if verbose:
         print 'glob:', glob_pattern
-        #print '   ' + '\n   '.join(file_list)
+        if verbose>1:
+            print '   ' + '\n   '.join(file_list)
     
     # prepare metatdata parsing
     # -------------------------
@@ -71,12 +72,11 @@ def parse_image_db(ini_file, output='output', verbose=False):
     def get_from_ini(field, default):
         value   = ini[field]
         return value
-    print file_pattern
     
     # meta data list and regular expression to parse file names
     meta_parser = re.compile('(.*)'.join([fp.replace('*','.*') for fp in file_pattern[::2]]))
     meta_list = [_Struct(name=s[0],type=s[1]) for s in [m.split(':') for m in file_pattern[1::2]]]
-    date_pattern = ini['PARSING']['date']
+    date_pattern = ini['PARSING'].get('date','')
     for m in meta_list:
         if m.type=='date': 
             m.eval = lambda s: strptime(s, date_pattern)
@@ -101,14 +101,15 @@ def parse_image_db(ini_file, output='output', verbose=False):
             group[start:] = [g[start]]*(len(group)-start)
         group = group[fenum]
         if verbose:
-            print 'group:', group
+            print 'group:', g
+            if verbose>1:
+                print '   detected:', group
     else:
         group = None
     
     if verbose:
-        print 'metadata:'
-        print '   pattern:', meta_parser.pattern
-        print '   type:', ', '.join((m.name+':'+m.type for m in meta_list))
+        print 'metadata:', meta_parser.pattern, 
+        print '> ' + ', '.join((m.name+':'+m.type for m in meta_list))
     # parse all image files, set metadata and remove invalid
     # ------------------------------------------------------
     img_list = []
@@ -116,11 +117,13 @@ def parse_image_db(ini_file, output='output', verbose=False):
     rm_len = len(base_dir)  ## imply images are in base_dir. is there a more general way
     for ind,f in enumerate(file_list):
         try:
-            subf = f[rm_len+1:]
+            if rm_len>0: subf = f[rm_len+1:]
+            else:        subf = f 
+            subf = subf.replace('\\','/')   # for windows
             out  = pjoin(base_out, splitext(subf)[0])
             meta_value = meta_parser.match(subf).groups()
             if verbose>1:
-                print '   ' + str(meta_value) + ' ' + f
+                print '   ' + str(meta_value) + ' from ' + subf + str(rm_len)
             meta = _Struct(**default_meta)
             if group is not None:
                 meta.merge(get_from_ini(group[ind], []))

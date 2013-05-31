@@ -14,7 +14,7 @@ dart2_path  = '/Users/diener/root_data/nacry/scan_serie_1/DART/scan_serie_1_J2'
 dart3_path  = '/Users/diener/root_data/nacry/scan_serie_1/DART/scan_serie_1_J3'
 
 # icon of openalea package
-__icon__ = 'root.png'
+__icon__ = 'database.png'
 
 
 
@@ -54,16 +54,16 @@ def _dart3_name_(update=False, names=[]):
         for f in files: names.append(f)
     return names
     
-@_aleanode('dart_J2')
+#@_aleanode('dart_J2')
 def dart_J2(number, color='gray', dtype='f'):
     filename = _dart2_name_()[number]
     return _Img(filename,color=color,dtype=dtype)
-@_aleanode('dart_J3')
+#@_aleanode('dart_J3')
 def dart_J3(number, color='gray', dtype='f'):
     filename = _dart3_name_()[number]
     return _Img(filename,color=color,dtype=dtype)
     
-@_aleanode('image')
+#@_aleanode('image')
 def test_image(filename):
     if not isinstance(filename,basestring):
         filename = _test_image_list()[filename]
@@ -81,7 +81,7 @@ def normalize(img):
     
     return img
 
-@_aleanode('seq')
+#@_aleanode('seq')
 def seq(filename, color='gray', dtype='f'):
     if not isinstance(filename,basestring):
         filename = _seq_name_()[filename]

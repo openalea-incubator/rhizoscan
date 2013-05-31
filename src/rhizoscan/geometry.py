@@ -1,5 +1,5 @@
 """
-Module for geometry stuff
+Module for geometry function
 """
 
 import numpy as _np
@@ -182,27 +182,37 @@ def transform(data=None, T=None, coordinates=None, grid=None, order=1, mode='con
     
     Compute an array where each point value is taken in 'data' at position 
     determined by transformation 'T' using spline interpolation.
+    
         out[coord] = data[ T * coord ]
     
-    data:       a N-dimensional array-like object.
-                 if None, return the transformed coordinates (T * coord)
-    T:           a (N+1)x(M+1) projection matrix
-    coordinates: a Mx[K] or homogeneous (M+1)xK coordinates of K M-dimensional 
-                 points. [K] might be of any shape. 
-                 If coordinates is None, use "grid" argument
-    grid:        can be used to generate coordinates. grid should be a tuple of
-                 length M indicating the indices in each dimension. 
-                 Any of the following is allowed:
-                    - an integer equivalent to range from 0 to this number
-                    - a slice object            Eg: slice(100,200,5)  
-                    - a set of pixel indices    Eg: [4,2,3]
-                    - or any combinaison        Eg: (3,slice(2,5),[7,2])
-    
-    'order' is the order of spline interpolation
-    'mode' (and 'cval') determine how to process points transformed out of data
-    'order', 'mode', 'cval' are parameter of ndarray.lookup(...)
-    
-    See Also: scipy.ndimage.affine_transform, ndarray.lookup
+    :Inputs:
+        data       
+            a N-dimensional array-like object.
+            if None, return the transformed coordinates (T * coord)
+        T
+            a (N+1)x(M+1) projection matrix
+        coordinates
+            a Mx[K] or homogeneous (M+1)xK coordinates of K M-dimensional points.
+            [K] might be of any shape. 
+            If coordinates is None, use "grid" arguments
+        grid
+            can be used to generate coordinates. Grid should be a tuple of
+            length M indicating the indices in each dimension. 
+            Any of the following is allowed:
+            
+              - an integer equivalent to range from 0 to this number
+              - a slice object              Eg: slice(100,200,5)  
+              - a set of pixel indices      Eg: [4,2,3]
+              - or any combinaison          Eg: (3,slice(2,5),[7,2])
+        
+        order
+            the order of spline interpolation
+        mode and cval
+            how interpolation treats points transformed out of input data
+        
+    :See Also: 
+        - scipy.ndimage.affine_transform
+        - ndarray.lookup
     """
     
     if T is None: raise TypeError('Transformation T is required')

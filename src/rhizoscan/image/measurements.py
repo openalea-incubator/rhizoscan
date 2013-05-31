@@ -12,35 +12,34 @@ def skeleton_label(mask, closing=1, fill_node=True, terminal=True):
     """
     Skeletonize (thin) mask, and return map of labeled skeleton segments and nodes
     
-    Input:
-    ------
-    mask: 
-        An image containing the objects to be skeletonized. '1' represents 
-        foreground, and '0' represents background. It also accepts arrays of 
-        boolean values where True is foreground.
-    closing:
-        iteration number of binary closing applied on mask. If not previously 
-        filtered or otherwise "well constructed", one iterations is recommanded 
-        to avoid one-pixel holes.
-    fill_node: 
-        If True add node pixels that touches only one segment to this segment.
-        This makes the segment map convering most of the mask skeleton (which is 
-        better segment length estimation). As consequences:
-            - segment can then touch other segments
-            - all nodes keep at least one pixels
-            - individually segment are still linear (i.e. contains no loop) 
-    terminal:
-        If True, add terminal node to node label (i.e. node that touch only one 
-        segment). These node are also kept in the segment label. To remove them,
-        simply do:   segment[node>0] = 0
-        
-    Output:
-    -------
-        segment: a label map of the skeleton segments
-        node:    a label map of the skeleton nodes
-        nSeg:    number of segment
-        nNode:   number of nodes (including terminals)
-        nTerm:   number of terminal
+    :Inputs:
+       - mask: 
+           An image containing the objects to be skeletonized. '1' represents 
+           foreground, and '0' represents background. It also accepts arrays of 
+           boolean values where True is foreground.
+       - closing:
+           iteration number of binary closing applied on mask. If not previously 
+           filtered or otherwise "well constructed", one iterations is 
+           recommanded to avoid one-pixel holes.
+       - fill_node: 
+           If True add node pixels that touches only one segment to this segment.
+           This makes the segment map convering most of the mask skeleton (which 
+           is better segment length estimation). As consequences:
+             - segment can then touch other segments
+             - all nodes keep at least one pixels
+             - individually segment are still linear (i.e. contains no loop) 
+       - terminal:
+           If True, add terminal node to node label (i.e. node that touch only 
+           one segment). These node are also kept in the segment label. 
+           To remove them, simply do::
+              segment[node>0] = 0
+           
+    :Outputs:
+        - segment: a label map of the skeleton segments
+        - node:    a label map of the skeleton nodes
+        - nSeg:    number of segment
+        - nNode:   number of nodes (including terminals)
+        - nTerm:   number of terminal
         
     *** Require scikits images: skimage.morphology.skeletonize ***
     """
@@ -101,24 +100,23 @@ def corner_count(curve_map, background=0):
     """
     compute the length of (linear) label using the corner count method
     
-    Input:
-    ------
-    curve_map:  a labeled map where each label should be a connected linear set 
-                of pixels (a curve) surrounded by background pixels. 
-                The algorithm works on any type of label map, but is meaningfull 
-                only if it correspond to the description above.
-    background: value of the background pixels (default is 0). 
+    :Inputs:
+      - curve_map:
+          a labeled map where each label should be a connected linear set 
+          of pixels (a curve) surrounded by background pixels. 
+          The algorithm works on any type of label map, but is meaningfull 
+          only if it correspond to the description above.
+      - background:
+          value of the background pixels (default is 0). 
+      
+    :Outputs:
+        a vector array where each element is the size of the corresponding 
+        labeled curve. The size of the background label is 0 
     
-    Output:
-    -------
-    a vector array where each element is the size of the corresponding labeled
-    curve. The size of the background label is 0 
-    
-    Corner count reference:
-    -----------------------
-    "Vector code probability and metrication error in the representation of 
-     straight lines of finite length"
-     Vossepoel and Smeulders, 1982
+    Corner count reference::
+        "Vector code probability and metrication error in the representation of 
+         straight lines of finite length"
+         Vossepoel and Smeulders, 1982
     """
     d4 = 0.98  # weight of direct   connections (4-connected neighbors)
     d8 = 1.406 # weight of diagonal connections (diagnonal neighbors)
@@ -137,26 +135,31 @@ def corner_count(curve_map, background=0):
     size[background] = 0  # background size = 0
     return size
 
-_colormap = _np.array([[0,0,0],[1,1,1],[1,0.3,0.1],[0,1,0],[0.2,0.7,1],[1,1,0],[1,0,1],[0,1,1]])
 
+_colormap = _np.array([[0,0,0],[1,1,1],[1,0.3,0.1],[0,1,0],[0.2,0.7,1],[1,1,0],[1,0,1],[0,1,1]])
 
 def color_label(label, order='shuffle', cmap=6, start=1, negative=0):
     """
     make a color image from label.
     
-    order: how to choose the color order - either:
-             shuffle: shuffle lavels id (>start)
-             xmin:    order label mapping by the labels minimum x coordinates
-             ymin:    order label mapping by the labels minimum y coordinates
-             an integer: use directly the label id multiplied by this number
-    cmap:  the color map - either
-             None: use the module default _colormap (8 basic colors) 
-             a colormap (Nx3 array of N colors),
-             or a number (simply apply modulus, and return a grey color)
-    start: loop into cmap starting at this label.
-           it should be less than the number of colors in the color map
-           if order is shuffle, labels below start are not shuffled
-    negative: method to treat negative indices - a value to replace <0 labels by
+    :Inputs:
+      - order:
+          how to choose the color order - either:
+            * shuffle: shuffle lavels id (>start)
+            * xmin:    order label mapping by the labels minimum x coordinates
+            * ymin:    order label mapping by the labels minimum y coordinates
+            * an integer: use directly the label id multiplied by this number
+      - cmap:
+         the color map - either
+            * None: use the module default _colormap (8 basic colors) 
+            * a colormap (Nx3 array of N colors),
+            * or a number (simply apply modulus, and return a grey color)
+      - start:
+          loop into cmap starting at this label.
+          it should be less than the number of colors in the color map
+          if order is shuffle, labels below start are not shuffled
+      - negative:
+          method to treat negative indices - a value to replace <0 labels by
     """
     label = _np.copy(label)
     label[label<0] = negative
@@ -194,26 +197,27 @@ def image_to_csgraph(image, edge_value='mean', neighbor=8):##DOC FALSE
     Make a compressed sparse graph from input image. 
     The graph connects all non-zero pixels to its non-zero neighbors.
     
-    Input:
-    ------
-    image:    an ndarray with 2 dimensions
-    edge_value: either
-              'mean' - the edge value is the mean of src & dst
-              'min'  - the edge value is the minimum of src & dst
-              'max'  - the edge value is the minimum of src & dst
-              'diff' - the edge value is  dst - src
-              'grad' - the edge value is  abs(dst - src)
-              a function with 2 argument f(src,dst) that return the edge value
-    neighbor: 4 (direct pixels neighbors) or 8 (default, with diagonal neighbors)
+    :Inputs:
+      - image:
+          an ndarray with 2 dimensions
+      - edge_value:
+          * 'mean' - the edge value is the mean of src & dst
+          * 'min'  - the edge value is the minimum of src & dst
+          * 'max'  - the edge value is the minimum of src & dst
+          * 'diff' - the edge value is  dst - src
+          * 'grad' - the edge value is  abs(dst - src)
+          * a function with 2 argument f(src,dst) that return the edge value
+      - neighbor:
+          4 (direct pixels neighbors) or 8 (default, with diagonal neighbors)
     
-    Output:
-    -------
-    - a sparse graph (from scipy.sparse), which represents adjacency matrix of the 
-      pixels graph, that can be used by scipy.sparse.csgraph functions.
-    - y-coordinates of selected pixels
-    - x-coordinates of selected pixels
+    :Outputs:
+        - a sparse graph (from scipy.sparse), which represents adjacency matrix 
+          of the pixels graph, that can be used by scipy.sparse.csgraph functions.
+        - y-coordinates of selected pixels
+        - x-coordinates of selected pixels
     
-    *** Note: border pixels should be 0 ***
+    :Note:
+        border pixels should all equal 0
     """
     from scipy import sparse
     
@@ -258,17 +262,18 @@ def sort_curve_pixels(mask):
     """
     Sort the pixels of a curve from a binary ndarray
     
-    Input:
-    ------
-    mask: a binary image containing a 1-pixel width curve. All pixels should 
+    :Inputs:
+      - mask:
+          a binary image containing a 1-pixel width curve. All pixels should 
           have maximum 2 neighbors.
-    x0,y0: the coordinates of the first pixels
+      - x0,y0:
+          the coordinates of the first pixels
           
-    Output:
-    -------
-    The y and x coordinates of the sorted mask pixels.
+    :Outputs:
+        The y and x coordinates of the sorted mask pixels.
     
-    Require scipy>=0.11
+    .. Require::
+        scipy>=0.11
     """
     from scipy import sparse
     
@@ -287,7 +292,8 @@ def sort_curve_pixels(mask):
 def curve_to_spline(mask, tip_weight=10, smooth=1, order=3):##, x0=None, y0=None, x1=None, y1=None):
     """
     Fit a spline on curve in binary array 'mask'
-    ##todo: finish doc
+    
+    :todo: finish doc
     """
     from scipy.interpolate import splprep as fit_spline
     

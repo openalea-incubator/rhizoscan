@@ -87,7 +87,7 @@ def image_pipeline(image, plate_width=120, min_dimension=50, smooth=1, to_tree=2
         
     # assert output directory exist
     outdir = os.path.dirname(output)
-    if not os.path.exists(outdir):
+    if len(outdir) and not os.path.exists(outdir):
         os.makedirs(outdir)
     
     out_frame  = output+'_frame.png'

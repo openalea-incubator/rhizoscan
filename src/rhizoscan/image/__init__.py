@@ -1,3 +1,7 @@
+"""
+Tools related to image data and image-file I/O
+"""
+
 # icon of openalea package
 __icon__ = 'mandelbrot.png'
 
@@ -21,7 +25,7 @@ class Image(_np.ndarray, _Data):
     
     ##TODO: doc
     """
-    def __new__(cls, array_or_file, color=None, dtype=None, scale='dtype', from_color=None):
+    def __new__(cls, array_or_file, color=None, dtype=None, scale='dtype', from_color=None, info={}):
         # read file if input is a file name
         # & cast input array to be our Image class
         # for now
@@ -34,9 +38,15 @@ class Image(_np.ndarray, _Data):
         if isinstance(array_or_file,basestring):
             obj = _nd.imread(array_or_file).view(cls)
             obj.set_data_file(array_or_file)
+            
+            # load image info
+            from PIL import Image
+            obj.info = Image.open(array_or_file).info
+            obj.info.update(info)
         else:
             obj = _np.asanyarray(array_or_file).view(cls)
             obj.set_data_file('')
+            obj.info = info
             
         # conversion
         # ----------
@@ -55,14 +65,23 @@ class Image(_np.ndarray, _Data):
         # see InfoArray.__array_finalize__ for comments
         #if hasattr(obj,'color'): self.color = obj.color
         #else:                    self.color = detect_color_space(self)
-        self.color = detect_color_space(self)
-        if hasattr(obj,'scale'):      self.scale = obj.scale
-        else:                         self.scale = 'dtype'
-        if hasattr(obj,'from_color'): self.from_color = obj.from_color
-        else:                         self.from_color = None
+        ##else: print 'no __dict__' 
+        ##self.color = detect_color_space(self)
+        ##if hasattr(obj,'scale'):      self.scale = obj.scale
+        ##else:                         self.scale = 'dtype'
+        ##if hasattr(obj,'from_color'): self.from_color = obj.from_color
+        ##else:                         self.from_color = None
+        ##
+        ##if hasattr(obj,'get_data_file'):
+        ##    self.set_data_file(obj.get_data_file())
         
-        if hasattr(obj,'get_data_file'):
-            self.set_data_file(obj.get_data_file())
+        if hasattr(obj,'__dict__'):
+            self.__dict__.update(obj.__dict__)
+            
+        self.color = detect_color_space(self)
+        self.__dict__.setdefault('scale',      'dtype')
+        self.__dict__.setdefault('from_color',  None)
+        self.__dict__.setdefault('info',        {})
         
         ## image.r/g/b must be done using weakreaf (?) 
         #if self.color in ('rgb','rgba'):
@@ -72,7 +91,7 @@ class Image(_np.ndarray, _Data):
         #if self.color == 'rgba':           
         #    self.a = self[...,3]
             
-    def __init__(self, array_or_file, color=None, dtype=None, from_color=None, scale='dtype'):
+    def __init__(self, array_or_file, color=None, dtype=None, from_color=None, scale='dtype', info={}):
         ## todo: doc
         pass
 
@@ -109,80 +128,85 @@ class Image(_np.ndarray, _Data):
           1b a static   method:  Image.save(some_Image_object, file_name=None, ...)
           2. a instance method:  some_Image_object.save(       file_name=None, ...)
         
-        Input
-        -----
-        image:    the image to save (1.) or self (2.)
+        :Inputs:
+          - image:
+              the image to save (1.) or self (2.)
         
-        filename: the name of the image file to save. 
-                  case 1a  => filename is mandatory
-                  case 1b and 2. 
+          - filename:
+              the name of the image file to save. 
+                - case 1a
+                    filename is mandatory
+                - case 1b and 2: 
                     if filename is None, use its Data file attribute.
                     otherwise save it to file filename and change *in place* the
                     Data file attribute of input image
                   
-        color:    |      convert image to this color & dtype after scaling 
-        dtype:    | See the important notes below and the imconvert documentation 
-        scale:    | possible scale: 'normalize','dtype', 'view', or any numeric value  
+          - color, dtype, scale:
+              convert image to this color & dtype after scaling. 
+              See the 'important notes' below and the imconvert documentation 
+              possible scale: 'normalize','dtype', 'view', or any numeric value  
         
-        pil_format: image format to use. If None, guess it from the file extension
-        pil_mode:   can be passed to PIL.Image.fromarray to enforce conversion 
-                    mode. None means automatic selection (see below)
-        pil_params: Additional parameter to pass to PIL save function. Depends 
-                    on pil_format used. See PIL documentation.
+          - pil_format:
+              image format to use. If None, guess it from the file extension
+          - pil_mode:
+              can be passed to PIL.Image.fromarray to enforce conversion mode. 
+              None means automatic selection (see below)
+          - **pil_params:
+              Additional parameter to pass to PIL save function. Depends on 
+              pil_format used. See PIL documentation.
+              If it contains a `pnginfo` it should be a dictionary, for which 
+              all key and value are strings, otherwise are converted using `str`
 
-        Output:
-        -------
-        return an empty Image object that can be used to load the image file:
+        :Outputs:
+            return an empty Image object that can be used to load the image file:
             empty_image.load()
            
-        The loaded Image will have suitable attribute to load the same image
-        data as contained by the calling image (up to saving loss).
-            - color and from_color are switch
-            - dtype is the calling image dtype
-            - scale is * the same as input scale if it is 'dtype' or 'view'
-                       * 1./scale if input scale is numeric
-                       * 'dtype'  if input scale is 'normalize' (no reverse)
-        
-        Important Notes:
-        ----------------
-        To be saved, the image has to fit one of the PIL mode (see below), then
-        it can save to different image file format depending on the mode and 
-        installed library.
-        the pil_format, pil_mode and pil_params are directly passed to the save
-        method of PIL Image. But usually default (None) value are suitable.
-        See the PIL Image save method documentation 
-        
-        However, if the image does not meet PIL requirement in color (ie. shape) 
-        and dtype, and if the automatic conversion (see dtype is 'auto' below)
-        is not suitable, the color, dtype and scale arguments can be used to 
-        convert the image (using the imconvert function) before saving.
-        *** See the imconvert documentation ***
-        
-        Automatic dtype fitting:
-        ------------------------
-        if dtype is 'auto', apply conversion following the rules
-          if color is not gray:                      convert to uint8
-          if image.dtype is bool or uint8:           keep dtype
-          if filename end by '.tif' or '.tiff',
-             or if pil_format is 'TIFF':             convert to float32
-          else:                                      convert to uint8
-        
-        Automatic conversion to pil mode: 
-        ---------------------------------
-        PIL provide an automatic conversion method fromarray, which convert 
-        data following their dimension and dtype (see PIL.Image._fromarray_typemap)
-        Here is a list relating Image color value.
-        [image.shape - image.color - image.dtype => pil mode]
-        
-        (.,.)   gray - bool         => 1     - 1-bit pixels, black and white
-        (.,.)   gray - uint8        => L     - 8-bit pixels, black and white
-        (.,.)   gray - int8 to 32   => I     - 32-bit signed integer pixels
-        (.,.)   gray - float32 & 64 => F     - 32-bit floating point pixels
-        (.,.,3) rgb  - uint8        => RGB   - 3x8-bit pixels, true colour
-        (.,.,4) rgba - uint8        => RGBA  - 4x8-bit pixels, true colour with transparency mask
+            The loaded Image will have suitable attribute to load the same image
+            data as contained by the calling image (up to saving loss).
+              - color and from_color are switched
+              - dtype is the calling image dtype
+              - scale is 
+                  * the same as input scale if it is 'dtype' or 'view'
+                  * 1./scale if input scale is numeric
+                  * 'dtype'  if input scale is 'normalize' (no reverse)
           
-        PIL modes:        http://www.pythonware.com/library/pil/handbook/concepts.htm
-        PIL file formats: http://www.pythonware.com/library/pil/handbook/index.htm#appendixes
+        :Important Notes:
+           To be saved, the image has to fit one of the PIL mode (see below), then
+           it can save to different image file format depending on the mode and 
+           installed library.
+           the pil_format, pil_mode and pil_params are directly passed to the save
+           method of PIL Image. But usually default (None) value are suitable.
+           See the PIL Image save method documentation 
+           
+           However, if the image does not meet PIL requirement in color (ie. shape) 
+           and dtype, and if the automatic conversion (see dtype is 'auto' below)
+           is not suitable, the color, dtype and scale arguments can be used to 
+           convert the image (using the imconvert function) before saving.
+           *** See the imconvert documentation ***
+         
+        :Automatic dtype fitting:
+           if dtype is 'auto', apply conversion following the rules
+             if color is not gray:                      convert to uint8
+             if image.dtype is bool or uint8:           keep dtype
+             if filename end by '.tif' or '.tiff',
+                or if pil_format is 'TIFF':             convert to float32
+             else:                                      convert to uint8
+        
+        :Automatic conversion to pil mode: 
+           PIL provide an automatic conversion method fromarray, which convert 
+           data following their dimension and dtype (see PIL.Image._fromarray_typemap)
+           Here is a list relating Image color value.
+           [image.shape - image.color - image.dtype => pil mode]
+           
+           (.,.)   gray - bool         => 1     - 1-bit pixels, black and white
+           (.,.)   gray - uint8        => L     - 8-bit pixels, black and white
+           (.,.)   gray - int8 to 32   => I     - 32-bit signed integer pixels
+           (.,.)   gray - float32 & 64 => F     - 32-bit floating point pixels
+           (.,.,3) rgb  - uint8        => RGB   - 3x8-bit pixels, true colour
+           (.,.,4) rgba - uint8        => RGBA  - 4x8-bit pixels, true colour with transparency mask
+             
+           PIL modes:        http://www.pythonware.com/library/pil/handbook/concepts.htm
+           PIL file formats: http://www.pythonware.com/library/pil/handbook/index.htm#appendixes
         """
         ##todo:  provide scaling factor that is set back at loading
         ##not implemented (.,.,3) yuv  - uint8        => Ycrcb - 4x8-bit pixels, colour separation
@@ -219,6 +243,21 @@ class Image(_np.ndarray, _Data):
         
         # save image
         # ----------
+        ## file/dir preparation to be transfered to Data (_open, _close ?) 
+        import os
+        d = os.path.dirname(filename)
+        if len(d) and not os.path.exists(d):
+            os.makedirs(d)
+        
+        # check for pnginfo in pil_param
+        if pil_params.has_key('pnginfo'):
+            from PIL.PngImagePlugin import PngInfo
+            astr = lambda x: x if isinstance(x,basestring) else str(x)
+            info = PngInfo()
+            for key,value in pil_params['pnginfo'].iteritems():
+                info.add_text(astr(key), astr(value)) 
+            pil_params['pnginfo'] = info
+            
         img = fromarray(img,mode=pil_mode)
         img.save(filename, format=pil_format, **pil_params)
         
@@ -234,7 +273,7 @@ class Image(_np.ndarray, _Data):
     @_static_or_instance
     def load(self):
         """
-        Method to load image using an empty image as returned by image_loader()
+        Method to load image using the empty image returned by image_loader()
         
         The loaded  image  is *returned*
         the calling object is *unchanged*
@@ -386,20 +425,17 @@ def imconvert(image, color=None, dtype=None, scale='dtype', from_color=None):
     """
     Convert Image color space and/or dtype
     
-    Input:
-    ------
+    :Inputs:
         color:  new color space.                         - None means no conversion
         dtype:  the data type to convert data to         - None means no conversion
         scale:  'dtype', 'normalize', 'view' or a value  - see Scale and data type below
         from_color: color space of input data. 
                     If None, select it automatically - see Color space below
         
-    Output:
-    -------
+    :Outputs:
         return an Image object 
         
-    Color space:
-    ------------
+    :Color space:
         For now only rgb-to-gray and gray-to-rgb are possible.
         Other color conversions will raise an error
         
@@ -407,8 +443,7 @@ def imconvert(image, color=None, dtype=None, scale='dtype', from_color=None):
         - if input is an Image instance, takes its color attributes
         - otherwise choose it automatically using the detect_color_space function
 
-    Scale and data type:
-    --------------------
+    :Scale and data type:
         Possible scale are: 'normalize', 'dtype', 'view' or any numeric value.
         
         If the scale arguments is a numeric value, the image is multiplied by 
@@ -441,7 +476,7 @@ def imconvert(image, color=None, dtype=None, scale='dtype', from_color=None):
         When the output dtype is boolean, then it simply return image!=0. 
         Scaling has no use.
 
-    Note:
+    :Note:
         Color conversion is done in a float precision: 
             If the output dtype is floating point, then it use it.
             But it is None, then the returned image will still be float (64).
@@ -590,114 +625,6 @@ def imconvert(image, color=None, dtype=None, scale='dtype', from_color=None):
     
     return image
 
-@_aleanode('uu','uv','vv')
-def gradient_covariance_2d(image, size=3):
-    """
-    Compute the uu,uv,vv covariances of the gradient over a neighborhood of each image pixel
-    u (resp. v) is the image gradient over x (resp. y)-coordinate.
-    
-    Use eigen_gradient_2d to compute the eigenvalues of the covariance matrix
-    
-    Input:
-        - image: a 2d array, or a tuple containing the precomputed (u,v) gradient (in this order)
-        - size:  the size of the neighborhood, either a scalar, or a 2-values tuple
-        
-    Output:
-        - uu,uv,vv: the u-by-u, u-by-v, v-by-v correlation array
-        
-    The x-by-y covariance is computed as the sum of the x_i by the y_i (with i the
-    index of a neighbor) divided by the total number of neighbor pixels.
-    Note that the gradient are not centered (i.e. the mean value is removed) as it
-    is not relevant to gradient diffusion.
-    
-    The vu covariance is equal to the uv
-    """
-    
-    if isinstance(image, tuple): u,v = image
-    else:                        v,u = _np.gradient(image)
-    c = lambda x: _nd.uniform_filter(x,size=size)
-    
-    return c(u*u), c(u*v), c(v*v)
-    
-def eigen_gradient_2d(image, size=3, sort='descend'):
-    """
-    Compute the eigenvalues of the gradient (absolute) covariance for each pixel
-    of the image, over its neighborhood
-    
-    Input:
-        - image: a 2d array, or a tuple containing the precomputed (u,v) gradient (in this order)
-        - size:  the size of the neighborhood, either a scalar, or a 2-values tuple
-        - sort:  Order of returned eigenvalues. It can be either:
-                  'ascend':  sort eigenvalue in  ascending order
-                  'descend': sort eigenvalue in descending order (default)
-                   or any function that takes 2 input arrays: (L1,L2), 
-                   and return a boolean array of the same dimension, with True
-                   value where L1 is correctly before L2
-                   [see eigenvalue_2d()]
-        
-    Output:
-        - an array of shape ([S],2)  where [S] is the shape of input arrays
-    
-    See also: gradient_covariance_2d, eigenvalue_2d
-    """
-    #uu,uv,vv = map(_np.abs,gradient_covariance_2d(image,size=size))
-    uu,uv,vv = gradient_covariance_2d(image,size=size)
-    return eigenvalue_2d(uu,uv,uv,vv, sort=sort)
-
-@_aleanode('eigenvalues')
-def eigenvalue_2d(a,b,c,d, sort='descend'):
-    """
-    For arrays a,b,c and d, compute the eigenvalues of all matrices 
-        [[a, b],
-         [c, d]]
-    
-    
-    :Input:
-        a,b,c,d: arrays of the same size 
-        sort:    optional argument which can be either:
-                  'ascend':  sort eigenvalue in  ascending order
-                  'descend': sort eigenvalue in descending order (default)
-                   or any a function that takes 2 input arrays: (L1,L2), 
-                   and return a boolean array of the same dimension, with True
-                   value where L1 is correctly before L2
-                   Example:
-                   sort=lambda L1,L2: L1<L2    is equivalent to   sort='ascend'
-                   (read:  "L1 should be less than L2")
-                     
-    :Output:
-        an array of shape ([S],2)  where [S] is the shape of input arrays
-    """
-    ##todo: return 2 matrices, one for each eigenvalue, or make eigv indices at start ?
-    shape = a.shape
-    a = a.ravel()
-    b = b.ravel()
-    c = c.ravel()
-    d = d.ravel()
-    
-    # compute trace and eigenvalue difference
-    trace = a+d
-    delta = _np.sqrt( trace**2 - 4*(a*d - b*c) )/2
-    
-    # compute eigenvalues 
-    eigval = _np.tile( (trace/2)[:,_np.newaxis], (1,2) )
-    eigval[:,0] += delta
-    eigval[:,1] -= delta
-    
-    eigval = _np.abs(eigval)
-    
-    # sort eigenvalues
-    if not isinstance(sort,type(lambda:1)):
-        if   sort=='ascend':  sort = lambda L1,L2: L1>L2
-        elif sort=='descend': sort = lambda L1,L2: L1<L2
-        else:
-            raise TypeError("sort arguments should be 'ascend', descend' or a function (See doc)")
-            
-    order  = sort(eigval[:,[1]],eigval[:,[0]])     # check if eigv[0] and eigv[1] should be inverted
-    eigval = _np.choose(_np.hstack((-order,order)), (eigval[:,[0]],eigval[:,[1]]))
-    
-    eigval.shape = shape + (2,)
-    return eigval    
-    
 def draw_line_2d(image, x, y, value=0, width=1):
     """
     Draw pixels of a line between points p1 = (x[0],y[0]) and p2 = (x[1],y[1])

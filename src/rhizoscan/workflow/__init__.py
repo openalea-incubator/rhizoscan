@@ -1,22 +1,23 @@
-"""
-General Data structures that relates run-time objects to storage files.
+""" Data structures that relates run-time objects to storage files
 
-Data classes:
+Data classes
+------------
  - Data:     base class of all other Data classes. 
              also provide simple IO interface using pickle.
  - Struct:   a Data subclass that provide a dictionary-like functionality.
  - Sequence: a Data subclass that provide a list-like functionality.
  
-##TODO:
-    > rename Struct by Mapping
-    > automatically set Data.__file attribut to loaded Data 
+TODO:
+-----
+    - rename Struct by Mapping
+    - automatically set Data.__file attribut to loaded Data 
         * same for subclasses 
         * same for contained data
         * what about contained data with already set data file ?
             + look into the 'Data mode' idea ('r','w','u') ?
-    > replace Data.__file by a Data_file property, replacing the get&set methods
-    > replace the _data_to_load/save by the set/get_state protocol
-    > look intop the __del__ deconstructor and the ability to automate saving
+    - replace Data.__file by a Data_file property, replacing the get&set methods
+    - replace the _data_to_load/save by the set/get_state protocol
+    - look intop the __del__ deconstructor and the ability to automate saving
         * call to del seems not garantied...
 """
 #from openalea import * ## should be optional
@@ -31,47 +32,47 @@ from .openalea import aleanode as _aleanode
 
 class Data(object):
     """ 
-    Basic Data class: provide simple IO interface using pickle
+    Basic Data class: provide simple file IO interface using pickle
     
     The Data class has two aims:
       1) It can be used directly to relate some data to a file, and use the
          Data saving and loading interface (pickle based).
          See the constructor documentation
-      2) It can be used as a superclass in order to get to saving and loading
-         ability of Data (see below for details), and easily provide special 
-         behavior for object being saved or loaded by container Data (eg. Struct,
-         Sequence) by overriding the _data_to_save_ and _data_to_load_ method.
+      2) It can be used as a superclass in order to get the saving and loading
+         ability of `Data` (see below), and easily provide special behavior for 
+         objects being saved or loaded by container Data (`Struct`, `Sequence`)
+         by overriding the `_data_to_save_` and `_data_to_load_` method.
          
-    Note for subclassing:
-    ---------------------
+    **Note for subclassing**:
+    
         As stated, one of the main goal of the Data class is to be subclassed. 
         Subclasses can either keep or override the save, load, _data_to_save_ 
         and _data_to_load methods.
         
-        > The Data save and load methods are simple interface with the pickle 
+        - The Data save and load methods are simple interface with the pickle 
           modules. The save method save the objects (more precisely what is 
           returned by the _data_to_save_ method). And the load method loads it 
           (more precisely what the loaded object _data_to_load_ method returns).
           
-        > Save and load are primarily supposed to be called statically. Thus
+        - Save and load are primarily supposed to be called statically. Thus
           when used as instance methods, it should be asserted that their
           behavior are suitable (especialy load) or required overriding. 
           * See save and load documentation for details *
           
-        > The container Data class do not call the Data's save and load method. 
+        - The container Data class do not call the Data's save and load method. 
           So they can be overriden with no restriction.
           
-        > However they call the _data_to_save_ and _data_to_load_ method, which
+        - However they call the _data_to_save_ and _data_to_load_ method, which
           are also called by the default implementation of save and load.
           
-        > By default, the _data_to_save_ and _data_to_load_ methods simply 
+        - By default, the _data_to_save_ and _data_to_load_ methods simply 
           return the calling instance (i.e. self).
           
-        > However, if it is wanted to do some processing prior to saving and/or
+        - However, if it is wanted to do some processing prior to saving and/or
           post loading, then it can be done by overriding the _data_to_save_ and 
           _data_to_load_ methods.
           
-        > The only constraint is to keep the same signature working: they should 
+        - The only constraint is to keep the same signature working: they should 
           be callable with only self as input, and return the object to be saved
           and the loaded object, respectively
           In both cases the returned object can be different from the calling
@@ -79,14 +80,14 @@ class Data(object):
           _data_to_load_ method if you want it to be called at loading.
           
         The main reasons to do such overriding can be:
-        - the merging ability of the load method is not suitable (see load doc)
-        - you want to do remove some (e.g. dynamic) data from the objects before
-          saving. And possibly recompute them at loading.
-        - you want to save/load some data in separate files 
-        - define a saving/loading approach to manage un-picklable data:
-          Typically if the object uses definition (function or class) that are
-          not loadable where the object might be loaded (see pickle doc). 
-    """
+          - the merging ability of the load method is not suitable (see load doc)
+          - you want to do remove some (e.g. dynamic) data from the objects before
+            saving. And possibly recompute them at loading.
+          - you want to save/load some data in separate files 
+          - define a saving/loading approach to manage un-picklable data:
+            Typically if the object uses definition (function or class) that are
+            not loadable where the object might be loaded (see pickle doc). 
+      """
     ##Data todo:
     ## -  a static dataWrapper method that create a savable/readable class
     ##    (and instance) from any class(object) 
@@ -97,7 +98,7 @@ class Data(object):
     ##   right attribute exist 
     
     def __init__(self, filename=None):
-        """
+        """                      
         Create an empty Data object that can be used to load the file filename.
         """
         self.__file = filename
@@ -116,34 +117,31 @@ class Data(object):
         """
         return getattr(self,'_Data__file',None)
     
-    @static_or_instance_method
+    @static_or_instance_method                           
     def save(data, filename=None, protocol=None):
         """ 
-        Save input 'data' to file 'filename' using pickle and return a Data object
-        that can later be loaded by the load function.
-        
-        This method can either be call as a 
+        Save input `data` to file `filename` using pickle 
+                                                     
+        This method can either be call as a:
           1. static   method:  Data.save(non_Data, filename,      protocol=None)
           2. static   method:  Data.save(Data_Obj, filename,      protocol=None)
           3. instance method:  someDataObject.save(filename=None, protocol=None)
         
-        In case 2 & 3, save the value returned by the input _data_to_save_ method.
+        In case 2 & 3, save the value returned by the `_data_to_save_` method.
+       
+        :Inputs:
+          - filename
+            - In the 1st case, `filename` argument is mandatory     
+            - In the 2nd and 3rd case, the instance Data file attribute is used
+              if `filename` is not given. In this case, `filename` overwrite the
+              Data file attribute of the Data object.
         
+          - protocol
+              the pickle protocol to use for saving. 
+              If not given (None) use this module `_PICKLE_PROTOCOL_` value.
         
-        Input:
-        ------
-        filename: In the 1st case, 'filename' argument is mandatory
-                  In the 2nd and 3rd case, the instance Data file attribute can
-                  be used if filename is not given. if its the case, filename 
-                  overwrite the Data file attribute of the Data object.
-        
-        protocol: the pickle protocol to use for saving. 
-                  If not given (None) use this module '_PICKLE_PROTOCOL_' value.
-        
-        Output:
-        -------
-            return an empty Data object that can be use to load the saved file
-            Never change the input Data object Data file.
+        :Outputs:
+            Return an empty Data object that can be use to load the saved file
         """
         from cPickle import dump
         import os
@@ -162,9 +160,9 @@ class Data(object):
         f = None
         try:
             d = os.path.dirname(filetmp)
-            if not os.path.exists(d):
+            if len(d) and not os.path.exists(d):
                 os.makedirs(d)
-            f = file(filetmp,'w')
+            f = file(filetmp,'wb')
             dump(data,f,protocol)
             f.close()
             import shutil
@@ -179,7 +177,7 @@ class Data(object):
     def load(filename_or_data, merge=True):
         """ 
         Load the pickled data from file 
-        
+                                                       
         This method can be used as 
           1. a static method with a file name:   Data.load(filename)
           2. a static method with a Data object: Data.load(some_Data_obj,merge=True)
@@ -188,22 +186,23 @@ class Data(object):
         If the loaded object has the _data_to_load_ method (such as Data objects)
         then it automatically calls this method and return its output.
         
-        If case 1 and if merge is False, this method only return the loaded data.
+        If case 1, this method return the loaded data.
         
         In cases 2 & 3, if the loaded data is a Data object and if merge is True
         then it merges the loaded data into the Data instance:
-          - it copies all its attributes (found in its __dict__) overwriting
-            existing attributes with same name in input Data 
-          - it change the instance __class__ attribute the the loaded one
+        
+          - it copies all its attributes (found in its `__dict__`) overwriting
+            existing attributes with same name 
+          - it changes the instance `__class__` attribute with the loaded one
           
         If the output is a Data object, then its data file attribut is set to 
         the loaded file
           
-        Note for subclassing:
-        ---------------------
-        If the merging behavior is not suitable, It might be necessary to 
-        override this methods. However the overriding method can call the static 
-        Data.load method (with merge=False).
+        **Note for subclassing**:
+        
+            If the merging behavior is not suitable, it might be necessary to 
+            override this methods. However the overriding method can call the 
+            static `Data.load` method (case 2) with merge=False.
         """
         from cPickle import load
         
@@ -214,7 +213,7 @@ class Data(object):
         else:
             fname = data
         
-        f = file(fname,'r')
+        f = file(fname,'rb')
         d = load(f)
         f.close()
         
@@ -575,15 +574,18 @@ def get_field(data={}, field='metadata', default=None):
 # Data that manages sequence
 class Sequence(Data):
     """
-    provide a simple read-write interface for sequence of data
-    ##Sequence TODO: 
-    ##  - doc
-            > setting might save. 
-            > setting Data obj change its Data file attribute
-    ##  - manage Data_IO_arg: to be send to _data_to_load/save_ ?  
-           > then make suitable change in Data doc, and ImageSequence
-    ##  - copy: normal copy followed by a clear buffer (how?)
-    """
+    Simple read-write interface for sequence of data
+    
+    :TODO: 
+      - make it a DataConatainer
+          > associate it to a folder
+      - doc
+          > setting might save. 
+          > setting Data obj change its Data file attribute
+      - manage Data_IO_arg: to be send to _data_to_load/save_ ?  
+          > then make suitable change in Data doc, and ImageSequence
+      - copy: normal copy followed by a clear buffer (how?)
+    """                                            
     def __init__(self, files=None, output=None, buffer_size=2, auto_save=True):
         """
         either files with a glob or file list, or output should be given.

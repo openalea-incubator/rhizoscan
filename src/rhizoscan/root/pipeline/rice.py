@@ -98,7 +98,7 @@ def image_pipeline(image, seed_min_radius, circle_number, pixel_size, min_dimens
         if output is not None:   
             from PIL.PngImagePlugin import PngInfo
             dir_mask = os.path.dirname(out_mask)
-            if not os.path.exists(dir_mask):
+            if len(dir_mask) and not os.path.exists(dir_mask):
                 os.makedirs(dir_mask)
             meta = PngInfo()
             meta.add_text('bbox', repr([(bbox[0].start,bbox[0].stop),(bbox[1].start,bbox[1].stop)])) 

@@ -1,7 +1,7 @@
 import os
 
 
-project_file = 'data/pipeline/arabidopsis/project.ini'
+project_file = 'data/pipeline/arabidopsis/database.ini'
 image_file   = 'data/pipeline/arabidopsis/J10/Photo_011.jpg'
 
 
@@ -23,13 +23,22 @@ def test_load_DB():
     
 def test_image_pipeline():
     from rhizoscan.root.pipeline import arabidopsis as pa
-    ifile = os.path.abspath(image_file)
+    import tempfile, os
     
-    # test with modules computation enforced 
-    pa.pipeline.run(image=ifile, output='~/tmp/pipeline_arabidopsis_test', plant_number=5, update=['all'])
-    assert all([m.updated for m in pa.pipeline.modules])
+    ifile  = os.path.abspath(image_file)
+    outdir = tempfile.mkdtemp()
     
-    # test with modules computation enforced 
-    pa.pipeline.run(image=image_file, output='~/tmp/pipeline_arabidopsis_test', update=[])
-    assert not any([m.updated for m in pa.pipeline.modules])
-
+    try:
+        # test pipeline with enforced modules computation 
+        output = os.path.join(outdir, 'test_image_pipeline')
+        pa.pipeline.run(image=ifile, output=output, plant_number=5, update=['all'])
+        assert all([m.updated for m in pa.pipeline.modules])
+        
+        # test calling pipeline again: should not compute but reload data 
+        pa.pipeline.run(image=ifile, output=output, update=[])
+        assert not any([m.updated for m in pa.pipeline.modules])
+    
+    finally:
+        # delete tmp folder
+        import shutil
+        shutil.rmtree(outdir)

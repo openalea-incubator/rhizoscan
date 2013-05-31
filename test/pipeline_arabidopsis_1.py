@@ -2,7 +2,7 @@ from rhizoscan.root.pipeline.database import parse_image_db
 import os
 
 
-project_file = 'data/arabidopsis_1/project.ini'
+project_file = 'data/arabidopsis_1/database.ini'
 
 def load_DB():
     pfile = os.path.abspath(project_file)

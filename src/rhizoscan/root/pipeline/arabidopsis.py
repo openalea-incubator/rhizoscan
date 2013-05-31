@@ -70,7 +70,7 @@ def mask_fillhull(mask):
     
 def find_plate(filename, image, plate_width=120):
     mask    = image>.6                                       ## constant
-    cluster = _clean_label(_nd.label(mask)[0], min_dim=100)  ## cosntant
+    cluster = _clean_label(_nd.label(mask)[0], min_dim=100)  ## constant
 
     # find plate mask and hull
     pmask,phull = mask_fillhull(cluster>0)
@@ -214,7 +214,7 @@ def load_graph(filename, tree=False):
 root_graph = _PModule(name='graph', \
                       load=load_graph,  compute=compute_graph,  \
                       suffix='.tree',   outputs=['graph'],      \
-                      parameters=dict(tree=False), hidden=['tree'])
+                      load_kargs=dict(tree=False))##, hidden=['tree'])
 
 # compute axial tree:
 # -------------------
@@ -226,7 +226,7 @@ def compute_tree(filename, graph, px_ratio, to_tree=2, to_axe=2, metadata={}, ve
 root_tree = _PModule(name='tree', \
                      load=load_graph,   compute=compute_tree, \
                      suffix='.tree',    outputs=['tree'],      \
-                     parameters=dict(tree=True), hidden=['tree','to_tree','to_axe','metadata','px_ratio'])
+                     load_kargs=dict(tree=True), hidden=['tree','to_tree','to_axe','metadata','px_ratio'])
 
 # pipeline of all root image analysis modules
 @_pipeline_node([frame_detection, image_segmentation, leaves_detection, root_graph, root_tree])

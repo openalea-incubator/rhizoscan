@@ -16,7 +16,7 @@ Module description
     :Version: |version|
     :Release: |release|
     :Date: |today|
-    :Author: See `Authors`_ section
+    :Author: Julien Diener
     :ChangeLog: See `ChangeLog`_ section
 
 .. topic:: Overview
@@ -29,21 +29,27 @@ Documentation
 .. toctree::
     :maxdepth: 2
 
-    User Guide<user/index.rst>   
-    Reference Guide<user/autosum.rst>
+    User Manual <user/manual.rst>
+    Reference Guide <user/generated/rhizoscan.rst>
 
-- A `PDF <../latex/rhizoscan.pdf>`_ version of |rhizoscan| documentation is 
-  available.
+.. note:: To get started:
 
-.. seealso::
+    - With the graphical user interface - see :ref:`rhizoscan_visualea_tuto`
+    - With the python programming environment - see :ref:`rhizoscan_script_tuto`
+    
+
+.. - A `PDF <../latex/rhizoscan.pdf>`_ version of |rhizoscan| documentation is available.
+
+.. seealso: :
 
    .. More documentation can be found on the
       `openalea <http://openalea.gforge.inria.fr/dokuwiki/doku.php?id=packages:vplants:rhizoscan:rhizoscan>`__ wiki.
 
-Authors
-=======
-
-.. include:: ../AUTHORS.txt
+.. 
+    Authors
+    =======
+    
+    .. include:: ../AUTHORS.txt
 
 ChangeLog
 =========

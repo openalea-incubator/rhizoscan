@@ -14,3 +14,5 @@ for key in ['version','project','release', 'name']:
 latex_documents = [('contents', 'main.tex', project + ' documentation', authors, 'manual')]
 
 project = name
+
+

@@ -7,6 +7,12 @@ SPHINXBUILD   = sphinx-build
 PAPER         =
 BUILDDIR      = _build
 
+#API     = sphinx-apidoc
+API     = python apidoc.py
+APIDIR  = user/generated
+APIOPTS = -T -U -M -o $(APIDIR)
+#APIOPTS = -T -o $(APIDIR)
+
 # Internal variables.
 PAPEROPT_a4     = -D latex_paper_size=a4
 PAPEROPT_letter = -D latex_paper_size=letter
@@ -14,8 +20,11 @@ ALLSPHINXOPTS   = -d $(BUILDDIR)/doctrees $(PAPEROPT_$(PAPER)) $(SPHINXOPTS) .
 
 .PHONY: help clean html dirhtml pickle json htmlhelp qthelp latex changes linkcheck doctest
 
+
 help:
 	@echo "Please use \`make <target>' where <target> is one of"
+	@echo "  api       to generate ReST files of rhizoscan sources using home-made apidoc"
+	@echo "            do 'python apidoc.py -h' for details"
 	@echo "  html      to make standalone HTML files"
 	@echo "  dirhtml   to make HTML files named index.html in directories"
 	@echo "  pickle    to make pickle files"
@@ -28,7 +37,12 @@ help:
 	@echo "  doctest   to run all doctests embedded in the documentation (if enabled)"
 
 clean:
-	-rm -rf $(BUILDDIR)/*
+	-rm -rf $(BUILDDIR)/* user/generated
+	
+api:
+	$(API) $(APIOPTS) ../src/rhizoscan
+	@echo
+	@echo "Build finished. The API ReSt pages are in $(APIDIR)."
 
 html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html

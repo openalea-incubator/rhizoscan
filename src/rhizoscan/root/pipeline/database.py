@@ -41,8 +41,8 @@ def parse_image_db(ini_file, output='output', verbose=False):
     
     # load content of ini file
     ini = cfg.ConfigParser()
-    ini.read(ini_file)
-    ini = _Struct(**dict([(s,_Struct(**dict(ini.items(s)))) for s in ini.sections()])) 
+    ini.read(ini_file)       
+    ini = _Struct(**dict([(s,_Struct(**dict((k,_param_eval(v)) for k,v in ini.items(s)))) for s in ini.sections()])) 
     
     if verbose>2:
         print 'loaded ini:'

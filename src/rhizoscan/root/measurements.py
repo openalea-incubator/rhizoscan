@@ -154,6 +154,8 @@ def ramification_percent(tree, mask=None):
 def plot(tc, stat='axe1_length', title=None, prefilter=None, split=None, legend=True, merge_unique=False, scale=1):
     import matplotlib.pyplot as plt
     
+    title if title is not None else stat
+    
     auto = []
     ref  = []
     tree = []
@@ -175,8 +177,18 @@ def plot(tc, stat='axe1_length', title=None, prefilter=None, split=None, legend=
     plt.cla()
     plt.plot([0,bound], [0,bound], 'r')
     
+    error_name = 'Average percentage error'#'normalized RMS Error'
+    def error(x,y):
+        """ OR NOT... normalized root mean square error """
+        err = (abs(x-y)/y)
+        siz = err.size
+        err = np.sort(err)[.1*siz:-.1*siz]
+        return err.mean()
+        return ((x-y)**2/x.size).sum()**.5 / (max(x.max(),y.max())-min(x.min(),y.min()))
+    
     if split is None:
         plt.plot(ref, auto, '.')
+        print error_name + ' of ' + title+':', error(ref,auto)
     else:
         label = [reduce(getattr, [t[1]]+split.split('.')) for t in tree]
         import time
@@ -186,6 +198,7 @@ def plot(tc, stat='axe1_length', title=None, prefilter=None, split=None, legend=
         label = np.array(label)
         label_set = np.unique(label)
         color = ['b','g','r','c','m','y','k']
+        print '---', title, '---'
         for i,lab in enumerate(label_set):
             x = ref[label==lab]
             y = auto[label==lab]
@@ -198,13 +211,14 @@ def plot(tc, stat='axe1_length', title=None, prefilter=None, split=None, legend=
             else:
                 size = 1
             plt.scatter(x, y, s=10*size, c=color[i%len(color)], edgecolors='none', label=lab)
+            print error_name +' of '+lab+':', error(x,y)
         if legend:
             plt.legend(loc=0)
             
     ax = plt.gca()
     ax.set_xlabel('reference')
     ax.set_ylabel('measurements')
-    ax.set_title(title if title is not None else stat)
+    ax.set_title(title)
     
     ax.set_ylim(0,bound)
     ax.set_xlim(0,bound)
@@ -245,8 +259,8 @@ def multi_plot(tc, split='metadata.date', scale=1):
         pid,a,r = data.trees[np.argmin(d2)]
 
         f=plt.gcf().number#get_figure()
-        #plt.figure(f+41)
-        plt.subplot(2,3,6)
+        #plt.subplot(2,3,6)
+        plt.figure(f+41)
         
         # plot reference in red
         r.tree.plot(bg='k', sc='r')
@@ -288,10 +302,10 @@ def multi_plot(tc, split='metadata.date', scale=1):
         print title
         #plt.figure(f)
         
-    #flag = '_ROOT_MEASUREMENT_CB'
-    #if not hasattr(plt.gcf(),flag):
-    #    cid = pylab.connect('button_press_event', display_tree)
-    #    setattr(plt.gcf(),flag,cid)
+    flag = '_ROOT_MEASUREMENT_CB'
+    if not hasattr(plt.gcf(),flag):
+        cid = pylab.connect('button_press_event', display_tree)
+        setattr(plt.gcf(),flag,cid)
 
 @_aleanode()
 def cmp_plot(db, stat, key1, key2, update_stat=False, fig=42, outliers=.05):
@@ -587,7 +601,7 @@ def correlation(a,b):
     return np.mean(score(a)*score(b))
 
 @_aleanode()
-def hist_cmp(a, b, bins=10, subplot=None):
+def hist_cmp(a, b, bins=10, subplot=None, ac='g', bc='b', log=False):
     """ plot a histogram of 'a' vs histogram of 'b' """
     from matplotlib import pyplot as plt
     if subplot:
@@ -598,8 +612,8 @@ def hist_cmp(a, b, bins=10, subplot=None):
     ca = ca/float(sum(ca))
     cb = cb/float(sum(cb))
     bw = bb[1]-bb[0]
-    plt.bar(ba[:-1]+bw*.25,ca,width=bw*.5, color='g')
-    plt.bar(bb[:-1]+bw*.5, cb,width=bw*.5, color='b')
+    plt.bar(ba[:-1]+bw*.25,ca,width=bw*.5, color=ac, log=log)
+    plt.bar(bb[:-1]+bw*.5, cb,width=bw*.5, color=bc, log=log)
     plt.xlim(ba[0],ba[-1])#ba.size/2])#
 
 

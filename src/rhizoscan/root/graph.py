@@ -208,7 +208,7 @@ class RootGraph(_Struct):
         
     # a ploting method
     # ----------------
-    def plot(self,bg='k', transform=None, sc=None, cmap=None, corder=1, indices='valid', **kargs):
+    def plot(self,bg='k', transform=None, sc=None, cmap=None, corder=1, cstart=1, indices='valid', **kargs):
         """ plot the graph, require matplotlib """
         from matplotlib import pyplot as plt
         if isinstance(bg,basestring):
@@ -221,7 +221,7 @@ class RootGraph(_Struct):
             plt.imshow(bg)
             axis = plt.axis()
         
-        lcol,bbox = self._get_LineCollection(sc=sc, cmap=cmap, corder=corder, transform=transform, indices=indices, **kargs)
+        lcol,bbox = self._get_LineCollection(sc=sc, cmap=cmap, corder=corder, cstart=cstart, transform=transform, indices=indices, **kargs)
         plt.gca().add_collection(lcol)
         
         if axis is not None:
@@ -241,11 +241,11 @@ class RootGraph(_Struct):
                 plt.gca().set_axis_bgcolor(bg)
             plt.draw()
             
-    def _get_LineCollection(self, sc=None, cmap=None, corder=1, transform=None, indices='valid', **kargs):
+    def _get_LineCollection(self, sc=None, cmap=None, corder=1, cstart=1, transform=None, indices='valid', **kargs):
         from matplotlib import collections as mcol
         if sc is None: 
             sc=_np.arange(self.segment.size+1)
-            color = _color_label(sc,cmap=cmap, order=corder)
+            color = _color_label(sc,cmap=cmap, order=corder, start=cstart)
         elif isinstance(sc,basestring):
             color = sc
         else:
@@ -256,7 +256,7 @@ class RootGraph(_Struct):
                     color = _reshape(sc, (None,-3))
                 else:
                     if sc.dtype.kind=='b': sc = sc+0
-                    color = _color_label(sc,cmap=cmap, order=corder)
+                    color = _color_label(sc,cmap=cmap, order=corder, start=cstart)
             else:
                 color = sc
 

@@ -1,3 +1,11 @@
+""" Modules that contains tools to find a square petri plate in an image.
+
+.. warning:: It is not maintained anymore**
+
+.. warning:: The main content should be moved to 'frame.py'
+
+"""
+
 import numpy as _np
 import scipy.ndimage  as _nd
 import scipy.optimize as _optim

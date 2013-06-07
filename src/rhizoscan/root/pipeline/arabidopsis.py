@@ -68,9 +68,9 @@ def mask_fillhull(mask):
     
     return plate, hull
     
-def find_plate(filename, image, plate_width=120):
-    mask    = image>.6                                       ## constant
-    cluster = _clean_label(_nd.label(mask)[0], min_dim=100)  ## constant
+def find_plate(filename, image, plate_width=120, threshold=0.6, marker_min_size=100, codebar=True):
+    mask    = image>threshold
+    cluster = _clean_label(_nd.label(mask)[0], min_dim=marker_min_size)
 
     # find plate mask and hull
     pmask,phull = mask_fillhull(cluster>0)
@@ -80,25 +80,23 @@ def find_plate(filename, image, plate_width=120):
     px_ratio = plate_width/pwidth
     
     # detect codebar box as the biggest connex cluster
-    cbmask = _nd.label(_nd.binary_closing((cluster>0) & (pmask==3), iterations=5))[0]
-    obj = _nd.find_objects(cbmask)
-    cbbox = _np.argmax([max([o.stop-o.start for o in ob]) for ob in obj])+1
+    if codebar:
+        cbmask = _nd.label(_nd.binary_closing((cluster>0) & (pmask==3), iterations=5))[0]
+        obj = _nd.find_objects(cbmask)
+        cbbox = _np.argmax([max([o.stop-o.start for o in ob]) for ob in obj])+1
     
-    # find codebar mask and hull
-    cbmask,cbhull = mask_fillhull(cbmask==cbbox)
+        # find codebar mask and hull
+        cbmask,cbhull = mask_fillhull(cbmask==cbbox)
 
-    # stack masks such that 
-    #   pixels to process = 3,
-    #   codebar pixels = 2
-    #   plate border = 1
-    ##mask = pmask + 1*cbmask + 1*_nd.binary_erosion(pmask, iterations=int(border))
-    pmask[cbmask>0] = 2
+        # stack masks such that 
+        #   pixels to process = 3,
+        #   codebar pixels = 2
+        #   plate border = 1
+        ##mask = pmask + 1*cbmask + 1*_nd.binary_erosion(pmask, iterations=int(border))
+        pmask[cbmask>0] = 2
 
     # save plate mask
-    from PIL.PngImagePlugin import PngInfo
-    meta = PngInfo()
-    meta.add_text('px_ratio', repr(px_ratio)) 
-    _Image(pmask).save(filename, dtype='uint8', scale=85, pnginfo=meta) # 85 = 255/pmask.max()
+    _Image(pmask).save(filename, dtype='uint8', scale=85, pnginfo=dict(px_ratio=px_ratio)) # 85 = 255/pmask.max()
     
     return pmask, px_ratio
     
@@ -107,7 +105,9 @@ def load_plate_mask(filename):
     import PIL
     info = PIL.Image.open(filename).info
     px_ratio = literal_eval(info['px_ratio'])
-    return _Image(filename,dtype='uint8')/85, px_ratio
+    pmask = _Image(filename,dtype='uint8')/85
+    #px_ratio = literal_eval(pmask.info['px_ratio'])
+    return pmask, px_ratio
 
 frame_detection = _PModule(name='frame', \
                            load=load_plate_mask,  compute=find_plate, \
@@ -144,10 +144,8 @@ def segment_image(filename, image, pmask, root_max_radius=15, min_dimension=50, 
         rmask = cluster>0
     
     # save the mask, and bbox
-    from PIL.PngImagePlugin import PngInfo
-    meta = PngInfo()
-    meta.add_text('bbox', repr([(bbox[0].start,bbox[0].stop),(bbox[1].start,bbox[1].stop)])) 
-    _Image(rmask).save(filename, dtype='uint8', scale=255, pnginfo=meta)
+    bb = [(bbox[0].start,bbox[0].stop),(bbox[1].start,bbox[1].stop)]
+    _Image(rmask).save(filename, dtype='uint8', scale=255, pnginfo=dict(bbox=bb))
     
     return rmask, bbox
     

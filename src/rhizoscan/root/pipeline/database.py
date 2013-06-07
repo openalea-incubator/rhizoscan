@@ -92,7 +92,7 @@ def parse_image_db(ini_file, output='output', verbose=False):
         
     # if grouping
     if ini['PARSING'].has_field('group'):
-        g = eval(ini['PARSING']['group']) ## eval... value is a dict
+        g = ini['PARSING']['group'] ## eval... value is a dict
         dlist = [dirname(fi) for fi in file_list]
         fenum = [int(di==dlist[i]) for i,di in enumerate(dlist[1:])]          # diff of dlist
         fenum = _np.array(reduce(lambda L,y: L+[(L[-1]+y)*y], [[0]]+fenum))   # ind of file in resp. dir.

@@ -5,6 +5,7 @@ from scipy import ndimage as _nd
 from rhizoscan.workflow.openalea  import aleanode as _aleanode # decorator to declare openalea nodes
 
 from rhizoscan.ndarray.measurements import clean_label as _clean_label
+from rhizoscan.ndarray.filter       import otsu as _otsu
 from rhizoscan.image    import Image as _Image
 from rhizoscan.workflow import Data  as _Data
 
@@ -50,7 +51,7 @@ from ..image.to_graph import line_graph          as _line_graph
 def mask_fillhull(mask):
     """ find mask hull, and return image with filled hull image and hull array"""
     from scipy import spatial, sparse
-    px = _np.transpose(mask.nonzero())
+    px = _np.transpose((mask<>_nd.uniform_filter(mask,size=(3,3))).nonzero())
     
     # compute hull (sort indices using csgraph stuff)
     hull = spatial.Delaunay(px).convex_hull
@@ -92,7 +93,34 @@ def find_plate(filename, image, plate_width=120, threshold=0.6, marker_min_size=
         #   pixels to process = 3,
         #   codebar pixels = 2
         #   plate border = 1
-        ##mask = pmask + 1*cbmask + 1*_nd.binary_erosion(pmask, iterations=int(border))
+        pmask[cbmask>0] = 2
+
+    # save plate mask
+    _Image(pmask).save(filename, dtype='uint8', scale=85, pnginfo=dict(px_ratio=px_ratio)) # 85 = 255/pmask.max()
+    
+    return pmask, px_ratio
+
+def find_plate_2(filename, image, plate_width=120, plate_border=100, codebar=False):
+    # compute laplacian with radius relative to width
+    #   then threshold it
+    lp = -_nd.laplace(_nd.gaussian_filter(image,sigma=plate_border/3))
+    mask = lp>_otsu(lp,step=100)
+    
+    # find plate mask and hull
+    pmask,phull = mask_fillhull(mask)
+    pwidth = pmask.sum()**.5                                 # estimated plate width in pixels
+    #border = pwidth * .03                                    ## constant 3% of plate width
+    pmask  = pmask + 2*_nd.binary_erosion(pmask>0, iterations=int(plate_border))
+    px_ratio = plate_width/pwidth
+    
+    # detect codebar box as the biggest connex cluster
+    if codebar:
+        cbmask = _nd.label(_nd.binary_closing((cluster>0) & (pmask==3), iterations=5))[0]
+        obj = _nd.find_objects(cbmask)
+        cbbox = _np.argmax([max([o.stop-o.start for o in ob]) for ob in obj])+1
+    
+        # find codebar mask and hull
+        cbmask,cbhull = mask_fillhull(cbmask==cbbox)
         pmask[cbmask>0] = 2
 
     # save plate mask
@@ -111,6 +139,10 @@ def load_plate_mask(filename):
 
 frame_detection = _PModule(name='frame', \
                            load=load_plate_mask,  compute=find_plate, \
+                           suffix='_frame.png',   outputs=['pmask','px_ratio'])    
+    
+frame_detection2 = _PModule(name='frame', \
+                           load=load_plate_mask,  compute=find_plate_2, \
                            suffix='_frame.png',   outputs=['pmask','px_ratio'])    
     
 # image segmentation
@@ -230,4 +262,7 @@ root_tree = _PModule(name='tree', \
 @_pipeline_node([frame_detection, image_segmentation, leaves_detection, root_graph, root_tree])
 def pipeline(): pass
 
+
+@_pipeline_node([frame_detection2, image_segmentation, leaves_detection, root_graph, root_tree])
+def pipeline2(): pass
 

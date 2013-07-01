@@ -768,7 +768,7 @@ class RootAxialTree(RootGraph):
     # printing    
     # --------
     def __str__ (self): 
-        return self.__class__.__name__ + ': %d nodes, %d segments, %d nodes' % (self.node.size, self.segment.size, len(self.axe.size))
+        return self.__class__.__name__ + ': %d nodes, %d segments, %d axes' % (self.node.size, self.segment.size, len(self.axe.size))
     def __repr__(self): 
         return self.__str__()  ## for ipython of RootGraph obj...
 

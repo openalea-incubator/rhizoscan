@@ -20,7 +20,25 @@ stat_list = dict()    # store the declared tree statistics
 def statistic_name_list():
     return sorted(stat_list.keys())
 
+@_aleanode('tree')
+def compute_tree_stat(tree, stat_names='all', mask=None, save=True):
+    """ compute all statistic listed in stat_name, using optional mask filter function"""
+    if stat_names=='all':
+        run = stat_list
+    else:
+        run = dict([(n,stat_list[n]) for n in stat_names])
+        
+    stat = _Struct()
+    for name, fct in run.iteritems():
+        stat[name] = fct(tree, mask=mask)
+    tree.stat = stat
+    
+    if save: tree.save() 
+    
+    return tree
+        
 class TreeStat(_Struct):
+    """ deprecated ? """
     def __init__(self,tree):
         self._tree_file = tree.get_data_file()
         self.metadata = tree.metadata
@@ -152,6 +170,7 @@ def ramification_percent(tree, mask=None):
     
 # ploting
 def plot(tc, stat='axe1_length', title=None, prefilter=None, split=None, legend=True, merge_unique=False, scale=1):
+    """ deprecated """
     import matplotlib.pyplot as plt
     
     title if title is not None else stat
@@ -227,6 +246,7 @@ def plot(tc, stat='axe1_length', title=None, prefilter=None, split=None, legend=
 
 @_aleanode(name='treeCompare_plot')
 def multi_plot(tc, split='metadata.date', scale=1):
+    """ deprecated """
     import matplotlib.pyplot as plt
     from   matplotlib import pylab
     import time
@@ -308,7 +328,7 @@ def multi_plot(tc, split='metadata.date', scale=1):
         setattr(plt.gcf(),flag,cid)
 
 @_aleanode()
-def cmp_plot(db, stat, key1, key2, update_stat=False, fig=42, outliers=.05):
+def cmp_plot(db, stat, key1, key2, update_stat=False, fig=42, outliers=.05, key_color=2):
     """
     db is a database (list) of root image descriptor (filename, metadata, output)
     stat is the stat to to plot
@@ -346,6 +366,7 @@ def cmp_plot(db, stat, key1, key2, update_stat=False, fig=42, outliers=.05):
     k_map1  = dict([(k,i) for i,k in enumerate(k_set1)]) # keys indices in value array
     k_map2  = dict([(k,i) for i,k in enumerate(k_set2)])
     
+    
     #import time
     #k_list1 = [k if not isinstance(k,time.struct_time) else time.asctime(k) for k in k_list1]
     #k_list2 = [k if not isinstance(k,time.struct_time) else time.asctime(k) for k in k_list2]
@@ -364,7 +385,8 @@ def cmp_plot(db, stat, key1, key2, update_stat=False, fig=42, outliers=.05):
     if outliers:
         def rm_outlier(v):
             n = int(len(v)*outliers)
-            return sorted(v)[n:-n]
+            if n>0: v = sorted(v)[n:-n]
+            return v
         value = np.vectorize(rm_outlier, otypes=[object])(value) 
         
     # compute mean and std for all keys
@@ -375,16 +397,18 @@ def cmp_plot(db, stat, key1, key2, update_stat=False, fig=42, outliers=.05):
     
     # bar plot
     from matplotlib import pyplot as plt
-    c = np.array(['b','g','k','w','y'])
+    c = np.array(['b','g','r','c','m','y','k','w'])
     
     coord1,coord2 = np.mgrid[map(slice,value.shape)]
     x = (1+coord2+(value.shape[1]+1)*coord1)
     
+    if key_color==2: coord = coord2
+    else:            coord = coord1
     if fig: 
         plt.ion()
         plt.figure(fig)
     plt.cla()
-    plt.bar(x.ravel()-.5, m.ravel(), yerr=s.ravel()**.5, width=1, color=c[coord2.ravel()%c.size], ecolor='r')
+    plt.bar(x.ravel()-.5, m.ravel(), yerr=s.ravel()**.5, width=1, color=c[coord.ravel()%c.size], ecolor='r')
     
     # legend
     import time
@@ -394,8 +418,13 @@ def cmp_plot(db, stat, key1, key2, update_stat=False, fig=42, outliers=.05):
     ax.set_ylabel(stat)
     plt.title(stat)
     
-    for label,k in k_map2.iteritems():
+    if key_color==2: kmap = k_map2
+    else:            kmap = k_map1
+    for label,k in kmap.iteritems():
+        if isinstance(label,time.struct_time):
+            label = '%02d/%02d/%d' % (label.tm_mon,label.tm_mday,label.tm_year)
         plt.bar(x[0,0],0,color=c[k%c.size], label=label)
+        
     plt.legend(loc=0, title='.'.join(key[1][1:]))
     
     

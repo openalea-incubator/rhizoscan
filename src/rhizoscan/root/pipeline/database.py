@@ -31,13 +31,17 @@ def parse_image_db(ini_file, output='output', verbose=False):
         - check missing images (1 of each type for all time steps)
     """
     import ConfigParser as cfg
+    import os
     from os.path import join as pjoin
-    from os.path import splitext, dirname
+    from os.path import splitext, dirname, exists
     import re
     from time import strptime
     from glob import glob
     
     from rhizoscan.tool import abspath
+    
+    if not exists(ini_file):
+        raise TypeError('input "ini_file" does not exist')
     
     # load content of ini file
     ini = cfg.ConfigParser()
@@ -153,9 +157,21 @@ def retrieve_data_file(db, name='tree', suffix='.tree'):
     for d in db: d[name] = d.output+suffix
     return db,
     
-
+@_aleanode('db_column')
+def get_column(db, suffix, missing=None, datatype=_Data):
+    """
+    Retrieve the database column related to 'suffix'
+    """
+    def load(d):
+        try:
+            return _Data.load(d.output+suffix)
+        except:
+            return missing
+            
+    return [load(d) for d in db]
+    
 @_aleanode('filtered_db')
-def filter(db, key=None, value=None, metadata=True):
+def filter(db, key='', value='', metadata=True):
     """
     Return the subset of db that has its key attribut equal to value
     
@@ -168,9 +184,9 @@ def filter(db, key=None, value=None, metadata=True):
         if True, look for key in the 'metadata' attribut
         Same as filter(db,'metadata.'+key,value, metadata=False) 
         
-      (*)if key or value is None, return the full (unfiltered) db
+      (*)if key or value is empty, return the full (unfiltered) db
     """
-    if key is None or value is None or key=='': return db
+    if not key or not value: return db
     
     if metadata: key = 'metadata.'+key
     return [d for d in db if reduce(lambda x,f: getattr(x,f,None),[d]+key.split('.'))==value],

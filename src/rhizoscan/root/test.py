@@ -7,7 +7,7 @@ from rhizoscan.ndarray  import reshape as _reshape
 from rhizoscan.tool     import _property    
 
 class SegmentGraph(_Struct):
-    """ A graph where vertices are segment, so they have to side 
+    """ A graph where vertices are segment, and so they have two sides
     
     At construction, a Segment graph has two attributs:
       - edge: 
@@ -245,7 +245,7 @@ class SegmentGraph(_Struct):
         """
         # reverse edge direction
         self.edge[direction] = self.edge[direction][...,::-1]
-        ## SHOULD reverse self.node too once inherite SegmentList !
+        ## SHOULD reverse self.node too once inherite SegmentList !?
         
         # remove invalid edge,  i.e edges that require switch
         self.edge_switch = None             # delete current edge_switch, if any
@@ -366,6 +366,7 @@ class SegmentGraph(_Struct):
         
         If src are 
         """
+        pass
 
 def to_csgraph(edge, value=1, omit_bg=False, matrix='csr_matrix'):
     """ make a sparse adjacency representation of a graph from input 'edge'
@@ -459,29 +460,33 @@ def set_downward_segment(graph):
     
 def digraph_to_DAG(edge, cost, source):
     """
-    Convert a directed graph to a DAG using a heuristic based on shortest path.
+    Convert a directed graph to a DAG using a method based on shortest path.
     
     This function first compute the shortest path tree. Then it iteratively add
-    removed edges which don't create cycles, following the tree topological
-    order. 
-    
+    edges that were removed by the shortest path but which don't create cycles. 
+    This is done following the order of the tree cumulative edge distance.
+
     :Note:
         Because it is based on a shortest path, all unreachable elements from 
         the given sources are removed.
     
     :Input:
         - edge
-            an NxK array of neighbor indices of the K forward neighbors of N 
-            elements. 0 value edges are 'fake' neighbors
+            an NxK array of neighbor indices of the K *forward* neighbors of N 
+            elements. 0 value edges are "fake edges".
         - cost
             An array of (broadcastably) same shape as edge of the edges cost
-            All cost must be strictly positive
+            All "real edges" cost must be **strictly** positive 
         - source
             indices or boolean mask of the shortest path sources
+            e.g.:  rgraph.segment.seed>0
             
     :Output:
         - updated edge array which is a DAG
         - topological order of the graph nodes (missing ids were unreachable)
+           *** topological order is for the tree, not the dag ??? ***
+    
+    :todo: is topological order for the DAG, if not (probably) remove output
     """
     from scipy.sparse.csgraph import dijkstra, reconstruct_path
     
@@ -497,16 +502,16 @@ def digraph_to_DAG(edge, cost, source):
     
     # get all edges that have been removed from the digraph
     rm_edge = [[] for node in xrange(tree.shape[0])]
-    src,dst = (graph-tree).nonzero()                        # required cost >0
+    src,dst = (graph-tree).nonzero()                        ## required cost >0
     for si,di in zip(src.tolist(),dst.tolist()):  
         rm_edge[si].append(di)
         
-    # get a topological order of the tree nodes
+    # get a topological order of the **tree**...
     #    s.t. parent[node_i] always appears before node_i
     d = d[path_id,_np.arange(d.shape[1])]
-    top_order = _np.argsort(d)
+    dist_order = _np.argsort(d)
     if d.max()==_np.inf:
-        top_order = top_order[:d[top_order].argmax()]
+        dist_order = dist_order[:d[dist_order].argmax()]
     
     # The idea is to add iteratively ancestors following topological order: 
     #   when processing an element, all its parents have already been processed
@@ -515,7 +520,7 @@ def digraph_to_DAG(edge, cost, source):
     # a cycle: if the second node is not an anscestor of the 1st
     added = []
     ancestors = [set() for node in xrange(tree.shape[0])]
-    for e in top_order:
+    for e in dist_order:
         # add parent and its ancestors to e ancestors
         p = parent[e]
         if p>=0: 
@@ -542,10 +547,12 @@ def digraph_to_DAG(edge, cost, source):
     for i,elist in enumerate(edge_list):
         edge[i,:len(elist)] = elist
             
-    return edge, top_order, d ## return removed edges?
+    return edge, dist_order, d ## return removed edges?
     
 def dag_path(edge, source, cost=None, callback=None):
     """
+    *** NOT DONE and probably FALSE ***
+    
     Compute all path in a dag, starting at any node in 'src'
     
     :TODO:
@@ -596,5 +603,20 @@ def dag_path(edge, source, cost=None, callback=None):
         path_id = path_traversal(i,0, path_id)
     
     return _np.array(all_path), _np.array(all_cost) 
+    
+
+def rg_to_at(rg):
+    """
+    convert general root graph to an axial tree
+    
+    *** In development ***
+    put all steps of in-dev conversion into 1 function 
+    """
+    set_downward_segment(rg)  # not required, but best to visualise results
+    rg.segment.compute_direction(rg.node)
+    
+    sg = SegmentGraph(rg)
+    sdir,g = sg.directed_edge(t.segment, update_graph=False, DAG=False) # g?
+    
     
 

@@ -10,7 +10,7 @@ from rhizoscan.image                import Image          as _Image
 from rhizoscan.workflow.openalea import aleanode as _aleanode # decorator to declare openalea nodes
 
 
-@_aleanode('image')
+@_aleanode('image', inputs=[dict(name='filename',interface='IFileStr'),dict(name='normalize',interface='IBool',value=True)])
 def load_image(filename, normalize=True):
     img = _Image(filename, dtype='f', color='gray')
     if normalize:

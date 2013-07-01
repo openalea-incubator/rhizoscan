@@ -9,7 +9,7 @@ def plot_tree(tree, background='k', sc='order', fig=41):
         background = background.filename
     
     if isinstance(background, basestring):
-        background = _Image(image)
+        background = _Image(background)
     
     if fig is not None: 
         from matplotlib import pyplot as plt

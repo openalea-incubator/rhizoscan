@@ -262,7 +262,7 @@ class Image(_np.ndarray, _Data):
         img.save(filename, format=pil_format, **pil_params)
         
         #loader = Image([])
-        loader = image.image_loader()
+        loader = image.loader()
         loader.from_color = color
         loader.set_data_file(filename)
         if scale=='normalize':                 loader.scale = 'dtype'
@@ -273,7 +273,7 @@ class Image(_np.ndarray, _Data):
     @_static_or_instance
     def load(self):
         """
-        Method to load image using the empty image returned by image_loader()
+        Method to load image using the empty image returned by Image.loader()
         
         The loaded  image  is *returned*
         the calling object is *unchanged*
@@ -285,9 +285,14 @@ class Image(_np.ndarray, _Data):
         return Image(self.get_data_file(),color=self.color, dtype=self.dtype, scale=self.scale)
         
     def _data_to_save_(self):
-        return self.image_loader()
+        return self.loader()
         
-    def image_loader(self):
+    def loader(self):
+        """
+        Return an empty Image which allow to load the image using load()
+        
+        *** if this Image has no associated file, it won't be able to load ***
+        """
         loader = Image([])
         loader.dtype  = self.dtype
         loader.color  = self.color

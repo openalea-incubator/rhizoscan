@@ -87,6 +87,10 @@ class Data(object):
           - define a saving/loading approach to manage un-picklable data:
             Typically if the object uses definition (function or class) that are
             not loadable where the object might be loaded (see pickle doc). 
+            
+            
+      :todo:
+        - add some read/write(/update?) modes
       """
     ##Data todo:
     ## -  a static dataWrapper method that create a savable/readable class
@@ -143,10 +147,13 @@ class Data(object):
         :Outputs:
             Return an empty Data object that can be use to load the saved file
         """
-        from cPickle import dump
-        import os
+        if getattr(data,'_mode','w')=='r':
+            raise IOError("This Data object is read only")
         
-        if filename is None and hasattr(data,'get_data_file'):
+        from cPickle import dump
+        import os, shutil
+        
+        if filename is None:# and hasattr(data,'get_data_file'):
             filename = data.get_data_file()
 
         if hasattr(data,'_data_to_save_'):  ##? bug with Data being = to None...
@@ -165,7 +172,6 @@ class Data(object):
             f = file(filetmp,'wb')
             dump(data,f,protocol)
             f.close()
-            import shutil
             shutil.move(filetmp,filename)
         finally:
             if f is not None:
@@ -261,6 +267,25 @@ class Data(object):
             as well as _data_to_save_ enable to make a workaround.
         """
         return self
+        
+        
+    def loader(self, attribute=None):
+        """
+        Return an empty Data object which can be used to load the data from file
+        
+        `attribute` can be a name (string) or a list of names of attributs that
+        the loader will keep.
+        
+        *** if this object has no associated file, it won't be able to load ***
+        """
+        loader = Data(filename=self.get_data_file())
+        loader._mode = 'r'
+        if attribute:
+            if isinstance(attribute,basestring):
+                attribute = [attribute]
+            for attr in attribute:
+                setattr(loader,attr,getattr(self,attr))
+        return loader
         
     def __str__(self):
         cls = self.__class__
@@ -511,7 +536,7 @@ class Struct(Data):
         avoid_obj_id[id(self)] = '&' + self_name
         
         string = ''
-        fields = sorted(self.fields())
+        fields = sorted([f for f in self.fields() if not f.startswith('_')])
         for field in fields:#self.iteritems():
             value = self[field]
             name  = '    '*tab + str(field) + ': '

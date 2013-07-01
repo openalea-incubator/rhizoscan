@@ -592,13 +592,13 @@ def wrap_package(pkg, pkg_attrib={}, wrap_name=None, wrap_path=None, entry_point
         - pkg_attrib:
             a dictionary that can contain package attributes:: 
             
-              __version__        # default:   '0.8.0'
+              __version__        # default:   '0.0.1'
               __license__        # default:   'CeCILL-C'
-              __author__         # default:   None
-              __institutes__     # default:   None
+              __author__         # default:   'OpenAlea consortium'
+              __institutes__     # default:   'INRIA/CIRAD/INRA'
               __description__    # default:   ''
               __url__            # default:   'http://openalea.gforge.inria.fr'
-              __editable__       # default:   'True'
+              __editable__       # default:   'False'
               __icon__           # default:   ''
               __alias__          # default:   []
                 
@@ -766,6 +766,7 @@ def clean_wralea_package(wrap_pkg):
     for pf in pyc_f:
         os.remove(os.path.join(pkg_path,pf))
     sys_f = filter(lambda f: f.startswith('.'),files)
+    sys_f = filter(lambda f: f not in ['.svn','.git'],sys_f)
     for sf in sys_f:
         os.remove(os.path.join(pkg_path,sf))
     files = os.listdir(pkg_path)
@@ -806,16 +807,16 @@ def node_attribute(module, entry_name=None, parent_attrib={}):
     
     # set default values
     default = {}
-    default['__version__'    ] = '0.8.0'                          
+    default['__version__'    ] = '0.0.1'                          
     default['__license__'    ] = 'CeCILL-C'                       
-    default['__author__'     ] = ''                             
-    default['__institutes__' ] = ''                             
-    default['__description__'] = ''                               
+    default['__author__'     ] = 'OpenAlea consortium'
+    default['__institutes__' ] = 'INRIA/CIRAD/INRA'
+    default['__description__'] = ''
     default['__url__'        ] = 'http://openalea.gforge.inria.fr'
-    default['__editable__'   ] = 'True'                           
-    default['__icon__'       ] = ''                               
-    default['__alias__'      ] = []                    
-                
+    default['__editable__'   ] = 'False'                           
+    default['__icon__'       ] = ''
+    default['__alias__'      ] = []
+
     # create attribu dictionary
     #   selected in the order:
     #   value of module attributes => parent attrib value => default value

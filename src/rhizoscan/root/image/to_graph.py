@@ -114,7 +114,7 @@ def image_graph(segment_skeleton, node_map, segment_map=None, seed=None):
     :Input: 
         same as output of linear_map.
         If segment_map is not None, the segmentList of the returned graph
-        contains the attribut 'area' and 'radius'
+        contains the attribute 'area' and 'radius'
         If seed is not None, the seed 'position' is added to the graph nodes as
         well as the segments from the seed to all its 'node'. The NodeList and 
         SegmentList of the graph also have an attribute 'seed' containing the 
@@ -217,7 +217,8 @@ def image_graph(segment_skeleton, node_map, segment_map=None, seed=None):
     
     # add node pairs to segment array
     snlist[0] = [0,0]  # dummy segment (link dummy node to it-self)
-    segment = _SegmentList(node=_np.array([n[:2] + [0]*(2-len(n)) for n in snlist]))
+    segment = _SegmentList(node_id=_np.array([n[:2] + [0]*(2-len(n)) for n in snlist]),
+                           node_list=node)
     
     # "remove" invalid segments
     segment.node[(segment.node==0).any(axis=1),:] = 0
@@ -240,9 +241,9 @@ def image_graph(segment_skeleton, node_map, segment_map=None, seed=None):
         area[0]   = 0
         radius[0] = 0
         
-        segment.add_property('length',length)
-        segment.add_property('area',  area)
-        segment.add_property('radius',radius)
+        segment.add_property('im_length',length)
+        segment.add_property('im_area',  area)
+        segment.add_property('im_radius',radius)
         
     return _RootGraph(node=node, segment=segment)
     
@@ -353,12 +354,9 @@ def line_graph(image_graph, segment_skeleton, print_fit_error=True):
         pl_sn[s] = _np.arange(prevLen,len(pl_seg))
 
     pl_node    = _NodeList(x=pl_nx.to_array(), y=pl_ny.to_array())
-    pl_segment = _SegmentList(node=_np.concatenate(pl_seg.lists))
+    pl_segment = _SegmentList(node_id=_np.concatenate(pl_seg.lists), node_list=pl_node)
     
     pl_node.set_segment(pl_segment)     ## should that be done?? seglist in node?
-    pl_segment.compute_length(node=pl_node) 
-    pl_segment.compute_direction(pl_node)
-    pl_segment.compute_terminal(pl_node)  
     pl_segment.add_property('sid', pl_seg.id_array())
     
     for prop in imgr.segment.properties:

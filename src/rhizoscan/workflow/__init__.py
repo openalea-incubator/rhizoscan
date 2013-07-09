@@ -10,7 +10,7 @@ Data classes
 TODO:
 -----
     - rename Struct by Mapping
-    - automatically set Data.__file attribut to loaded Data 
+    - automatically set Data.__file attribute to loaded Data 
         * same for subclasses 
         * same for contained data
         * what about contained data with already set data file ?
@@ -201,7 +201,7 @@ class Data(object):
             existing attributes with same name 
           - it changes the instance `__class__` attribute with the loaded one
           
-        If the output is a Data object, then its data file attribut is set to 
+        If the output is a Data object, then its data file attribute is set to 
         the loaded file
           
         **Note for subclassing**:
@@ -363,7 +363,7 @@ class Struct(Data):
         attribute for later saving/loading. 
         See the documentation of the load and save methods.
         """
-        if load_file is not None: self.load(Data_file)
+        if load_file is not None: self.load(load_file)
         self.__dict__.update(kwds)
         
     def fields(self):
@@ -415,27 +415,27 @@ class Struct(Data):
                     self.__dict__[k] = v
 
     @_property
-    def temporary_attribut(self):
-        """ set of temporary attribut which are not to be saved """
+    def temporary_attribute(self):
+        """ set of temporary attribute which are not to be saved """
         if not hasattr(self,'_tmp_attr'):
             self._tmp_attr = set()
         return self._tmp_attr
-    def clear_temporary_attribut(self, name='all', raise_missing=None):
+    def clear_temporary_attribute(self, name='all', raise_missing=None):
         """ clear the temporary attributs list, and optinally delete associated data """ 
-        if name=='all': name = list(self.temporary_attribut)
+        if name=='all': name = list(self.temporary_attribute)
         if isinstance(name,basestring): name = [name]
         for attr in name:
             if hasattr(self,attr):
                 delattr(self,attr)
             elif raise_missing:
-                raise KeyError('Warning: missing temporary attribut %s' % attr)
-            self.temporary_attribut.discard(attr)
+                raise KeyError('Warning: missing temporary attribute %s' % attr)
+            self.temporary_attribute.discard(attr)
     
     def __copy__(self):
         cls = self.__class__
         new = cls.__new__(cls)
         new.__dict__.update(self.__dict__)
-        new._tmp_attr = self.temporary_attribut.copy()
+        new._tmp_attr = self.temporary_attribute.copy()
         return new
         
     def _data_to_save_(self):
@@ -446,7 +446,7 @@ class Struct(Data):
         Note: This is what is really save by the 'save' method.
         """
         s = self.__copy__()
-        s.clear_temporary_attribut()
+        s.clear_temporary_attribute()
         
         d = s.__dict__
         for field,value in d.iteritems():
@@ -457,7 +457,7 @@ class Struct(Data):
                 d[field] = value._data_to_save_()
             
         return s
-        
+
     def _data_to_load_(self):
         """
         Return it-self after calling _data_to_call_ on all contained fields that
@@ -465,9 +465,7 @@ class Struct(Data):
         """
         for field,value in self.iteritems():
             if hasattr(value,'_data_to_load_') and hasattr(value._data_to_load_,'__call__'):
-                #print field, 
                 try:
-                    #print value.get_data_file()
                     self[field] = value._data_to_load_()
                 except: pass##print 'no data file'
             
@@ -477,18 +475,18 @@ class Struct(Data):
         """
         Load data found in file 'filename' and merge it into the structure
 
-        Input:
-        ------
-            filename: If None, load file given by this object Data file attribute.
-                      The loaded file should be a Struct object saved using the
-                      save method, or anything that can be loaded by the Data
-                      save method (i.e. pickle files) and can be passed as input
-                      of the merge method.
-            overwrite: if True, loaded fields overwrite existing one. 
-                       otherwise, it don't. (same as for the merge method)
+        :Inputs:
+          - filename
+              If None, load file given by this object Data file attribute.
+              The loaded file should be a Struct object saved using the save 
+              method, or anything that can be loaded by the Data save method 
+              (i.e. pickle files) and can be passed as input of the merge method
+              
+          - overwrite: 
+              If True, loaded fields overwrite existing one. 
+              Otherwise, it don't. (same as for the merge method)
                       
-        Output:
-        -------
+        :Output:
             return it-self
         """
         loaded = Data.load(self if filename is None else filename)

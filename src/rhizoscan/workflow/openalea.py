@@ -111,7 +111,7 @@ class aleanode:
         # attache alea parameter to decorated function
         setattr(f,'_aleanode_', self.kwargs)
         
-        # add decorated function to the _aleanodes_ attribut of the function module
+        # add decorated function to the _aleanodes_ attribute of the function module
         mod = sys.modules[f.__module__]
         if not hasattr(mod,'_aleanodes_'):
             mod._aleanodes_ = [f]
@@ -658,7 +658,7 @@ def wrap_package(pkg, pkg_attrib={}, wrap_name=None, wrap_path=None, entry_point
     attrib = node_attribute(pkg, entry_name=entry_name, parent_attrib=pkg_attrib)
     nodes  = wrap_module(pkg, attrib=attrib,wrapper_path=join(wrap_path,wrap_name), verbose=False)
     
-    # if it's not a valid aleanode container (i.e. it has no attribut _aleanodes_)
+    # if it's not a valid aleanode container (i.e. it has no attribute _aleanodes_)
     # quit wrapping recursion
     if nodes is None: return entry_points
     else:             add_entry(entry_name,wrap_name)
@@ -786,16 +786,16 @@ def node_attribute(module, entry_name=None, parent_attrib={}):
     
     :Inputs:
         - `entry_name`: 
-            The entry_name attribut. 
-            If not given (None), use the module `__name__` attribut 
+            The entry_name attribute. 
+            If not given (None), use the module `__name__` attribute 
     
         - `parent_attrib`:
-            Dictionary of the parent package attribut.
-            Its content is used when the module does not contains some attribut
+            Dictionary of the parent package attribute.
+            Its content is used when the module does not contains some attribute
     
     :Note:
-        An attribut name is choosen: 
-          - first from the module attribut if it exist,
+        An attribute name is choosen: 
+          - first from the module attribute if it exist,
           - then in `parent_attrib` if it exist
           - or a default one is taken
           

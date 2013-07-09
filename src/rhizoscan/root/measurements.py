@@ -8,8 +8,8 @@ from rhizoscan.workflow import Struct   as _Struct
 from rhizoscan.workflow import Data     as _Data
 from rhizoscan.tool     import _property
 
-# measurments for unordered list of trees object having a metadata attribut
-# -------------------------------------------------------------------------
+# measurments for unordered list of trees object having a metadata attribute
+# --------------------------------------------------------------------------
 def _tree_stat(f):
     """ decorator that declare a tree statistic from the function that compute it """
     stat_list[f.func_name] = f
@@ -48,13 +48,13 @@ class TreeStat(_Struct):
         """ tree object relative to this TreeStat object """
         if not hasattr(self,'_tree'):
             self._tree = _Data.load(self._tree_file)
-            self.temporary_attribut.add('_tree')
+            self.temporary_attribute.add('_tree')
         return self._tree
         
     def clear_tree_data(self):
         if hasattr(self,'_tree'):
             del self._tree
-            self.temporary_attribut.discard('_tree')  ## make the clear-tmp-attr robust to missing attr ?
+            self.temporary_attribute.discard('_tree')  ## make the clear-tmp-attr robust to missing attr ?
     
     def compute_stat(self, stat_names='all', mask=None):
         """ compute all statistic listed in stat_name, using optional mask filter function"""
@@ -89,10 +89,10 @@ class TreeCompare(_Struct):
     def compute_stat(self, stat_names='all', mask=None, save=True):
         for a in self.auto: 
             a.compute_stat(stat_names=stat_names, mask=mask)
-            a.clear_temporary_attribut()
+            a.clear_temporary_attribute()
         for r in self.ref :
             r.compute_stat(stat_names=stat_names, mask=mask)
-            r.clear_temporary_attribut()
+            r.clear_temporary_attribute()
         if save:
             self.save()
             
@@ -332,7 +332,7 @@ def cmp_plot(db, stat, key1, key2, update_stat=False, fig=42, outliers=.05, key_
     """
     db is a database (list) of root image descriptor (filename, metadata, output)
     stat is the stat to to plot
-    key is a list of 2 metadata attribut to cluster the data by
+    key is a list of 2 metadata attribute to cluster the data by
 
     ##todo check it work with only one key
     """

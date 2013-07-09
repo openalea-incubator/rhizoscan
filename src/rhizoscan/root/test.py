@@ -65,16 +65,16 @@ class SegmentGraph(_Struct):
             edge_switch[...,0] = (edge[edge[...,0],:,0]==sid).any(axis=-1) # side 0
             edge_switch[...,1] = (edge[edge[...,1],:,1]==sid).any(axis=-1) # side 1
             self._edge_switch = edge_switch
-            self.temporary_attribut.add('_edge_switch')
+            self.temporary_attribute.add('_edge_switch')
         return self._edge_switch
         
     @edge_switch.setter
     def edge_switch(self, value):
         if value is None: # delete tmp data
-            self.clear_temporary_attribut('_edge_switch')
+            self.clear_temporary_attribute('_edge_switch')
         else:
             self._edge_switch = value
-            self.temporary_attribut.add('_edge_switch')
+            self.temporary_attribute.add('_edge_switch')
         
     def segment_chain(self):
         """ merge linear chain of segment 
@@ -96,7 +96,7 @@ class SegmentGraph(_Struct):
         :Output:
             - 'edge' array with shape Nx2, for N segments and 2 sides
             - 'best' array with shape Nx2 of the best edges indices in this 
-                     SegmentGraph 'edge' attribut
+                     SegmentGraph 'edge' attribute
         """
         # compute segment graph, and keep only the best connection for each segment side
         #   => best means "most little cost"
@@ -233,7 +233,7 @@ class SegmentGraph(_Struct):
         """
         Set direction of segments, and remove invalid edges
         
-        The direction are set by reversing the order of this graph edge attribut
+        The direction are set by reversing the order of this graph edge attribute
             ** edge does not correspond to input segment direction anymore **
             
         :Input:
@@ -613,7 +613,6 @@ def rg_to_at(rg):
     put all steps of in-dev conversion into 1 function 
     """
     set_downward_segment(rg)  # not required, but best to visualise results
-    rg.segment.compute_direction(rg.node)
     
     sg = SegmentGraph(rg)
     sdir,g = sg.directed_edge(t.segment, update_graph=False, DAG=False) # g?

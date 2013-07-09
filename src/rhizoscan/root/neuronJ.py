@@ -161,9 +161,8 @@ class NJ_loader(Struct):
         
         # construct tree graph
         n = NodeList(position=node*scale)
-        s = SegmentList(node=segment)
+        s = SegmentList(node_id=segment, node_list=n)
         n.set_segment(s)
-        s.compute_length(node=n)
         s.seed = sseed
         t = RootAxialTree(node=n, segment=s)
         t.set_axes(s_axe=saxe,s_parent=sparent)

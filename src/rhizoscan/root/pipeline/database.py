@@ -152,7 +152,7 @@ def to_update(db, suffix='.tree'):
 @_aleanode('db_data')
 def retrieve_data_file(db, name='tree', suffix='.tree'):
     """
-    Add the data filename to all db element as attribut 'name'
+    Add the data filename to all db element as attribute 'name'
     """
     for d in db: d[name] = d.output+suffix
     return db,
@@ -173,7 +173,7 @@ def get_column(db, suffix, missing=None, datatype=_Data):
 @_aleanode('filtered_db')
 def filter(db, key='', value='', metadata=True):
     """
-    Return the subset of db that has its key attribut equal to value
+    Return the subset of db that has its key attribute equal to value
     
     :Input:
       - key:    (*)
@@ -181,7 +181,7 @@ def filter(db, key='', value='', metadata=True):
       - value:  (*)
         The value the key must have
       - metadata:
-        if True, look for key in the 'metadata' attribut
+        if True, look for key in the 'metadata' attribute
         Same as filter(db,'metadata.'+key,value, metadata=False) 
         
       (*)if key or value is empty, return the full (unfiltered) db
@@ -208,7 +208,7 @@ def cluster(db, key, metadata=True):
     possible db key value.
     If key is a list of key, cluster recursively into dict of dict (...)
     
-    if 'metadata' is True, looks for key in the metadata attribut of the db item
+    if 'metadata' is True, looks for key in the metadata attribute of the db item
     i.e. same as cluster_db(db, 'metadata.'+key, metadata=False)
     
     Note: In case of multiple keys (list), then the sub dict only contains keys

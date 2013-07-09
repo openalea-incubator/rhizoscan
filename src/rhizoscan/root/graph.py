@@ -21,8 +21,8 @@ class GraphList(_Struct): ## del dynamic property when saved (etc...) / no direc
         return list(self._property_names)
     def add_property(self, name, value):
         """
-        Add the attribut 'name' with value 'value' to this object, and 'name' to
-        this object 'properties' attribut. 
+        Add the attribute 'name' with value 'value' to this object, and 'name' to
+        this object 'properties' attribute. 
         """
         self.properties# assert existence
         self._property_names.add(name)
@@ -38,7 +38,7 @@ class AxeList(GraphList):
         if not hasattr(self,'_AxeList__segment1'):
             segment1 = _np.array([sl[0] if len(sl) else 0 for sl in self.segment])
             self.add_property('_AxeList__segment1', segment1)
-            self.temporary_attribut.add('_AxeList__segment1')
+            self.temporary_attribute.add('_AxeList__segment1')
         return self.__segment1
     @_property
     def sparent(self):
@@ -46,7 +46,7 @@ class AxeList(GraphList):
         if not hasattr(self,'_AxeList__sparent'):
             sparent = self._segment_list.parent[self.segment1]
             self.add_property('_AxeList__sparent', sparent)
-            self.temporary_attribut.add('_AxeList__sparent')
+            self.temporary_attribute.add('_AxeList__sparent')
         return self.__sparent
     @_property
     def insertion_angle(self):
@@ -54,7 +54,7 @@ class AxeList(GraphList):
         if not hasattr(self,'_AxeList__insertion_angle'):
             insertion_angle = self._segment_list.direction_difference[self.segment1,self.sparent]
             self.add_property('_AxeList__insertion_angle', insertion_angle)
-            self.temporary_attribut.add('_AxeList__insertion_angle')
+            self.temporary_attribute.add('_AxeList__insertion_angle')
         return self.__insertion_angle
     
 
@@ -98,37 +98,60 @@ class NodeList(GraphList):
         if not hasattr(self, '_terminal'):
             terminal = _np.vectorize(len)(self.segment)==1
             self.add_property('_terminal', terminal)
-            self.temporary_attribut.add('_terminal')
+            self.temporary_attribute.add('_terminal')
         return self._terminal
     
 class SegmentList(GraphList):
     ##TODO Segmentlist: add a (private) link to node, and lake length, etc... class properties 
-    def __init__(self, node):
+    def __init__(self, node_id, node_list):
         """
         Create a SegmentList from an Nx2 array of nodes pairs
         """
-        self.node = node
-        self.size = node.shape[0]-1  ## -1 should be removed ?
+        self.node_list = node_list
+        self.node = node_id
+        self.size = node_id.shape[0]-1  ## -1 should be removed ?!
         
-    def compute_length(self, node):
+    @_property
+    def length(self):
         """ Compute length of segments from NodeList 'node' """
-        nx = node.x[self.node]
-        ny = node.y[self.node]
-        length = ((nx[:,0]-nx[:,1])**2 + (ny[:,0]-ny[:,1])**2)**.5
-            
-        self.add_property('length',length)
+        if not hasattr(self,'_length'):
+            nx = self.node_list.x[self.node]
+            ny = self.node_list.y[self.node]
+            self._length = ((nx[:,0]-nx[:,1])**2 + (ny[:,0]-ny[:,1])**2)**.5
+            self.temporary_attribute.add('_length')
+        return self._length
+    @length.setter
+    def length(self, value):
+        self._length = value
+        self.clear_temporary_attribute('_length')
     
-    def compute_direction(self, node):
+    @_property
+    def direction(self):
         """ Compute direction of segments from NodeList 'node' """
-        sy = node.y[self.node]
-        sx = node.x[self.node]
-        dsx = _np.diff(sx).ravel()
-        dsy = _np.diff(sy).ravel()
-        self.add_property('direction',_np.arctan2(dsy,dsx))
+        if not hasattr(self,'_direction'):
+            sy = self.node_list.y[self.node]
+            sx = self.node_list.x[self.node]
+            dsx = _np.diff(sx).ravel()
+            dsy = _np.diff(sy).ravel()
+            self._direction = _np.arctan2(dsy,dsx)
+            self.temporary_attribute.add('_direction')
+        return self._direction
+    @direction.setter
+    def direction(self, value):
+        self._direction = value
+        self.clear_temporary_attribute('_direction')
         
-    def compute_terminal(self,node):
-        """ Compute terminal property of segments from NodeList 'node' """
-        self.add_property('terminal',_np.any(node.terminal[self.node],axis=1))
+    @_property
+    def terminal(self):
+        """ Compute terminal property of segments using attribute node_list """
+        if not hasattr(self,'_terminal'):
+            self._terminal = _np.any(self.node_list.terminal[self.node],axis=1)
+            self.temporary_attribute.add('_terminal')
+        return self._terminal
+    @terminal.setter
+    def terminal(self, value):
+        self._terminal = value
+        self.clear_temporary_attribute('_terminal')
        
     @_property
     def direction_difference(self):
@@ -138,7 +161,7 @@ class SegmentList(GraphList):
         This difference take into account by which node the segment are connected
         but angle diff for unconnected segment is meaningless
         """
-        if not hasattr(self,'_SegmentList__direction_difference'):
+        if not hasattr(self,'_direction_difference'):
             angle = self.direction
             dangle = _np.abs(angle[:,None] - angle[None,:])
             dangle = _np.minimum(dangle, 2*_np.pi-dangle)
@@ -146,9 +169,9 @@ class SegmentList(GraphList):
             to_revert = _np.any(self.node[:,None,:]==self.node[None,:,:],axis=-1)
             dangle[to_revert] = _np.pi - dangle[to_revert]
             dangle[0,:] = dangle[:,0] = _np.pi
-            self.add_property('_SegmentList__direction_difference', dangle)
-            self.temporary_attribut.add('_SegmentList__direction_difference')
-        return self.__direction_difference
+            self.add_property('_direction_difference', dangle)
+            self.temporary_attribute.add('_direction_difference')
+        return self._direction_difference
     
     @_property
     def distance_to_seed(self):
@@ -159,10 +182,109 @@ class SegmentList(GraphList):
             for i in self.order:
                 d2seed[i] += d2seed[p[i]]
             self.add_property('_distance_to_seed', d2seed)
-            self.temporary_attribut.add('_distance_to_seed')
+            self.temporary_attribute.add('_distance_to_seed')
         return self._distance_to_seed
+        
+        
+    @property
+    def neighbors(self):
+        """ edges array of neighboring segments
+        
+        The edge dynamic property is an array of shape (S,N,2) with S the number 
+        of segments, N the (maximum) number for neighbors per segment side and
+        2 for the 2 segment sides. Each neighbors[i,:,k] contains the list of 
+        the neighboring segments ids on side k of segment `i`.
+        
+        In order to be an array, the missing neighbors are set to 0
+        
+        *** It requires the `seed` attribute ***
+        """
+        if not hasattr(self,'_neighbors'):
+            seed = self.seed
+            node = self.node_list
+            ns   = node.segment.copy()
+            invalid_nodes = _np.vectorize(lambda nslist: (self.seed[nslist]>0).all())(node.segment)
+            ns[invalid_nodes] = set()
+            ns[0] = set()
+            
+            # construct nb1 & nb2 the neighbor array of all segments in direction 1 & 2
+            nsbor = _np.vectorize(set)(ns)
+            snbor = [(s1.difference([i]),s2.difference([i])) for i,(s1,s2) in enumerate(nsbor[self.node])]
+            
+            # 
+            edge_max = max(map(lambda edg:max(len(edg[0]),len(edg[1])),snbor))
+            edge = _np.zeros((len(snbor),edge_max,2), dtype='uint32')
+            for i,(nb1,nb2) in enumerate(snbor):
+                edge[i,:len(nb1),0] = list(nb1)
+                edge[i,:len(nb2),1] = list(nb2)
+                
+            self._neighbors = edge
+            self.temporary_attribute.add('_neighbors')
+        return self._neighbors
+    @neighbors.setter
+    def neighbors(self, value):
+        self.clear_temporary_attribute('_neighbors')
+        if value is not None:
+            self._neighbors = value
     
-       
+    @_property
+    def nbor_switch_dir(self):
+        """
+        Tells if `neighbors` edges requires a switch of direction
+        
+        This boolean array with same shape as `neighbors` has True value where 
+        (directed) connection through a `neighbors` edge requires a change of 
+        one of the segment direction.
+        
+        for all edge (i,j) stored in `neighbors`, i.e. j in neighbors[i]: 
+          - i & j are not in the same relative direction
+          - i.e. is j a neighbor on side s of i, and i on side s of j ?
+               
+        *** requires the `neighbors` property ***
+        """
+        if not hasattr(self,'_nbor_switch_dir'):
+            nbor = self.neighbors
+            nbor_switch = _np.zeros(nbor.shape, dtype=bool)
+            sid = _np.arange(nbor.shape[0])[:,None,None]
+            nbor_switch[...,0] = (nbor[nbor[...,0],:,0]==sid).any(axis=-1) # side 0
+            nbor_switch[...,1] = (nbor[nbor[...,1],:,1]==sid).any(axis=-1) # side 1
+            self._nbor_switch_dir = nbor_switch
+            self.temporary_attribute.add('_nbor_switch_dir')
+        return self._nbor_switch_dir
+    @nbor_switch_dir.setter
+    def nbor_switch_dir(self, value):
+        self.clear_temporary_attribute('_nbor_switch_dir')
+        if value is not None:
+            self._nbor_switch_dir = value
+    
+    def clear_neighbors(self):
+        """ Reset the `neighbors` and related `nbor_switch_dir` atttributes """
+        self.neighbors = None
+        self.nbor_switch_dir = None
+
+    def switch_direction(self, direction, digraph=False):
+        """
+        Change segment direction given by `direction` (switch node ids)
+        
+        *** It also reset the `neighbors` and `nbor_switch_dir` attributes ***
+        
+        `direction` should be a boolean vector array with length equal to the 
+        segment number. True value means the segment direction should be switched
+        
+        if `digraph` is True, remove all edges of the (updated) `neighbors` 
+        attribute for which the respective `nbor_switch_dir` is True:
+        The graph obtained become a valid directed graph where 
+          - neighbors[...,0] are the  incoming neighbors, and
+          - neighbors[...,1] are the outcoming neighbors
+        """
+        # reverse edge direction
+        self.node[direction] = self.node[direction][...,::-1]
+        self.clear_neighbors()
+        
+        if digraph:
+            # remove edges that are invalid for a directed graph
+            self.neighbors[self.nbor_switch_dir] = 0
+            
 class SegmentGraph(_ArrayGraph):
     """
     ArrayGraph for a segment list
@@ -196,7 +318,7 @@ class RootGraph(_Struct):
         """ SegmentGraph of these graph segments """
         if not hasattr(self,'_sgraph'):
             self._sgraph = SegmentGraph(self.segment,self.node)
-            self.temporary_attribut.add('_sgraph')
+            self.temporary_attribute.add('_sgraph')
         return self._sgraph
         
     # printing    
@@ -288,7 +410,7 @@ _UNSET       = 0
 _SET         = 1
 ##todo: remove RootAxialTree.stype, but add 'seed' ?
 ##todo fully restructure rootAxialTree (subcalss of RootGraph)
-##      or simple delete it, add make function to compute a axe attribut to a RG
+##      or simple delete it, add make function to compute a axe attribute to a RG
 
 class RootAxialTree(RootGraph):
     def __init__(self,node, segment, axe=None, to_tree=0, to_axe=0, single_order1_axe=True):
@@ -327,7 +449,7 @@ class RootAxialTree(RootGraph):
         if not hasattr(self,'_edges'):
             self._edges = self.sgraph.edges.copy()
             self._edges[self._edges>self.sid.size] = 0  # replace invalid indices by 0
-            self.temporary_attribut.add('_edges')
+            self.temporary_attribute.add('_edges')
         return self._edges
         
     @_property
@@ -337,7 +459,7 @@ class RootAxialTree(RootGraph):
             s2 = self.edges
             s1 = _np.arange(s2.shape[0]).reshape(-1,1)
             self._dtheta = self.segment.direction_difference[s1,s2]
-            self.temporary_attribut.add('_dtheta')
+            self.temporary_attribute.add('_dtheta')
         return self._dtheta
                 
     def make_tree(self, method): 

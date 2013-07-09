@@ -284,9 +284,6 @@ class Image(_np.ndarray, _Data):
         """
         return Image(self.get_data_file(),color=self.color, dtype=self.dtype, scale=self.scale)
         
-    def _data_to_save_(self):
-        return self.loader()
-        
     def loader(self):
         """
         Return an empty Image which allow to load the image using load()
@@ -300,9 +297,31 @@ class Image(_np.ndarray, _Data):
         loader.set_data_file(self.get_data_file())
         return loader
         
+    def _data_to_save_(self):
+        return self.loader()
     def _data_to_load_(self):
         return self.load()
+
+    def __reduce__(self):
+        object_state = list(_np.ndarray.__reduce__(self))
+        #subclass_state = [self.__dict__.keys()] + self.__dict__.values()
+        object_state[2] = (object_state[2],self.__dict__)#subclass_state)
+        return tuple(object_state)
     
+    def __setstate__(self,state):
+        _np.ndarray.__setstate__(self,state[0])
+        self.__dict__.update(state[1])
+
+    def __repr__(self):
+        arr_txt = str(self)
+        desc = 'Image(' + arr_txt.replace('\n', '\n' + ' '*6)
+        for k,v in self.__dict__.iteritems():
+            if k[0]<>'_':
+                v = str(v)
+                if k=='info' and len(v)>10: v = v[:6] + '...' 
+                desc += ', ' + k + '=' + v
+        return desc
+        
 class ImageSequence(_Sequence):
     """
     provide access to list of image file

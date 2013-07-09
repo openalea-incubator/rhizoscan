@@ -54,7 +54,7 @@ class RootAnalysisPipeline(object):
         'modules' is the list of PipelineModule objects to be implemented 
         by this pipeline object.
         
-        When constructing a pipeline object, all the modules 'name' attribut 
+        When constructing a pipeline object, all the modules 'name' attribute 
         should be different, and the name of input and output data should
         match (the pipeline transfere a shared namespace to all module)
         """
@@ -334,7 +334,7 @@ class PipelineModule(object):
                 
         :Outputs:
           The computed, or reloaded, data. It should correspond to the names in 
-          this module's 'outputs' attribut.
+          this module's 'outputs' attribute.
         """
         data = None
         filename = base_name + self.suffix

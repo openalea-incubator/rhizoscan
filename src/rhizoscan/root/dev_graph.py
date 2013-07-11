@@ -39,7 +39,7 @@ def segment_digraph(segment, cost='direction_difference', callback=None):
     IN DEVELOPMENT
     """
     nbor = segment.neighbors
-    edge = edge_list(nbor)
+    edge = neighbor_to_edge_list(nbor)
     
     # edges cost
     # ----------
@@ -139,9 +139,10 @@ def digraph_to_DAG(neighbors, cost, source=None):
             if None, use the list of elements with no incomming edge.
             
     :Output:
-        - updated `neighbors` array which is a DAG
-        - list of removed edges (as pair tuples)
-        - order of the graph traversal used to break cycles 
+        - a list of incomming segment edges (as sets)
+        - a list of outgoing  segment edges (as sets)
+        - list of removed edges (as pair-tuples)
+        - the order of the graph traversal used to break cycles 
           (missing ids were unreachable, see note)
           
     :Note:
@@ -162,7 +163,7 @@ def digraph_to_DAG(neighbors, cost, source=None):
     
     # compute shortest path tree
     #   GRAPH_CVT: nbor-type to csgraph
-    graph = to_csgraph(neighbors, value=cost, omit_bg=1)
+    graph = neighbor_to_csgraph(neighbors, value=cost, omit_bg=1)
     d,parent = dijkstra(graph, indices=source, return_predecessors=1)
     path_id  = d.argmin(axis=0)
     parent   = parent[path_id,_np.arange(d.shape[1])]
@@ -205,30 +206,29 @@ def digraph_to_DAG(neighbors, cost, source=None):
             else:
                 removed.append((e,c))
     
-    # convert tree to neighbor-type array, with 'added' edges added
-    #   GRAPH_CVT: csgraph to nbor-type
-    nbor_list = [[] for node in xrange(tree.shape[0])]
+    # convert tree to list-of-sets graph type, with 'added' edges added
+    #   GRAPH_CVT: csgraph (+) to list-of-set
+    incomming = [set() for node in xrange(tree.shape[0])]
+    out_going = [set() for node in xrange(tree.shape[0])]
     src,dst = tree.nonzero()
     for si,di in zip(src,dst):
-        nbor_list[si].append(di)
+        incomming[di].add(si)
+        out_going[si].add(di)
     for si,di in added:
-        nbor_list[si].append(di)
-        
-    nbor_max = max([len(elist) for elist in nbor_list])
-    nbor = _np.zeros((neighbors.shape[0],nbor_max), dtype=neighbors.dtype)
-    for i,nlist in enumerate(nbor_list):
-        nbor[i,:len(nlist)] = nlist
+        incomming[di].add(si)
+        out_going[si].add(di)
             
-    return nbor, removed, dist_order
+    return incomming, out_going, removed, dist_order
     
-def topsort(dag_edge, source=None, fifo=True):
+def topsort(incomming, out_going, source=None, fifo=True):
     """
-    Compute the topological order of a DAG elements
+    Compute the topological order of a DAG
     
     :Inputs:
-      - dag_edge:
-            A "neighbors" type of arrays containing the **forward** dag edge.
-            ie. such as returned by digraph_to_DAG
+      - incomming:
+            The incomming segment edges in list-of-edge representation 
+      - out_going:
+            The outgoing segment edges in list-of-edge representation 
       - source:
             Optional list (or mask) of starting elements.
             if None, use the list of elements with no incomming edge.
@@ -247,31 +247,19 @@ def topsort(dag_edge, source=None, fifo=True):
     
     (*) A. B. Kahn. 1962. Topological sorting of large networks. Commun. ACM 5
     """
-    # convert graph to list, for each elements, of in/out edges set
-    #   GRAPH_CVT: sided_nbor to edge-list to set-list
-    out_going = [set() for i in xrange(dag_edge.shape[0])]
-    incomming = [set() for i in xrange(dag_edge.shape[0])]
-    for i,o in edge_list(dag_edge, unique=True, directed=True):
-        out_going[i].add(o)
-        incomming[o].add(i)
-        
-    # list of elements ready to be processed
-    if source is not None:
-        if _np.asarray(source).dtype==bool:
-            current = source.nonzero()[0]
-        else:
-            current = source
-    else:
-        current = (_np.vectorize(len)(incomming)==0).nonzero()
-
-        
     from collections import deque
-    current = deque(current)
-    order   = []        # stores ordered element ids 
     
+    incomming = [i.copy() for i in incomming] # copy
+    parents = [list(i) for i in incomming]   # copy, as convertion set to list
+    
+    # list of elements ready to be processed
+    source  = _init_source(source, lambda: (_np.vectorize(len)(incomming)==0).nonzero())
+        
+    current = deque(source)
     if fifo: current_append = current.appendleft 
     else:    current_append = current.append 
     
+    order   = []        # stores ordered element ids 
     while current:
         e = current.pop()
         order.append(e)
@@ -283,42 +271,163 @@ def topsort(dag_edge, source=None, fifo=True):
     
     return order
     
-def dag_covering_path(dag_edge, cost, source=None):
+def topsort_node(incomming, out_going, source=None, fifo=True):
     """
-    Compute a minimum covering path over a DAG following the topsort algorithm (*) 
+    Compute the DAG topological order and return segment order and node list
+    
+    :Inputs:
+      - incomming:
+            The incomming segment edges in list-of-edge representation 
+      - out_going:
+            The outgoing segment edges in list-of-edge representation 
+      - source:
+            Optional list (or mask) of starting elements.
+            if None, use the list of elements with no incomming edge.
+            *** If given, no path from one source to another should exist ***
+      - fifo:
+            If True, use a first-in-first-out queue data structure. Otherwise 
+            use a last-in-first-out (LIFO) queue. 
+            In most cases, topsort is not unique. Using a fifo makes the topsort
+            follow some kind of breath-first-order ("old" elements first), while
+            a lifo makes it follow some kind of depth-first-order.
+            
+    :Output:
+      - The order of segments, such as returned by `topsort()`
+      - A list in the topological order of the "nodes" which are represented by 
+        a pair `(parent, children)`, both being sets of respectively the
+        incomming and outgoing segments id.
+        So a list of tuples of sets.
+    
+    (*) A. B. Kahn. 1962. Topological sorting of large networks. Commun. ACM 5
+    """
+    from collections import deque
+    
+    incomming = [i.copy() for i in incomming] # copy
+    parents = [list(i) for i in incomming]   # copy, as convertion set to list
+    
+    # list of elements ready to be processed
+    source  = _init_source(source, lambda: (_np.vectorize(len)(incomming)==0).nonzero())
+    
+    if fifo: current_append = current.appendleft 
+    else:    current_append = current.append 
+    
+    current = deque(source)     # element to be processed
+    order   = []                # stores ordered element ids 
+    node    = []                # ordered list of node as ddescribed in doc.
+    while current:
+        e = current.pop()
+        p = parents[e]
+        c = out_going[p[0]] if len(p) else set()
+        node.append((c,set(p)))
+        order.append(e)
+        
+        for n in out_going[e]:
+            incomming[n].remove(e)
+            if len(incomming[n])==0:
+                current_append(n)
+    
+    return order, node
+
+def minimum_dag_branching(incomming, cost, invalid=-1):
+    
+    """
+    Compute the minimum branching on the given DAG
+    
+    The minimum branching is the equivalent of the minimum spanning tree but for 
+    digraph. For DAG, which contains no cycle, the algorithm is trivial.
+      See the Chu-Liu/Edmonds' algorithm:
+      http://en.wikipedia.org/wiki/Edmonds'_algorithm
+    
+    :Inputs:
+      - incomming:
+          The incomming edges of either a list-of-set type or of neighbor type
+      - cost:
+          A SxS array of the cost between any pair of segments : S = len(incomming)
+      - invalid:
+          Value to return for element without parent
+
+    :Outputs:
+      The selected parent of each graph segment, as a list.
+    """
+    if isinstance(incomming, list):
+        parent_nbor = list_to_neighbor(incomming, invalid=0)
+    else:
+        parent_nbor = incomming
+        
+    x = _np.arange(parent_nbor.shape[0])
+    y = cost[x[:,None],parent_nbor].argmin(axis=1)
+    
+    parent = parent_nbor[x,y]
+    parent[(parent_nbor==0).all(axis=1)] = invalid
+    
+    return parent
+
+def dag_covering_path(incomming, out_going, cost, top_order=None, source=None):
+    """
+    Compute a minimum covering path over a DAG
     
     *** IN DEVELOPMENT ***
     
     :Inputs:
-      - dag_edge:
-            A neighbor-type arrays of the **forward** DAG edges.
-            ie. such as returned by digraph_to_DAG
-            
-            The following should be true: If two elements share a parent 
-            (i.e. have an incomming edge to the same elements), then they have 
-            the same set of parents. That is parent and siblings are all 
-            connected through the same (unspecified) node
-            
+      - incomming:
+            The incomming segment edges in list-of-edge representation
+      - out_going:
+            The outgoing segment edges in list-of-edge representation
       - cost:
             A NxN array (with N the number of DAG element) of the edges cost
-            
+      - top_order:
+            The topological order of DAG segments. If not given, it is computed.
       - source:
             Optional list (or mask) of starting elements.
-            if None, use the list of elements with no incomming edge
+            if None, strart at the elements with no incomming edge
             
     :Output:
-        A set of path that cover the graph. All path start at one of the sources
+      - A list of the list of segments contained in each path
+      - A list of the list of path going through each segment
+      
+      The set of path cover the graph and all path start at one of the sources
     
-    (*) A. B. Kahn. 1962. Topological sorting of large networks. Commun. ACM 5
+    :Note:
+        The following should be true: If two elements share a parent 
+        (i.e. have an incomming edge to the same elements), then they have 
+        the same set of parents. That is: parent and siblings are all 
+        connected through the same (unspecified) node
     """
-    pass
+    # find "best" parent of all segments
+    parent = minimum_dag_branching(incomming=incomming, cost=cost, invalid=-1)
+    
+    # init path data structure
+    path = [[]]                                    # elements in path
+    elt_path = [[] for i in xrange(len(parent))]   # path in elements
+    def new_path(e):
+        path.append([e])
+        path_id = len(path)-1
+        elt_path[e].append(path_id)
+        return path_id
+    def merge_path(src, dst):
+        src_path = elt_path[src]
+        for p in src_path:
+            path[p].append(dst)
+        elt_path[dst].extend(src_path)
+        
+    # compute a first path cover based on minimum branching tree
+    if top_order is None:
+        top_order = topsort(incomming=incomming, out_going=out_going, source=source)
+    for e in top_order[::-1]:
+        if len(elt_path[e])==0: new_path(e)
+        p = parent[e]
+        if p>-1: merge_path(e,p)
 
-def dag_covering_path_direct(dag_edge, cost, source):
+    return path, elt_path
+
+
+
+def dag_covering_path_1(dag_edge, cost, source):
     """
     First attempt, local matching (at nodes) of path
         > Conclusion: the path "breaks" too often
     
-    return path, path_parent (edge id or -1 if no parent)
+    return `path` and `path_parent` (edge id or -1 if no parent)
     """
     # convert graph to list, for each elements, of in/out edges set
     #   GRAPH_CVT: sided_nbor to edge-list to set-list
@@ -481,26 +590,6 @@ def dag_covering_path_direct(dag_edge, cost, source):
     
     return path
     
-def digraph_nbor_to_IO_set(neighbors, incomming=None, out_going=None):
-    """
-    Convert a neighbor-type digraph `neighbors` into a list of sets representation
-
-    if either incomming or out_going is None, init both 
-    otherwise, return them
-    
-    return incomming, out_going
-    """
-    elt_number = neighbors.shape[0]
-    
-    if incomming is None or out_goind is None:
-        out_going = [set() for i in xrange(elt_number)]
-        incomming = [set() for i in xrange(elt_number)]
-        for i,o in edge_list(neighbors, unique=True, directed=True):
-            out_going[i].add(o)
-            incomming[o].add(i)
-    
-    return incomming, out_going
-        
 def _init_source(source, default):
     """
     return source, as integer indices, or default
@@ -544,7 +633,44 @@ def init_flow(dag_edge, source=None, incomming=None, out_going=None):
         
     return _np.array(flow)
 
-def to_csgraph(neighbors, value=1, omit_bg=False, matrix='csr_matrix'):
+def neighbor_cost(neighbors, cost):
+    """
+    Construct the cost relative to `neighbors` graph using array `cost`
+    
+    :Inputs:
+      - neighbors:
+         A SxN or SxNx2 neighbor-type array
+      
+      - cost:
+         A SxS array of the cost between all possible segment pairs
+         
+    :Output:
+         An array of same shape as edge, with suitable cost value.
+         
+    :Example:
+        Let `s` be a SegmentList object::
+        
+        nbor_cost = neighbor_cost(s.neighbors, s.direction_difference) 
+    """
+    return cost[_np.arange(neighbors.shape[0]).reshape((-1,) + (1,)*(neighbors.ndim-1)), neighbors]
+
+def set_downward_segment(graph):
+    
+    """
+    In-place set all segments of RootGraph `graph` downward
+    return updated `graph`
+    
+    *** This function resets the `graph.segment.neighbors` attribute ***
+    """
+    upward = _np.diff(graph.node.y[graph.segment.node],axis=1).ravel()<0
+    graph.segment.node[upward] = graph.segment.node[upward][:,::-1]
+    graph.segment.clear_neighbors()
+    
+    return graph
+
+# conversion between graph representation
+# ---------------------------------------
+def neighbor_to_csgraph(neighbors, value=1, omit_bg=False, matrix='csr_matrix'):
     """ make a sparse adjacency representation from the `neighbors` graph
     
     :Input:
@@ -587,28 +713,48 @@ def to_csgraph(neighbors, value=1, omit_bg=False, matrix='csr_matrix'):
         
     return matrix((value,ij), shape=(nbor.shape[0],)*2)
 
-def neighbor_cost(neighbors, cost):
+def list_to_neighbor(edges_in, edges_out=None, invalid=0):
     """
-    Construct the cost relative to `neighbors` graph using array `cost`
+    Convert the a list-of-set type of graph to a neighbor type
     
-    :Inputs:
-      - neighbors:
-         A SxN or SxNx2 neighbor-type array
-      
-      - cost:
-         A SxS array of the cost between all possible segment pairs
-         
-    :Output:
-         An array of same shape as edge, with suitable cost value.
-         
-    :Example:
-        Let `s` be a SegmentList object::
-        
-        nbor_cost = neighbor_cost(s.neighbors, s.direction_difference) 
+    If edges_out is None, return a SxN neighbor type array, where missing
+    neighbors are filled with value given by `invalid`
+    If edges_out is not None, return a SxNx2 array, with same filling rule, and 
+    where the returned `neighbor[:,:,0] contains the `edges_in` and 
+    `neighbor[:,:,1]` contains the `edges_out`
     """
-    return cost[_np.arange(neighbors.shape[0]).reshape((-1,) + (1,)*(neighbors.ndim-1)), neighbors]
+    
+    n = max(map(len,edges_in))
+    fill = lambda edge,N: [list(e)+[invalid]*(N-len(e)) for e in edge]
+    if edges_out:
+        n = max(n,max(map(len,edges_in)))
+        edges_in  = fill(edges_in, n)
+        edges_out = fill(edges_out,n)
+        return _np.dstack((edges_in,edges_out))
+    else:
+        return _np.array(fill(edges_in,n))
+    
+def digraph_nbor_to_IO_set(neighbors, incomming=None, out_going=None):
+    """
+    Convert a neighbor-type digraph `neighbors` into a list of sets representation
 
-def edge_list(neighbors, unique=True, directed=False):
+    if either incomming or out_going is None, init both 
+    otherwise, return them
+    
+    return incomming, out_going
+    """
+    elt_number = neighbors.shape[0]
+    
+    if incomming is None or out_goind is None:
+        out_going = [set() for i in xrange(elt_number)]
+        incomming = [set() for i in xrange(elt_number)]
+        for i,o in neighbor_to_edge_list(neighbors, unique=True, directed=True):
+            out_going[i].add(o)
+            incomming[o].add(i)
+    
+    return incomming, out_going
+        
+def neighbor_to_edge_list(neighbors, unique=True, directed=False):
     """
     Create a list of segment id pairs (as a numpy array)
     
@@ -647,20 +793,9 @@ def edge_list(neighbors, unique=True, directed=False):
     
     return edge
 
-def set_downward_segment(graph):
-    """
-    In-place set all segments of RootGraph 'graph' downward
-    return updated `graph`
-    
-    *** This function resets the `graph.segment.neighbors` attribute ***
-    """
-    upward = _np.diff(graph.node.y[graph.segment.node],axis=1).ravel()<0
-    graph.segment.node[upward] = graph.segment.node[upward][:,::-1]
-    graph.segment.clear_neighbors()
-    
-    return graph
-
-
+        
+# ploting and user interface stuff
+# --------------------------------
 def plot_segment_edges(segment, neighbors=None, directed=None):
     """ plot segment graph where `neighbors` define connectivity
     
@@ -684,9 +819,9 @@ def plot_segment_edges(segment, neighbors=None, directed=None):
         neighbors = segment.neighbors
     
     if directed is None:
-        edge = edge_list(neighbors, unique=False)
+        edge = neighbor_to_edge_list(neighbors, unique=False)
     else:
-        edge = edge_list(neighbors[...,directed], unique=False)
+        edge = neighbor_to_edge_list(neighbors[...,directed], unique=False)
     edge = pos.T[edge]
     
     # plot

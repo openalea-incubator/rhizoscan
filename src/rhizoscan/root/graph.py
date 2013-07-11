@@ -57,6 +57,19 @@ class AxeList(GraphList):
             self.temporary_attribute.add('_AxeList__insertion_angle')
         return self.__insertion_angle
     
+    def _compute_length_properties(self):
+        # compute the axe length and arc length of segment w.r.t their axe
+        arc_length = _np.array([[] for i in xrange(len(self.segment)))
+        axe_length = _np.zeros(len(self.segment))
+        segment_number = _np.zeros(len(self.segment),dtype=int)
+        for i,slist in enumerate(self.segment):
+            if len(slist)==0: continue
+            slist = _np.asarray(slist)
+            arcL  = _np.cumsum(self._segment_list.length[slist])
+            arc_length[i] = arcL
+            axe_length[i] = arcL[-1]
+            segment_number[i] = len(arcL)
+        self.segment.add_property('arc_length',arc_length)
 
 class NodeList(GraphList):
     def __init__(self,position=None, x=None, y=None):
@@ -545,13 +558,17 @@ class RootAxialTree(RootGraph):
         Finalise creation of root axe - automatically called by find_axes
         
         :Input:
-        s_axe:     array of the "main" axe id of all segment   - main if there is overlapping
-                   if None, use self.segment.axe
-        s_parent:  the parent segment of all segment
-                   if None, use self.segment.parent
-        a_segment: list, for all axes, of the their (sorted) segment list
-                   if None, compute it considering the graph does not contain loop
-        single_order1_axe: if True, keep only the longest axe touching a seed as the main axe 
+          - s_axe:
+              array of the "main" axe id of all segment   - main if there is overlapping
+              if None, use self.segment.axe
+          - s_parent:  
+              the parent segment of all segment
+              if None, use self.segment.parent
+          - a_segment: 
+              list, for all axes, of the their (sorted) segment list
+              if None, compute it considering the graph does not contain loop
+            single_order1_axe: 
+              if True, keep only the longest axe touching a seed as the main axe 
         """
             
         # manage axe & parent arguments
@@ -587,7 +604,7 @@ class RootAxialTree(RootGraph):
         # ----------------------------------------------------------------
         arc_length = _np.zeros_like(self.segment.length)
         axe.length = _np.zeros(len(axe.segment))
-        axe.size   = _np.zeros(len(axe.segment),dtype=int)   ## doesn not respect GraphList standart: size is he number of elements (-1) !
+        axe.size   = _np.zeros(len(axe.segment),dtype=int)   ## does not respect GraphList standart: size is the number of elements (-1) !
         for i,slist in enumerate(axe.segment):
             if len(slist)==0: continue
             slist = _np.asarray(slist)

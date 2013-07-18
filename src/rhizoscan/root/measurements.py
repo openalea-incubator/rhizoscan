@@ -114,7 +114,7 @@ def make_TreeCompare(auto, ref, filename='.tmp-TreeCompare', compute_stat='all')
 def axe1_length(tree, mask=None):
     scale = getattr(getattr(tree,'metadata',None),'px_ratio',None)
     ax1L = get_axes_property(tree, 'length', order=1, mask=None if mask is None else mask(tree), scale=scale)
-    return dict((k,v[0]) for k,v in ax1L.iteritems())
+    return dict((k,v[0] if len(v) else 0) for k,v in ax1L.iteritems())
 @_tree_stat
 def axe2_length(tree, mask=None): 
     scale = getattr(getattr(tree,'metadata',None),'px_ratio',None)
@@ -128,7 +128,7 @@ def axe2_length_total(tree, mask=None):
 def axe2_length_mean(tree, mask=None): 
     scale = getattr(getattr(tree,'metadata',None),'px_ratio',None)
     L = get_axes_property(tree, 'length', order=2, mask=None if mask is None else mask(tree), scale=scale)
-    return dict([(k,v.mean()) for k,v in L.iteritems()])
+    return dict([(k,v.mean() if len(v) else 0) for k,v in L.iteritems()])
 @_tree_stat
 def total_length(tree, mask=None):
     scale = getattr(getattr(tree,'metadata',None),'px_ratio',None)
@@ -141,11 +141,11 @@ def axe2_number(tree, mask=None):
     ax_mask= (tree.axe.plant>0)
     if mask is not None: 
         ax_mask &= mask(tree)
-    pl_id  = np.unique(tree.axe.plant[ax_mask])
-    number = np.bincount(tree.axe.plant[ax_mask], tree.axe.order[ax_mask]==2)
+    pl_id  = np.unique(tree.segment.seed)#.plant[ax_mask])
+    number = np.bincount(tree.axe.plant[ax_mask], tree.axe.order[ax_mask]==2,minlength=pl_id.max()+1)
     return dict([(i,n) for i,n in enumerate(number) if i in pl_id])
     
-@_tree_stat
+##@_tree_stat
 def ramification_length(tree, mask=None):
     from scipy.ndimage import maximum
     ax_mask= (tree.axe.plant>0)
@@ -161,7 +161,7 @@ def ramification_length(tree, mask=None):
 
     return dict(zip(pl_id, maximum(bdist*scale,plant, pl_id)))
     
-@_tree_stat
+##@_tree_stat
 def ramification_percent(tree, mask=None):
     ram_length = ramification_length(tree=tree,mask=mask)
     ax1_length = axe1_length(tree=tree,mask=mask)
@@ -672,8 +672,9 @@ def get_axes_property(t,property_name, mask=None, order=None, per_plant=True, sc
         value *= scale
     if per_plant:
         plant = t.axe.plant[ax_id]
-        plant_id = np.unique(plant)
+        plant_id = np.unique(t.segment.seed) ## in case no axe of one plant has been found
         plant_id = plant_id[plant_id>0]
+        plant_id = plant_id[plant_id<254]  ##bug: 254 plant id...
         
         res = dict()
         for pid in plant_id:
@@ -684,7 +685,7 @@ def get_axes_property(t,property_name, mask=None, order=None, per_plant=True, sc
         
 @_aleanode('joined_list')        
 def list_join(list_of_list):
-    """ convert list_or_list to a list - just a practical openalea node """
+    """ convert list_of_list to a list - just a practical openalea node """
     return [item for sublist in list_of_list for item in sublist]
     
 def hull_area(points, plot=False):

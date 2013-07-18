@@ -119,22 +119,21 @@ class TreeCompareSequence(_Struct):
         s.tc_list = [tc._data_to_save_() for tc in s.tc_list]
         return _Struct._data_to_save_(s)
 
-    def plot(self, stat='axe1_length', title=None, prefilter=None, split=None, legend=True, merge_unique=False, scale=1):
+def plot(self, stat='axe1_length', title=None, prefilter=None, split=None, legend=True, merge_unique=False, scale=1, cla=True):
         import matplotlib.pyplot as plt
         
-        title if title is not None else stat
+        title = title if title is not None else stat
         
         refs = []
         cmps = []
-        tree = []
+        meta = []
         if prefilter is None: prefilter = lambda st: st
         for tc in self.tc_list:
-            sr = tc.ref[stat]
-            sc = tc.cmp[stat]
+            sr = tc.ref.stat[stat]
+            sc = tc.cmp.stat[stat]
 
-            pl_id = tc.plant_map.keys()
-            
             #tree.extend([(pid,a,r) for pid in pl_id])
+            meta.extend([tc.ref.metadata]*len(tc.plant_map))
             refs.extend([prefilter(sr[pid]) for pid in tc.plant_map.keys()])
             cmps.extend([prefilter(sc[pid]) for pid in tc.plant_map.values()])
     
@@ -142,7 +141,8 @@ class TreeCompareSequence(_Struct):
         refs  = np.array(refs) *scale
         
         bound = max(max(refs), max(cmps))
-        plt.cla()
+        if cla:
+            plt.cla()
         plt.plot([0,bound], [0,bound], 'r')
         
         error_name = 'Average percentage error'#'normalized RMS Error'
@@ -158,7 +158,8 @@ class TreeCompareSequence(_Struct):
             plt.plot(refs, cmps, '.')
             print error_name + ' of ' + title+':', error(refs,cmps)
         else:
-            label = [reduce(getattr, [t[1]]+split.split('.')) for t in tree]
+            ##label = [reduce(getattr, [t[1]]+split.split('.')) for t in tree]
+            label = [reduce(getattr, [m]+split.split('.')) for m in meta]
             import time
             if isinstance(label[0], time.struct_time):
                 label = [' '.join(map(str,(l.tm_year,l.tm_mon,l.tm_mday))) for l in label]
@@ -191,7 +192,7 @@ class TreeCompareSequence(_Struct):
         ax.set_ylim(0,bound)
         ax.set_xlim(0,bound)
         
-        ax.tree_data = _Struct(stat=stat, trees=tree, x=refs, y=cmps)
+        ax.tree_data = _Struct(stat=stat, trees=meta, x=refs, y=cmps) ##tree=>meta?
 
 def tree_compare_from_db(reference, compared, tree_suffix='.tree', filename=None):
     from .pipeline.database import get_column
@@ -208,7 +209,6 @@ def tree_compare_from_db(reference, compared, tree_suffix='.tree', filename=None
     return TreeCompareSequence(reference=reference, compared=compared, filename=filename)
 
 
-# comparison plot
 
 
 

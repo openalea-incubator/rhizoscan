@@ -29,23 +29,104 @@ class GraphList(_Struct): ## del dynamic property when saved (etc...) / no direc
         self[name] = value
 
 class AxeList(GraphList):
+    def __init__(self, axes=None, order=None, plant=None, segment_list=None, segment_parent='parent'):
+        """
+        Create an AxeList instance.
+        
+        :Warning:
+            For backward compatibility, it is possible to make an empty AxeList
+            without argument, but this will most probably become deprecated
+            
+        :Inputs:
+          - axes:
+              A list or array, of the **sorted** list of segment id each 
+              root axe contains. The first list (i.e. the 1st axe) should be
+              empty: a *dummy* axe.
+              This value is stored in this AxeList `segment` attribute
+              The list should be in a decreasing priority order (see notes)
+          - order:
+              An array-like of the order of each axe. Same length as `axe`.
+          - plant:
+              An array-like of the plant id for each axe. Same length as `axe`.
+          - segment_list:
+              The SegmentList instance on which this AxeList is constructed.
+          - segment_parent:
+              The list of parent of all segment in `segment_list`. If a string 
+              is given, the respective attribute of `segment_list` is used.
+              See notes.
+              
+        :Notes:
+            The AxeList constructor compute the *main axe* of each segment from
+            `segment_list` base on the `order` argument then on the order of 
+            appearance in input `axe` list.
+            The array containing the id of the selected main axe for each 
+            segment is stored in the attribute `segment_axe`.
+
+            It is considered that the parent axe of an axe `a` is the main axe of
+            the parent segment of the 1st segment of axe `a`.
+        """
+        if axes is None: 
+            DeprecationWarning("AxeList constructor without argument is deprecated") ##
+            return
+        
+        self.segment = _np.asarray(axes)
+        self.order   = _np.asarray(order)
+        self.plant   = _np.asarray(plant)
+        self.set_segment_list(segment_list)
+        
+        if isinstance(segment_parent, basestring):
+            self._segment_parent = segment_list[segment_parent]
+        else:
+            self._segment_parent = segment_parent
+        
+        # find id of main axe for all segments
+        segment_axe  = _np.zeros(segment_list.size+1, dtype=int)
+        #for aid,slist in enumerate(self.segment[::-1]):
+        #    segment_axe[slist] = len(self.segment)-aid-1
+        axe_priority = _np.argsort(order[1:])+1
+        for o in axe_priority[::-1]:
+            slist = self.segment[o]
+            segment_axe[slist] = o
+        self.segment_axe = segment_axe
+        
+   
     def set_segment_list(self,segment_list):
         self._segment_list = segment_list
+        
+    @_property
+    def size(self):
+        return len(self.segment)-1 ## size-1...
+        
+    @_property
+    def segment_number(self):
+        if not hasattr(self,'_segment_number'):
+            sNum = _np.vectorize(len)(self.segment)
+            self._segment_number = sNum
+            self.temporary_attribute.add('_segment_number')
+        return self._segment_number
+        
+    @_property
+    def length(self):
+        if not hasattr(self,'_length'):
+            length = _np.vectorize(lambda slist: self._segment_list.length[slist].sum())(self.segment)
+            self._length = length
+            self.temporary_attribute.add('_length')
+        return self._length
         
     @_property
     def segment1(self):
         """ first segment of axe """
         if not hasattr(self,'_AxeList__segment1'):
             segment1 = _np.array([sl[0] if len(sl) else 0 for sl in self.segment])
-            self.add_property('_AxeList__segment1', segment1)
+            self.__segment1 = segment1
             self.temporary_attribute.add('_AxeList__segment1')
         return self.__segment1
     @_property
-    def sparent(self):
+    def sparent(self):                    ## change this attrib name?
         """ parent segment of axe """
         if not hasattr(self,'_AxeList__sparent'):
-            sparent = self._segment_list.parent[self.segment1]
-            self.add_property('_AxeList__sparent', sparent)
+            sparent = self._segment_parent[self.segment1]
+            self.__sparent = sparent
             self.temporary_attribute.add('_AxeList__sparent')
         return self.__sparent
     @_property
@@ -53,13 +134,13 @@ class AxeList(GraphList):
         """ insertion angle axe """
         if not hasattr(self,'_AxeList__insertion_angle'):
             insertion_angle = self._segment_list.direction_difference[self.segment1,self.sparent]
-            self.add_property('_AxeList__insertion_angle', insertion_angle)
+            self.__insertion_angle = insertion_angle
             self.temporary_attribute.add('_AxeList__insertion_angle')
         return self.__insertion_angle
     
     def _compute_length_properties(self):
         # compute the axe length and arc length of segment w.r.t their axe
-        arc_length = _np.array([[] for i in xrange(len(self.segment)))
+        arc_length = _np.array([[] for i in xrange(len(self.segment))])
         axe_length = _np.zeros(len(self.segment))
         segment_number = _np.zeros(len(self.segment),dtype=int)
         for i,slist in enumerate(self.segment):
@@ -67,9 +148,11 @@ class AxeList(GraphList):
             slist = _np.asarray(slist)
             arcL  = _np.cumsum(self._segment_list.length[slist])
             arc_length[i] = arcL
+            main_axe = self._segment_list.axe[slist]==i         # if axis are overloaping, update
+            arc_length[slist[main_axe]] = arcL[main_axe]        # arc length if axe i is the segment "main" axe 
             axe_length[i] = arcL[-1]
             segment_number[i] = len(arcL)
-        self.segment.add_property('arc_length',arc_length)
+        self.segment.add_property('axelength',arc_length)
 
 class NodeList(GraphList):
     def __init__(self,position=None, x=None, y=None):
@@ -201,37 +284,13 @@ class SegmentList(GraphList):
         
     @property
     def neighbors(self):
-        """ edges array of neighboring segments
-        
-        The edge dynamic property is an array of shape (S,N,2) with S the number 
-        of segments, N the (maximum) number for neighbors per segment side and
-        2 for the 2 segment sides. Each neighbors[i,:,k] contains the list of 
-        the neighboring segments ids on side k of segment `i`.
-        
-        In order to be an array, the missing neighbors are set to 0
-        
+        """ 
+        Edges array of neighboring segments constructed with `neighbor_array`
         *** It requires the `seed` attribute ***
         """
         if not hasattr(self,'_neighbors'):
-            seed = self.seed
-            node = self.node_list
-            ns   = node.segment.copy()
-            invalid_nodes = _np.vectorize(lambda nslist: (self.seed[nslist]>0).all())(node.segment)
-            ns[invalid_nodes] = set()
-            ns[0] = set()
-            
-            # construct nb1 & nb2 the neighbor array of all segments in direction 1 & 2
-            nsbor = _np.vectorize(set)(ns)
-            snbor = [(s1.difference([i]),s2.difference([i])) for i,(s1,s2) in enumerate(nsbor[self.node])]
-            
-            # 
-            edge_max = max(map(lambda edg:max(len(edg[0]),len(edg[1])),snbor))
-            edge = _np.zeros((len(snbor),edge_max,2), dtype='uint32')
-            for i,(nb1,nb2) in enumerate(snbor):
-                edge[i,:len(nb1),0] = list(nb1)
-                edge[i,:len(nb2),1] = list(nb2)
-                
-            self._neighbors = edge
+            nbor = neighbor_array(self.node_list.segment, self.node, self.seed)
+            self._neighbors = nbor
             self.temporary_attribute.add('_neighbors')
         return self._neighbors
     @neighbors.setter
@@ -240,64 +299,79 @@ class SegmentList(GraphList):
         if value is not None:
             self._neighbors = value
     
-    @_property
-    def nbor_switch_dir(self):
+    def digraph(self, direction):
         """
-        Tells if `neighbors` edges requires a switch of direction
-        
-        This boolean array with same shape as `neighbors` has True value where 
-        (directed) connection through a `neighbors` edge requires a change of 
-        one of the segment direction.
-        
-        for all edge (i,j) stored in `neighbors`, i.e. j in neighbors[i]: 
-          - i & j are not in the same relative direction
-          - i.e. is j a neighbor on side s of i, and i on side s of j ?
-               
-        *** requires the `neighbors` property ***
-        """
-        if not hasattr(self,'_nbor_switch_dir'):
-            nbor = self.neighbors
-            nbor_switch = _np.zeros(nbor.shape, dtype=bool)
-            sid = _np.arange(nbor.shape[0])[:,None,None]
-            nbor_switch[...,0] = (nbor[nbor[...,0],:,0]==sid).any(axis=-1) # side 0
-            nbor_switch[...,1] = (nbor[nbor[...,1],:,1]==sid).any(axis=-1) # side 1
-            self._nbor_switch_dir = nbor_switch
-            self.temporary_attribute.add('_nbor_switch_dir')
-        return self._nbor_switch_dir
-    @nbor_switch_dir.setter
-    def nbor_switch_dir(self, value):
-        self.clear_temporary_attribute('_nbor_switch_dir')
-        if value is not None:
-            self._nbor_switch_dir = value
-    
-    def clear_neighbors(self):
-        """ Reset the `neighbors` and related `nbor_switch_dir` atttributes """
-        self.neighbors = None
-        self.nbor_switch_dir = None
-
-    def switch_direction(self, direction, digraph=False):
-        """
-        Change segment direction given by `direction` (switch node ids)
-        
-        *** It also reset the `neighbors` and `nbor_switch_dir` attributes ***
+        Create the digraph induced by `direction`
         
         `direction` should be a boolean vector array with length equal to the 
-        segment number. True value means the segment direction should be switched
+        segment number. True value means the segment direction reversed.
         
-        if `digraph` is True, remove all edges of the (updated) `neighbors` 
-        attribute for which the respective `nbor_switch_dir` is True:
-        The graph obtained become a valid directed graph where 
+        Return a neighbor type array such that: 
           - neighbors[...,0] are the  incoming neighbors, and
           - neighbors[...,1] are the outcoming neighbors
         """
         # reverse edge direction
-        self.node[direction] = self.node[direction][...,::-1]
-        self.clear_neighbors()
-        
-        if digraph:
-            # remove edges that are invalid for a directed graph
-            self.neighbors[self.nbor_switch_dir] = 0
+        node = self.node.copy()
+        node[direction] = node[direction][...,::-1]
+        nbor = neighbor_array(self.node_list.segment, node, self.seed)
             
+        # remove edges that are invalid for a directed graph
+        # 
+        # switch: boolean array with same shape as `nbor` that has True value 
+        # where (directed) connection through a neighbors edge requires a change 
+        # of one of the segment direction. ie.:
+        # 
+        # for all edge (i,j) stored in `neighbors`, i.e. j in neighbors[i]: 
+        #   - i & j are not in the same relative direction
+        #   - i.e. is j a neighbor on side s of i, and i on side s of j ?
+        #
+        # neighbors that requires switch are invalid in the digraph
+        switch = _np.zeros(nbor.shape, dtype=bool)
+        sid    = _np.arange(nbor.shape[0])[:,None,None]
+        switch[...,0] = (nbor[nbor[...,0],:,0]==sid).any(axis=-1) # side 0
+        switch[...,1] = (nbor[nbor[...,1],:,1]==sid).any(axis=-1) # side 1
+             
+        nbor[switch] = 0
+        
+        return nbor
+
+def neighbor_array(node_segment, segment_node, seed):
+    """
+    Create an edges array of neighboring segments
+    
+    :Inputs:
+      - node_segment:
+          An array of lists of all segment connected to each node
+      - segment_node:
+          An array of the nodes pairs connected to each segment
+      - seed:
+          The seed mask of segment that are the roots of the graph
+    
+    :Output:
+        An array of shape (S,N,2) with S the number of segments, N the maximum
+        number for neighbors per segment side and 2 for the 2 segment sides. 
+        Each neighbors[i,:,k] contains the list of the neighboring segments ids 
+        on side k of segment `i`.
+        
+        In order to be an array, the missing neighbors are set to 0
+    """
+    ns   = node_segment.copy()
+    invalid_nodes = _np.vectorize(lambda nslist: (seed[nslist]>0).all())(node_segment)
+    ns[invalid_nodes] = set()
+    ns[0] = set()
+    
+    # construct nb1 & nb2 the neighbor array of all segments in direction 1 & 2
+    nsbor = _np.vectorize(set)(ns)
+    snbor = [(s1.difference([i]),s2.difference([i])) for i,(s1,s2) in enumerate(nsbor[segment_node])]
+    
+    edge_max = max(map(lambda edg:max(len(edg[0]),len(edg[1])),snbor))
+    edge = _np.zeros((len(snbor),edge_max,2), dtype='uint32')
+    for i,(nb1,nb2) in enumerate(snbor):
+        edge[i,:len(nb1),0] = list(nb1)
+        edge[i,:len(nb2),1] = list(nb2)
+        
+    return edge
+
 class SegmentGraph(_ArrayGraph):
     """
     ArrayGraph for a segment list
@@ -448,7 +522,9 @@ class RootAxialTree(RootGraph):
         self.stype[seed>0] = _SEED
         self.stype[seed<0] = _UNREACHABLE
         
-        if to_tree:
+        if axe:
+            self.axe = axe
+        elif to_tree:
             self.make_tree(method=to_tree)
             if to_axe: 
                 self.find_axes(method=to_axe, single_order1_axe=single_order1_axe)
@@ -604,7 +680,7 @@ class RootAxialTree(RootGraph):
         # ----------------------------------------------------------------
         arc_length = _np.zeros_like(self.segment.length)
         axe.length = _np.zeros(len(axe.segment))
-        axe.size   = _np.zeros(len(axe.segment),dtype=int)   ## does not respect GraphList standart: size is the number of elements (-1) !
+        ##axe.size   = _np.zeros(len(axe.segment),dtype=int)   ## does not respect GraphList standart: size is the number of elements (-1) !
         for i,slist in enumerate(axe.segment):
             if len(slist)==0: continue
             slist = _np.asarray(slist)
@@ -612,7 +688,7 @@ class RootAxialTree(RootGraph):
             main_axe = self.segment.axe[slist]==i            # if axis are overloaping, update
             arc_length[slist[main_axe]] = arcL[main_axe]     # arc length if axe i is the segment "main" axe 
             axe.length[i] = arcL[-1]
-            axe.size[i]   = len(arcL)
+            ##axe.size[i]   = len(arcL)
         self.segment.add_property('axelength',arc_length)
         
         # compute the axes parent, order, and plant id 
@@ -743,14 +819,14 @@ class RootAxialTree(RootGraph):
         # ----------------------------------------------------------------
         arc_length = _np.zeros_like(self.segment.length)
         axe.length = _np.zeros(len(axe.segment))
-        axe.size   = _np.zeros(len(axe.segment),dtype=int)   ## doesn not respect GraphList standart: size is he number of elements (-1) !
+        ##axe.size   = _np.zeros(len(axe.segment),dtype=int)   ## doesn not respect GraphList standart: size is he number of elements (-1) !
         for i,slist in enumerate(axe.segment):
             if len(slist)==0: continue
             arcL = _np.cumsum(self.segment.length[slist])
             main_axe = self.segment.axe[slist]==i            # if axis are overloaping, update
             arc_length[slist[main_axe]] = arcL[main_axe]     # arc length if axe i is segment "main" axe 
             axe.length[i] = arcL[-1]
-            axe.size[i]   = len(arcL)
+            ##axe.size[i]   = len(arcL)
         self.segment.add_property('axelength',arc_length)
         
         # compute the axes parent, order, and plant id 
@@ -806,7 +882,7 @@ class RootAxialTree(RootGraph):
             
         RootGraph.plot(self, bg=bg, sc=sc, **kargs)
             
-    def to_mtg(self):
+    def to_mtg(self, radius='radius'):
         from itertools import izip
         # create a MTG graph 
         from openalea.mtg import MTG
@@ -867,7 +943,7 @@ class RootAxialTree(RootGraph):
         
         # list info to store by node
         info = dict()
-        for si,pi,li,xi,yi,ai,ri in izip(sid[m],parent[m], seg.length[m],nx[snode],ny[snode],axe[m], seg.radius[m]):
+        for si,pi,li,xi,yi,ai,ri in izip(sid[m],parent[m], seg.length[m],nx[snode],ny[snode],axe[m], seg[radius][m]):
             edge = '<' if (ai==axe[pi]) else '+'
             info[si] = dict(sparent=pi,sid=si,axe=ai,position=(xi,yi,0), length=li, radius=ri,edge_type=edge)
         for seed,xi,yi,ri in izip(buid,x,y,r):
@@ -907,7 +983,7 @@ class RootAxialTree(RootGraph):
     # printing    
     # --------
     def __str__ (self): 
-        return self.__class__.__name__ + ': %d nodes, %d segments, %d axes' % (self.node.size, self.segment.size, len(self.axe.size))
+        return self.__class__.__name__ + ': %d nodes, %d segments, %d axes' % (self.node.size, self.segment.size, self.axe.size)
     def __repr__(self): 
         return self.__str__()  ## for ipython of RootGraph obj...
 

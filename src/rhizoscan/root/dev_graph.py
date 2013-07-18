@@ -271,7 +271,7 @@ def topsort(incomming, out_going, source=None, fifo=True):
     
     return order
     
-def topsort_node(incomming, out_going, source=None, fifo=True):
+def topsort_node(incomming, out_going, source=None):
     """
     Compute the DAG topological order and return segment order and node list
     
@@ -283,13 +283,7 @@ def topsort_node(incomming, out_going, source=None, fifo=True):
       - source:
             Optional list (or mask) of starting elements.
             if None, use the list of elements with no incomming edge.
-            *** If given, no path from one source to another should exist ***
-      - fifo:
-            If True, use a first-in-first-out queue data structure. Otherwise 
-            use a last-in-first-out (LIFO) queue. 
-            In most cases, topsort is not unique. Using a fifo makes the topsort
-            follow some kind of breath-first-order ("old" elements first), while
-            a lifo makes it follow some kind of depth-first-order.
+            *** If given, sources should not have incomming edges ***
             
     :Output:
       - The order of segments, such as returned by `topsort()`
@@ -297,46 +291,60 @@ def topsort_node(incomming, out_going, source=None, fifo=True):
         a pair `(parent, children)`, both being sets of respectively the
         incomming and outgoing segments id.
         So a list of tuples of sets.
-    
-    (*) A. B. Kahn. 1962. Topological sorting of large networks. Commun. ACM 5
+        
+    :WARNING:
+        The following should be true: If two elements share a parent 
+        (i.e. have an incomming edge to the same elements), then they have 
+        the same set of parents. That is: parent and siblings are all 
+        connected through the same (unspecified) node
+        
+        This means that the directed graph obtained by specifying the direction
+        of each segment is a DAG: no cycle need to be broken.
     """
     from collections import deque
     
     incomming = [i.copy() for i in incomming] # copy
-    parents = [list(i) for i in incomming]   # copy, as convertion set to list
+    parents = [list(i) for i in incomming]   # copy & convertion set-to-list
     
     # list of elements ready to be processed
     source  = _init_source(source, lambda: (_np.vectorize(len)(incomming)==0).nonzero())
     
-    if fifo: current_append = current.appendleft 
-    else:    current_append = current.append 
+    current = set(source)     # element to be processed
+    order   = []              # stores ordered node pairs 
     
-    current = deque(source)     # element to be processed
-    order   = []                # stores ordered element ids 
-    node    = []                # ordered list of node as ddescribed in doc.
+    def processed(c):
+        for child in c:
+            current.discard(child)
+            if child==101 or 101 in out_going[child]:
+                print c, child, out_going[child], [incomming[gc] for gc in out_going[child]]
+            for grand_child in out_going[child]:
+                incomming[grand_child].remove(child)
+                if len(incomming[grand_child])==0:
+                    current.add(grand_child)
+        
     while current:
         e = current.pop()
         p = parents[e]
-        c = out_going[p[0]] if len(p) else set()
-        node.append((c,set(p)))
-        order.append(e)
-        
-        for n in out_going[e]:
-            incomming[n].remove(e)
-            if len(incomming[n])==0:
-                current_append(n)
+        if len(p): c = out_going[p[0]]
+        else:      c = set([e])
+        order.append((set(p),c))
+        if 101 in c:
+            print '  *', c,p, len(current)
+        processed(c)
     
-    return order, node
+    return order
 
-def minimum_dag_branching(incomming, cost, invalid=-1):
+def minimum_dag_branching(incomming, cost, invalid=0):
     
     """
     Compute the minimum branching on the given DAG
     
     The minimum branching is the equivalent of the minimum spanning tree but for 
-    digraph. For DAG, which contains no cycle, the algorithm is trivial.
-      See the Chu-Liu/Edmonds' algorithm:
-      http://en.wikipedia.org/wiki/Edmonds'_algorithm
+    digraph. For DAG, which contains no cycle, the algorithm is trivial:
+      For all elements, choose its `incomming` element with minimal cost
+      
+    See the Chu-Liu/Edmonds' algorithm:
+      `http://en.wikipedia.org/wiki/Edmonds'_algorithm`
     
     :Inputs:
       - incomming:
@@ -345,12 +353,13 @@ def minimum_dag_branching(incomming, cost, invalid=-1):
           A SxS array of the cost between any pair of segments : S = len(incomming)
       - invalid:
           Value to return for element without parent
+          Must be the id of an element: 0<=invalid<=len(incomming)
 
     :Outputs:
       The selected parent of each graph segment, as a list.
     """
     if isinstance(incomming, list):
-        parent_nbor = list_to_neighbor(incomming, invalid=0)
+        parent_nbor = list_to_neighbor(incomming, invalid=invalid)
     else:
         parent_nbor = incomming
         
@@ -358,71 +367,62 @@ def minimum_dag_branching(incomming, cost, invalid=-1):
     y = cost[x[:,None],parent_nbor].argmin(axis=1)
     
     parent = parent_nbor[x,y]
-    parent[(parent_nbor==0).all(axis=1)] = invalid
+    #parent[(parent_nbor==invalid).all(axis=1)] = invalid
     
     return parent
-
-def dag_covering_path(incomming, out_going, cost, top_order=None, source=None):
+   
+def OLD_merge_tree_path(incomming, out_going, top_order, path, spath, priority):
     """
-    Compute a minimum covering path over a DAG
-    
-    *** IN DEVELOPMENT ***
-    
-    :Inputs:
-      - incomming:
-            The incomming segment edges in list-of-edge representation
-      - out_going:
-            The outgoing segment edges in list-of-edge representation
-      - cost:
-            A NxN array (with N the number of DAG element) of the edges cost
-      - top_order:
-            The topological order of DAG segments. If not given, it is computed.
-      - source:
-            Optional list (or mask) of starting elements.
-            if None, strart at the elements with no incomming edge
-            
-    :Output:
-      - A list of the list of segments contained in each path
-      - A list of the list of path going through each segment
-      
-      The set of path cover the graph and all path start at one of the sources
-    
-    :Note:
-        The following should be true: If two elements share a parent 
-        (i.e. have an incomming edge to the same elements), then they have 
-        the same set of parents. That is: parent and siblings are all 
-        connected through the same (unspecified) node
+    merge path when possible...
     """
-    # find "best" parent of all segments
-    parent = minimum_dag_branching(incomming=incomming, cost=cost, invalid=-1)
+    # dictionary of (tip_element:path_id) of all path
+    path_tip = dict([(p[-1] if len(p) else 0,pid) for pid,p in enumerate(path)])
+    priority = _np.asarray(priority)
     
-    # init path data structure
-    path = [[]]                                    # elements in path
-    elt_path = [[] for i in xrange(len(parent))]   # path in elements
-    def new_path(e):
-        path.append([e])
-        path_id = len(path)-1
-        elt_path[e].append(path_id)
-        return path_id
-    def merge_path(src, dst):
-        src_path = elt_path[src]
-        for p in src_path:
-            path[p].append(dst)
-        elt_path[dst].extend(src_path)
-        
-    # compute a first path cover based on minimum branching tree
-    if top_order is None:
-        top_order = topsort(incomming=incomming, out_going=out_going, source=source)
+    path  = path[:]  # copy
+    spath = [set(sp) for sp in spath]  # copy, and cvt to list of sets
     for e in top_order[::-1]:
-        if len(elt_path[e])==0: new_path(e)
-        p = parent[e]
-        if p>-1: merge_path(e,p)
+        if e not in path_tip or len(out_going[e])==0: continue
+        
+        # find path p1, p2 to merge 
+        #   p2ind is the merging position in path p2 
+        p1 = path_tip[e]
+        p2 = []
+        p2ind = []
+        ##print e, out_going[e], p1, [spath[e_out] for e_out in out_going[e]]
+        for e_out in out_going[e]:
+            # find potential path to merge passing through each outgoing element 
+            p2sub = list(spath[e_out])
+            #if e==1789:
+            #    return path
+            #    print e_out, [path[p2i] for p2i in p2sub]
+            p2sub = [p2sub[i] for i in priority[p2sub].argsort()][:-1]
+            p2.append(p2sub)
+            p2ind.append([path[p2i].index(e_out) for p2i in p2sub])
+            
+        p2    = reduce(lambda l1,l2:l1+l2, p2)
+        p2ind = reduce(lambda l1,l2:l1+l2, p2ind)
+        if len(p2):
+            # if there is at least one "free" path
+            p2id = priority[p2].argmin()
+            p2 = p2[p2id]
+            p2ind = p2ind[p2id]
+                
+            # merge path p1 + end of p2
+            for s in path[p2][:p2ind]:
+                spath[s].remove(p2)
+            path[p1] = path[p1] + path[p2][p2ind:]
+            path[p2] = None
+            ##pprint '  >', p1, p2, 'merged'
+        else:
+            pass
+            ##print '  no merge available:', e, p1
+        
+    path = [p for p in path if p is not None]
+    
+    return path
 
-    return path, elt_path
-
-
-
-def dag_covering_path_1(dag_edge, cost, source):
+def OLD_dag_covering_path(dag_edge, cost, source):
     """
     First attempt, local matching (at nodes) of path
         > Conclusion: the path "breaks" too often
@@ -664,7 +664,7 @@ def set_downward_segment(graph):
     """
     upward = _np.diff(graph.node.y[graph.segment.node],axis=1).ravel()<0
     graph.segment.node[upward] = graph.segment.node[upward][:,::-1]
-    graph.segment.clear_neighbors()
+    graph.segment.neighbors = None # clear neighbor property
     
     return graph
 
@@ -842,6 +842,21 @@ def sinput(rgraph):
     """
     from matplotlib import pyplot as plt
     
+    env = _segdist_env(rgraph)
+    
+    rgraph.plot(bg='k')
+    p = plt.ginput(1)
+    while len(p):
+        d = _segment_distance(p,env)
+        axis = plt.axis()
+        rgraph.plot(bg='k', sc=1+(d==d.min()))
+        print 'segment id:', d.argmin()
+        plt.axis(axis)
+        p = plt.ginput(1)
+        
+    return _np.argmin(d)
+    
+def _segdist_env(rgraph):
     segment = rgraph.segment
     
     pos   = segment.node_list.position[:,segment.node]  # shape (xy,S,node12)
@@ -850,29 +865,32 @@ def sinput(rgraph):
     lel   = (edge**2).sum(axis=0)**.5
     lel   = _np.maximum(lel,2**-5)
     
-    d = _np.zeros(segment.node.shape[0])
+    return dict(pos=pos, start=start, edge=edge, lel=lel)
     
-    rgraph.plot(bg='k')
-    p = plt.ginput(1)
-    while len(p):
-        p = _np.array(p[0])[:,None]  # shape (2,1)
-        
-        # projection of p on edge relative to edge 
-        on_edge = ((p-start)*edge).sum(axis=0)/lel
-        
-        # distance of projection to p
-        d[:] = ((start + on_edge[None]*edge - p)**2).sum(axis=0)**.5
-        
-        mask = on_edge<0
-        d[mask] = ((start[:,mask]-p)**2).sum(axis=0)**.5
-        mask = on_edge<lel
-        d[mask] = ((pos[:,mask,1]-p)**2).sum(axis=0)**.5
-        #d[:] = (((start + edge) - p)**2).sum(axis=0)**.5
+def _segment_distance(p, env):
+    """
+    x,y = p
+    env: from _closest_evnv
+    """
+    start = env['start']
+    edge  = env['edge']
+    lel = env['lel']
+    pos = env['pos']
+    
+    p = _np.array(p[0])[:,None]  # shape (2,1)
+    
+    # projection of p on edge relative to edge 
+    on_edge = ((p-start)*edge).sum(axis=0)/lel
+    
+    # distance of projection to p
+    d = ((start + on_edge[None]*edge - p)**2).sum(axis=0)**.5
+    
+    mask = on_edge<0
+    d[mask] = ((start[:,mask]-p)**2).sum(axis=0)**.5
+    mask = on_edge<lel
+    d[mask] = ((pos[:,mask,1]-p)**2).sum(axis=0)**.5
+    #d[:] = (((start + edge) - p)**2).sum(axis=0)**.5
 
-        axis = plt.axis()
-        rgraph.plot(bg='k', sc=1+(d==d.min()))
-        print 'segment id:', _np.argmin(d)
-        plt.axis(axis)
-        p = plt.ginput(1)
-        
-    return _np.argmin(d)
+    return d
+    
+

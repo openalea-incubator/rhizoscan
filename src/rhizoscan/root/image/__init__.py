@@ -62,7 +62,7 @@ def segment_root_image(image, mask=None):
     
     If mask is provided, do not segment these area
     """
-    from ..stats import gmm1d, cluster_1d  ## relative import ?
+    from rhizoscan.stats import gmm1d, cluster_1d  ## relative import ?
     # segment image
     # -------------
     if mask is None: m = slice(None)

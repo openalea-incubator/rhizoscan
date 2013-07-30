@@ -3,8 +3,8 @@ import scipy.ndimage as _nd
 
 from rhizoscan.ndarray import local_min as _local_min
 from rhizoscan.ndarray.measurements import label_size as _label_size
-from ..stats import gmm1d       as _gmm1d
-from ..stats import cluster_1d  as _cluster_1d
+from rhizoscan.stats import gmm1d       as _gmm1d
+from rhizoscan.stats import cluster_1d  as _cluster_1d
 
 from rhizoscan.workflow.openalea import aleanode as _aleanode
 

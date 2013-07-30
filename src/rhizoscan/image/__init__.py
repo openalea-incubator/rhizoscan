@@ -320,6 +320,7 @@ class Image(_np.ndarray, _Data):
                 v = str(v)
                 if k=='info' and len(v)>10: v = v[:6] + '...' 
                 desc += ', ' + k + '=' + v
+        desc += ')'
         return desc
         
 class ImageSequence(_Sequence):

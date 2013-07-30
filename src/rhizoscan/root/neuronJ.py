@@ -225,9 +225,9 @@ def load_ref_trees(p):
 # ----------------------------
 def parse_refdata_db(ini_file, output='tree', overwrite=False, verbose=True):
     from os.path import splitext, join, exists
-    from .pipeline.database import parse_image_db 
+    from .pipeline.dataset import make_dataset 
     
-    flist, invalid, out_dir = parse_image_db(ini_file=ini_file, output=output)
+    flist, invalid, out_dir = make_dataset(ini_file=ini_file, output=output)
     
     if verbose:
         print '\033[31m ---- invalid files: ----'
@@ -258,10 +258,10 @@ def parse_refdata_db(ini_file, output='tree', overwrite=False, verbose=True):
 def load_db_with_ref(auto, ref, auto_out='tree', ref_out='tree'):
     """
     return 
-        pipeline.database.parse_image_db(...)[0] for files with ref data only
+        pipeline.dataset.make_dataset(...)[0] for files with ref data only
         parse_ref_data[0]
     """
-    from .pipeline.database import parse_image_db 
+    from .pipeline.dataset import make_dataset 
     
     def to_key(x):
         return x.multilines_str(max_width=2**60)#repr(to_tuple(x))
@@ -271,7 +271,7 @@ def load_db_with_ref(auto, ref, auto_out='tree', ref_out='tree'):
         else:
             return x
 
-    auto, inv, auto_dir = parse_image_db(auto,output=auto_out)
+    auto, inv, auto_dir = make_dataset(auto,output=auto_out)
     ref,  inv, ref_dir  = parse_refdata_db(ref,output=ref_out, verbose=False)[:3]
     auto = dict([(to_key(a.metadata),a) for a in auto])
     auto = [auto[to_key(r.metadata)] for r in ref]

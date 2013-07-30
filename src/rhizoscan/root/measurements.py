@@ -330,7 +330,7 @@ def multi_plot(tc, split='metadata.date', scale=1):
 @_aleanode()
 def cmp_plot(db, stat, key1, key2, update_stat=False, fig=42, outliers=.05, key_color=2):
     """
-    db is a database (list) of root image descriptor (filename, metadata, output)
+    db is a dataset (list) of root image descriptor (filename, metadata, output)
     stat is the stat to to plot
     key is a list of 2 metadata attribute to cluster the data by
 

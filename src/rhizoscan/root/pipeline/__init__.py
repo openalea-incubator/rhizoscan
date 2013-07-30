@@ -382,9 +382,9 @@ load_root_image = PipelineModule(name='image', \
 
 #### to be (re)moved
 ##def arabido(ini_file, indices=None, **kargs):
-##    from .database import parse_image_db
+##    from .dataset import make_dataset
 ##    if isinstance(ini_file, basestring):
-##        flist, invalid, outdir = parse_image_db(ini_file=ini_file, output='tree')
+##        flist, invalid, outdir = make_dataset(ini_file=ini_file, output='tree')
 ##    else:
 ##        flist = ini_file
 ##    

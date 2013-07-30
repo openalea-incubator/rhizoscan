@@ -10,7 +10,7 @@ from rhizoscan.ndarray.measurements import clean_label as _clean_label
 from rhizoscan.image    import Image as _Image
 from rhizoscan.workflow import Data  as _Data
 
-from .database import parse_image_db as _parse_image_db
+from .dataset import make_dataset as _make_dataset
 from . import compute_tree   as _compute_tree
 from . import _print_state, _print_error
 from . import _normalize_image
@@ -35,7 +35,7 @@ _aleanode('42', name='Test.run', nodeclass='Test.run')(Test.run)
 @_aleanode('failed_files')
 def process(ini_file, indices=None, **kargs):
     if isinstance(ini_file, basestring):
-        flist, invalid, outdir = _parse_image_db(ini_file=ini_file, output='output')
+        flist, invalid, outdir = _make_dataset(ini_file=ini_file, output='output')
     else:
         flist = ini_file
     

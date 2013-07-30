@@ -195,7 +195,7 @@ def plot(self, stat='axe1_length', title=None, prefilter=None, split=None, legen
         ax.tree_data = _Struct(stat=stat, trees=meta, x=refs, y=cmps) ##tree=>meta?
 
 def tree_compare_from_db(reference, compared, tree_suffix='.tree', filename=None):
-    from .pipeline.database import get_column
+    from .pipeline.dataset import get_column
     # remove extra element of 'compared'
     def to_key(x):
         return x.multilines_str(max_width=2**60)#repr(to_tuple(x))

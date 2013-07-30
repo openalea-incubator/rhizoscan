@@ -9,7 +9,7 @@ from rhizoscan.ndarray.filter       import otsu as _otsu
 from rhizoscan.image    import Image as _Image
 from rhizoscan.workflow import Data  as _Data
 
-from .database import parse_image_db as _parse_image_db
+from .dataset import make_dataset as _make_dataset
 from . import PipelineModule   as _PModule
 from . import pipeline_node    as _pipeline_node
 from . import load_root_image
@@ -28,7 +28,7 @@ from ..image.to_graph import line_graph          as _line_graph
 ##@_aleanode('failed_files')
 ##def process(ini_file, indices=None, **kargs):
 ##    if isinstance(ini_file, basestring):
-##        flist, invalid, outdir = _parse_image_db(ini_file=ini_file, output='output')
+##        flist, invalid, outdir = _make_dataset(ini_file=ini_file, output='output')
 ##    else:
 ##        flist = ini_file
 ##    

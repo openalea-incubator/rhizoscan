@@ -3,7 +3,7 @@ import scipy as _sp
 import scipy.stats   as _st
 import scipy.ndimage as _nd
 
-from ..ndarray.filter import normalize as _normalize
+from rhizoscan.ndarray.filter import normalize as _normalize
 
 
 """
@@ -152,7 +152,7 @@ def gmm1d(data, weights=None,classes=2, max_iter=100, threshold=10**-10, bins=25
         # total weight of each class
         w = _nd.sum(weight,labels=cluster, index=ind)    
         
-        # responsability (probability) of elements to be part of the each class
+        # responsability (probability) of elements to be part of each class
         for c,n in enumerate(normals):
             resp[c] = n.pdf(value) * w[c]
 
@@ -215,8 +215,8 @@ def cluster_1d(data, distributions=None, weights=None, classes=2, bins=256, thre
         
         1) distributions: list of `scipy.stats.distributions` objects
            weights:      the weights of each normals distribution
-           bins:         should be the same as used to compute `distributions`
-                         and `weights`. It is used to pre-process input `data`
+           bins:         Used to pre-process input `data`. It should be the same
+                         as used to compute `distributions` and `weights`.
            
         2) classes:   the number of classes to be estimated
            threshold: the stopping threshold for gmm1d (see gmm1d doc)
@@ -235,6 +235,7 @@ def cluster_1d(data, distributions=None, weights=None, classes=2, bins=256, thre
         if bins.size==1:
             bins = _np.linspace(data.min(), data.max(), bins+1)
         data = _np.digitize(data.ravel(), bins).reshape(data.shape)
+        data = bins[data-1] + (bins[1]-bins[0])/2
         
     E = expectation(data=data,distributions=distributions, weights=weights)
     return _np.argmax(E,axis=0)

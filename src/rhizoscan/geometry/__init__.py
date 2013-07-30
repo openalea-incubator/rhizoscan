@@ -1,5 +1,5 @@
 """
-Module for geometry function
+Module for some geometry functionalities
 """
 
 import numpy as _np
@@ -26,8 +26,8 @@ def normalize(data, istransform=False):
     """
     Normalize data by its "projective" coordinates - ie. set w=1 of vector [x,y,w] 
     
-    By default, 'data' should be a vector -shape=(k,)- or a array of vectors of
-    shape (k,N) for N elements. Each vector is then normalized its last value.
+    By default, 'data' should be a vector -shape=(k,)- or a shpaed (k,N) array 
+    of N vectors. Each vector is then normalized its last value.
     
     If 'istransform' is True, data is considered a transformation matrix and is
     normalized by its lower right value.

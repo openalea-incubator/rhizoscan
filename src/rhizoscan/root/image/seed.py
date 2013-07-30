@@ -3,8 +3,8 @@ import scipy.ndimage as _nd
 
 from rhizoscan.ndarray import local_min as _local_min
 from rhizoscan.ndarray.measurements import label_size as _label_size
-from ..stats import gmm1d         as _gmm1d
-from ..stats import cluster_gmm1d as _cluster
+from ..stats import gmm1d       as _gmm1d
+from ..stats import cluster_1d  as _cluster_1d
 
 from rhizoscan.workflow.openalea import aleanode as _aleanode
 
@@ -43,8 +43,9 @@ def detect_leaves(mask, image, leaf_number, root_radius, leaf_height=None, sort=
     lab_lum = _nd.maximum(image,label,index=_np.arange(N+1))
     lab_lum[0] = 0
     
-    n,w = _gmm1d(image[mask],classes=2,bins=256 if image.dtype!='uint8' else 'unique')
-    lab_leaf = _cluster(lab_lum,distribution=n,weights=w)
+    bins = 256 if image.dtype!='uint8' else 'unique'
+    n,w = _gmm1d(image[mask],classes=2, bins=bins)
+    lab_leaf = _cluster_1d(lab_lum,distributions=n,weights=w, bins=bins)
     lab_leaf[0] = 0
     
     leaf = (lab_leaf>0)[label]  # leaf mask
@@ -204,7 +205,7 @@ def detect_graph_seed(graph,seed_prop,seed_number):
     ## hard-written spatial prob !!!
     #Y = _np.mean(graph.node.y[graph.segment.node],axis=1)
     #Y = _np.exp(-(Y-200)**2/150**2)
-    S = _cluster(graph.segment[seed_prop],classes=2,bins=256)
+    S = _cluster_1d(graph.segment[seed_prop],classes=2,bins=256)
     
     from .graph import SegmentGraph
     nb = SegmentGraph(segment=graph.segment, node=graph.node).edges

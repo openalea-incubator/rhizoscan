@@ -62,7 +62,7 @@ def segment_root_image(image, mask=None):
     
     If mask is provided, do not segment these area
     """
-    from ..stats import gmm1d, cluster_gmm1d  ## relative import ?
+    from ..stats import gmm1d, cluster_1d  ## relative import ?
     # segment image
     # -------------
     if mask is None: m = slice(None)
@@ -70,7 +70,7 @@ def segment_root_image(image, mask=None):
     im   = image
     #n,w  = gmm1d(im[m], classes=2, bins=256)
     mask = _np.zeros(im.shape,dtype=int)
-    mask[m] = cluster_gmm1d(im[m], classes=2, bins='unique' if im.dtype=='uint8' else 256)#, distribution=n, w)
+    mask[m] = cluster_1d(im[m], classes=2, bins='unique' if im.dtype=='uint8' else 256)#, distributions=n, w)
     
     return mask
         

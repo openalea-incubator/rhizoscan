@@ -181,7 +181,7 @@ def merge_tree_path(incomming, out_going, top_order, path_elt, elt_path, priorit
     
     return path_elt, elt_path, del_num
 
-def path_to_axes(segment, path, axe_selection=[('length',1),('min_tip_length',10)]):
+def path_to_axes(graph, path, axe_selection=[('length',1),('min_tip_length',10)]):
     """
     From a set of covering path, return a set of root axes with order 1 axe 
     detected
@@ -190,6 +190,7 @@ def path_to_axes(segment, path, axe_selection=[('length',1),('min_tip_length',10
     
     *** warning: input `path` is changed in-place ***
     """
+    segment = graph.segment
     axe = path[:]  # to store segment list per axes
     
     aLength = _np.vectorize(lambda slist:segment.length[slist].sum())(axe)
@@ -215,40 +216,55 @@ def path_to_axes(segment, path, axe_selection=[('length',1),('min_tip_length',10
                 raise NotImplementedError('axe order selection with', method, param, 'is not implemented')
                 
         elif method=='radius':
-            from .stats import cluster_gmm1d as cluster
+            from .stats import cluster_1d as cluster
             aRadius = _np.vectorize(lambda slist:segment.radius[slist].mean())(axe)
             aRadius[_np.isnan(aRadius)] = 0
             main_axes = cluster(aRadius, classes=2, bins=256)
             aOrder[main_axes] = order
             
+        elif method=='seminal':
+            from .stats import cluster_1d
+            adist = _axe_distance_to_seed(graph=graph,axe=axe,aPlant=aPlant, a2process=aOrder==max_order)
+            if param==1 or param=='max':
+                puid = _np.unique(aPlant)
+                if puid[0]==0: puid=puid[1:]
+                for plant in puid:
+                    aid = _np.argmax(adist*(aPlant==plant))
+                    aOrder[aid] = order
+            else:
+                seminal = cluster_1d(adist,classes=2, bins=256)
+                aOrder[seminal>0] = order
+           
         elif method=='min_tip_length':
-            saxe = [[] for i in xrange(segment.size+1)]
-            for aid, slist in enumerate(axe):
-                for s in slist:
-                    saxe[s].append(aid)
+            saxe = segment_axe_list(axe, segment.size+1)
             saxe_num = _np.vectorize(len)(saxe)
             
+            # test tip length all axes in order of decreasing length
             sorted_axe = sorted(enumerate(axe),key=lambda x:aLength[x[0]],reverse=1)
             for aid,slist in sorted_axe:
                 if aOrder[aid]<max_order: continue
-                
+                    
+                # find contiguous axe parts that are owned only by this axe 
+                # these are considered potential axe tips 
                 own_seg   = _np.ma.masked_not_equal(saxe_num[slist],1)
                 own_slice = _np.ma.notmasked_contiguous(own_seg)
                 if isinstance(own_slice,slice):
                     own_slice = [own_slice]
-                ##print aid, own_slice,
+
+                # For each tip, test if it has suffisent length
                 keep = False
                 for tip in own_slice[::-1]:
                     if segment.length[slist[tip]].sum()>param: 
                         keep = True
                         break
+                        
+                # if at least one tip is correct, set this axe to required order
                 if keep:
                     axe[aid] = slist[:tip.stop]
                     aOrder[aid] = order
                     saxe_num[slist[tip.stop:]] -= 1
-                ##    print 'keep'#, tip.stop
-                ##else:
-                ##    print "don't keep"
+                else:
+                    saxe_num[slist] -= 1
 
         elif axe_selection[0]=='all':
             aOrder[:] = order
@@ -321,12 +337,21 @@ def make_axial_tree(graph, axe_selection=[('length',1),('min_tip_length',10)]):
     
     ##
     graph.segment.parent = parent
-    axe = path_to_axes(graph.segment, path, axe_selection=axe_selection)
+    axe = path_to_axes(graph, path, axe_selection=axe_selection)
     
     graph.segment.axe = axe.segment_axe
     t = _RootAxialTree(node=graph.node,segment=graph.segment, axe=axe)
     
     return t
+
+
+def segment_axe_list(axe, segment_number):
+    """ list of axe id passing through segments """
+    saxe = [[] for i in xrange(segment_number)]
+    for aid, slist in enumerate(axe):
+        for s in slist:
+            saxe[s].append(aid)
+    return saxe
 
 
 # ploting and user interface tools
@@ -375,13 +400,50 @@ def interactive_path_plot(rgraph, path=None, spath=None):
         axis = plt.axis()
         if len(p):
             d = _segment_distance(p,env)
-            print 'segment id:', d.argmin()
             sc[:] = 0
             sc[valid] = 1
             for p in spath[d.argmin()]:
                 sc[path[p]] += 1
+                
+            print 'segment id:', d.argmin(), 'axes id:', spath[d.argmin()]
             rgraph.plot(bg='k', sc=sc)
             plt.axis(axis)
         else:
             break
 
+
+def _axe_distance_to_seed(graph, axe=None, aPlant=None, a2process=None):
+    """
+    Cumulative distance to seed of all axes
+    
+    return cumulative distance
+    """
+    from scipy import ndimage as nd
+    
+    if axe is None:       axe    = graph.axe.segment
+    if aPlant is None:    aPlant = graph.axe.plant
+    if a2process is None: a2process = _np.ones(graph.axe.size+1,dtype=bool)
+    
+    segment = graph.segment
+    
+    # find the position of the seed of each plant
+    nseed = _np.vectorize(lambda slist: segment.seed[slist].min() if len(slist) else 0)(graph.node.segment)
+    plant_ind = _np.arange(aPlant.max()+1)
+    seed_x = nd.mean(graph.node.x,labels=nseed, index=plant_ind)
+    seed_y = nd.mean(graph.node.y,labels=nseed, index=plant_ind)
+    seed_pos = _np.vstack((seed_x,seed_y))                    # shape: 2xSeed#
+    
+    # find segment which has only one axe passing through
+    saxe = segment_axe_list(axe, segment.size+1)
+    uniq_axe = _np.array([(sid,alist[0]) for sid,alist in enumerate(saxe) if len(alist)==1 and a2process[alist[0]]])
+    slist = uniq_axe[:,0]
+    alist = uniq_axe[:,1]
+    
+    # compute distance to seed 
+    npos  = graph.node.position
+    snode = segment.node
+    ndist = ((npos[:,snode[slist]]-seed_pos[:,aPlant[alist]][:,:,None])**2).sum(axis=0)**.5  #segment x node_1/2
+    sdist = _np.abs(ndist[:,1]-ndist[:,0])
+    adist = nd.sum(sdist,labels=alist,index=_np.arange(len(axe)))
+            
+    return adist

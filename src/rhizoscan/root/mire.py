@@ -39,13 +39,13 @@ def correction_projection(p,i, box_size):
     
 
 def detect_circle_frame(n=2, lab=None, d=None, c=None, img=None):
-    from rhizoscan.root.stats import cluster_gmm1d as cluster
+    from rhizoscan.root.stats import cluster_1d
     from rhizoscan.ndarray import local_min
     from rhizoscan.ndarray.measurements import label_size
     
     if d is None:
         if c is None:
-            c = cluster(img,classes=2,bins=256)
+            c = cluster_1d(img,classes=2,bins=256)
         d = nd.distance_transform_edt(nd.binary_closing(c>0))
     if lab is None:
         lab     = nd.label(d>0)[0]

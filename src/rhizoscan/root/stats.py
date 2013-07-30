@@ -44,10 +44,10 @@ from ..ndarray.filter import normalize as _normalize
         - add other distribution in all (*):  
             . beta
 
- (*) for all allowable distribution
+ (*) for all allowable distributions
 """
 
-def gmm1d(data, weights=None,classes=2, max_iter=100, threshold=10**-10, bins='unique', init="linspace",verbose=False, plot=False, logplot=False):
+def gmm1d(data, weights=None,classes=2, max_iter=100, threshold=10**-10, bins=256, init="linspace",verbose=False, plot=False, logplot=False):
     """
     Apply fit a 1d gaussian mixture model on input data
     
@@ -56,7 +56,7 @@ def gmm1d(data, weights=None,classes=2, max_iter=100, threshold=10**-10, bins='u
         data:      any numeric array-like object 
         weight:    weight of each data element (None: elements are equivalent)
                    Must have same shape as 'data'
-        classes:   the number of gaussian distribution to fit
+        classes:   the number of gaussian distributions to fit
         max_iter:  maximum number of iteration for the maximization
         threshold: suffisent Hellinger distance between updated normals for the
                    algorithm to stop.
@@ -74,6 +74,7 @@ def gmm1d(data, weights=None,classes=2, max_iter=100, threshold=10**-10, bins='u
                  distance between last and new estimated normals
         plot:    plot estimated normals on top of the histogram of data     (*)
         logplot: use a logarithmic scale for plotting                       (*)
+                 If >0, then the value replace `plot`
         
         (*) require matplotlib
         
@@ -88,7 +89,7 @@ def gmm1d(data, weights=None,classes=2, max_iter=100, threshold=10**-10, bins='u
     
     # compress data    
     #Dev note: np.histogram (1) vs bincount(digitize(...)) 
-    #   > quick comparison: (1) simpler and faster for large enough array than (2)  
+    #   > quick comparison: (1) simpler and faster for large enough array than (2)
     if bins=='unique': 
         weight, bins = _np.histogram(data,_np.hstack((_np.unique(data),_np.inf)),weights=weights)
         value = bins[:-1]
@@ -103,6 +104,7 @@ def gmm1d(data, weights=None,classes=2, max_iter=100, threshold=10**-10, bins='u
     weight = weight / _np.sum(weight,dtype=float)  
     
     # initialize plotting
+    if logplot: plot = logplot
     if plot:
         import matplotlib.pyplot as plt
         plt.figure(plot)
@@ -113,7 +115,7 @@ def gmm1d(data, weights=None,classes=2, max_iter=100, threshold=10**-10, bins='u
         if logplot: minh = 10**_np.floor(_np.log(minh[minh>0].min())/_np.log(10))
         else:       minh = 0
 
-    # compute the normal distribution of all clusters
+    # compute the normal distributions of all clusters
     def normal(cluster):
         w    = _nd.sum(weight      ,                    labels=cluster, index=ind)
         mean = _nd.sum(weight*value,                    labels=cluster, index=ind) / w
@@ -187,9 +189,9 @@ def gmm1d(data, weights=None,classes=2, max_iter=100, threshold=10**-10, bins='u
 
 def normal_distance(n1,n2):
     """
-    Return the Hellinger distance between 2 normal distribution n1 and n2
+    Compute the Hellinger distance between 2 normal distributions `n1` and `n2`
     
-    n1 & n2 should be scipy.stats.norm objects
+    `n1` & `n2` should be `scipy.stats.norm` objects
     """
     m1 = n1.mean()
     s1 = n1.std()
@@ -197,58 +199,66 @@ def normal_distance(n1,n2):
     s2 = n2.std()
     return 1 - ((2*s1*s2)/(s1**2+s2**2))**0.5 * _np.exp(-((m1-m2)**2) / (4*s1**2+s2**2))
 
-def cluster_gmm1d(data, distribution=None, weights=None, classes=2, bins=256, threshold=10**-10):
+def cluster_1d(data, distributions=None, weights=None, classes=2, bins=256, threshold=10**-10):
     """
     Cluster data elements into the suitable distributions.
     
-      1)  cluster_gmm1d(data, normals, weights)
+      1)  cluster_1d(data, distributions, weights)
             or
-      2)  cluster_gmm1d(data, classes,  threshold=10**-10, bins=256)
+      2)  cluster_1d(data, classes, bins=256,  threshold=10**-10)
     
     1) cluster data elements into one of the given normal distributions
-    2) Same but estimated normals distribution on data before clustering 
+    2) Same but estimated normal distributions on data before clustering 
     
-    Input:
+    :Inputs:
         data:    an array-like object of floating numbers 
         
-        1) normals: list of normal distribution (scipy.stats.norm objects)
-           weights: the weights of each normals distribution
+        1) distributions: list of `scipy.stats.distributions` objects
+           weights:      the weights of each normals distribution
+           bins:         should be the same as used to compute `distributions`
+                         and `weights`. It is used to pre-process input `data`
            
         2) classes:   the number of classes to be estimated
            threshold: the stopping threshold for gmm1d (see gmm1d doc)
            bins:      number of bins to approximates data onto. see gmm1d for details
         
-    Output:
-        an integer array of same shape as data, where the value of each element
+    :Outputs:
+        An integer array of same shape as data, where the value of each element
         is the indices of the normals it has been clustered into
     """
-    if distribution is None:
-        distribution, weights = gmm1d(data.ravel(), classes=classes, 
-                                      bins=bins, threshold=threshold)
+    if distributions is None:
+        distributions, weights = gmm1d(data.ravel(), classes=classes, 
+                                       bins=bins, threshold=threshold)
     
-    E = expectation(data=data,distribution=distribution, weights=weights)
+    if bins!='unique': 
+        bins = _np.asarray(bins)
+        if bins.size==1:
+            bins = _np.linspace(data.min(), data.max(), bins+1)
+        data = _np.digitize(data.ravel(), bins).reshape(data.shape)
+        
+    E = expectation(data=data,distributions=distributions, weights=weights)
     return _np.argmax(E,axis=0)
     
-def expectation(data, distribution, weights, normalize=False, output=None):
+def expectation(data, distributions, weights, normalize=False, output=None):
     """
-    Return the expectation of each data element to be in the given 'distribution'
+    Return the expectation of each data element to be in given `distributions`
     
     Input:
     ------
         data: array-like 
-        distribution: a list/tuple of scipy.stats frozen distribution
+        distributions: a list/tuple of scipy.stats frozen distributions
         weight: the relative weight of each distribution. 
         normalize: if True, return a normalized expectation. For each data 
                    element, the expectation over all distributions sum to one.
                    
     Output:
     -------
-        The return matrix has shape Nx[D] where N is the number of distribution 
+        The return matrix has shape Nx[D] where N is the number of distributions
         and [D] the shape of input data 
     """
-    if output is None: E = _np.empty((len(distribution),) + data.shape)
+    if output is None: E = _np.empty((len(distributions),) + data.shape)
     else:              E = output
-    for i,(n,w) in enumerate(zip(distribution,weights)):
+    for i,(n,w) in enumerate(zip(distributions,weights)):
         E[i] = w*n.pdf(data)
 
     if normalize:

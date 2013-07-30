@@ -10,14 +10,33 @@ import numpy as _np
 import scipy.ndimage  as _nd
 import scipy.optimize as _optim
 
-from rhizoscan.ndarray import pad_array as _pad
-from rhizoscan.ndarray import lookup    as _lookup
-from rhizoscan.image   import Image     as _Image
-from rhizoscan         import geometry  as _geo
+from rhizoscan.ndarray import gradient_norm as _gradient_norm
+from rhizoscan.ndarray.measurements import label_size as _label_size
+
+from rhizoscan.ndarray import pad_array  as _pad
+from rhizoscan.ndarray import lookup     as _lookup
+from rhizoscan.image   import Image      as _Image
+from rhizoscan         import geometry   as _geo
+from rhizoscan.stats   import cluster_1d as _cluster_1d
     
 from rhizoscan.workflow.openalea import aleanode as _aleanode # decorator to declare openalea nodes
 
+def detect_background(img, smooth=5, gradient_classes=2):
+    """
+    Segment background area: the largest connex area with low enough gradient
     
+    smooth: prefiltering of input `img`
+    gradient_classes: number of classes used to classify `img` gradient
+                      the lowest is kept for connex area labeling
+    """
+    lgl = _gradient_norm(_nd.gaussian_filter(img,sigma=smooth))
+    bg  = _cluster_1d(lgl, classes=gradient_classes)==0
+    bgL = _nd.label(bg)[0]
+    bgS = _label_size(bgL)
+    bgS[0] = 0
+    bg  = bgL==bgS.argmax()
+    
+    return bg
    
 @_aleanode('grad')
 def border_filter(img, size, axis):
@@ -39,6 +58,8 @@ def border_filter(img, size, axis):
 @_aleanode('west','east','north','south')
 def fit_border(img, border=0.1, scan_area=[0.25,0.75], verbose=False, bg=1, Wbg=None,Ebg=None,Nbg=None,Sbg=None, pad=True):
     """
+    :WARNING: not sure it still works...
+    
     Find the best 4 borders of a square petry plate in an image. 
     
     The plate borders should be close to align with the image border for the

@@ -5,14 +5,14 @@ import numpy as _np
 
 from rhizoscan.workflow.openalea  import aleanode as _aleanode # decorator to declare openalea nodes
 
-from rhizoscan.workflow import Struct as _Struct
-from rhizoscan.workflow import Data   as _Data
+from rhizoscan.datastructure import Struct as _Struct
+from rhizoscan.datastructure import Data   as _Data
 
 from . import _print_state, _print_error, _param_eval 
 
 
 @_aleanode('image_list', 'invalid_file', 'output_directory')
-def parse_image_db(ini_file, output='output', verbose=False):
+def make_dataset(ini_file, output='output', verbose=False):
     """
     Return an iterator over all images following parsing format
     
@@ -160,7 +160,7 @@ def retrieve_data_file(db, name='tree', suffix='.tree'):
 @_aleanode('db_column')
 def get_column(db, suffix, missing=None, datatype=_Data):
     """
-    Retrieve the database column related to 'suffix'
+    Retrieve the dataset column related to 'suffix'
     """
     def load(d):
         try:

@@ -13,31 +13,94 @@ import scipy.optimize as _optim
 from rhizoscan.ndarray import gradient_norm as _gradient_norm
 from rhizoscan.ndarray.measurements import label_size as _label_size
 
-from rhizoscan.ndarray import pad_array  as _pad
-from rhizoscan.ndarray import lookup     as _lookup
-from rhizoscan.image   import Image      as _Image
-from rhizoscan         import geometry   as _geo
-from rhizoscan.stats   import cluster_1d as _cluster_1d
+from rhizoscan.ndarray  import pad_array  as _pad
+from rhizoscan.ndarray  import lookup     as _lookup
+from rhizoscan.image    import Image      as _Image
+from rhizoscan          import geometry   as _geo
+from rhizoscan.geometry import polygon    as _polygon
+from rhizoscan.stats    import cluster_1d as _cluster_1d
     
 from rhizoscan.workflow.openalea import aleanode as _aleanode # decorator to declare openalea nodes
 
-def detect_background(img, smooth=5, gradient_classes=2):
-    """
-    Segment background area: the largest connex area with low enough gradient
-    
-    smooth: prefiltering of input `img`
-    gradient_classes: number of classes used to classify `img` gradient
-                      the lowest is kept for connex area labeling
-    """
-    lgl = _gradient_norm(_nd.gaussian_filter(img,sigma=smooth))
-    bg  = _cluster_1d(lgl, classes=gradient_classes)==0
-    bgL = _nd.label(bg)[0]
-    bgS = _label_size(bgL)
-    bgS[0] = 0
-    bg  = bgL==bgS.argmax()
-    
-    return bg
    
+@_aleanode('foreground_mask')
+def detect_foreground(img, smooth=5, gradient_classes=(2,1)):
+    """
+    Segment foreground areas: separated from background by suffisant gradient wall
+    
+    :Inputs:
+      - smooth: 
+          Kernel radius for initial noise removal of `img`
+          If =0, do not filter input image
+      - gradient_classes: 
+          A tuple of 
+            1) the number of classes used to segment `img` gradient
+            2) the number of (lowest) classes which are not gradient wall
+            
+    :Output:
+      A binary mask of the detected foreground objects
+    """
+    if smooth:
+        img = _nd.gaussian_filter(img,sigma=smooth)
+    lgl = _gradient_norm(img)
+    fg  = _cluster_1d(lgl, bins=256, classes=gradient_classes[0])>=gradient_classes[1]
+    fg  = _nd.binary_fill_holes(fg)
+    
+    return fg
+    
+def detect_petri_plate(fg_mask, border_width, plate_size, plate_shape='square'):
+    """
+    Find petri plate in foreground mask `fg_mask`
+    
+    The plate is selected as the biggest connex area in `fg_mask`
+    
+    :Inputs:
+      - fg_mask:
+          binary array such as returned by `detect_foreground`
+      - border_width:
+          width of the petri plate border (see outputs), given in pixels (if 
+          value >=1) or in percent (if <1) of the plate size.
+      - plate_size:
+          diameter in real units of the plate
+      - plate_shape:
+          If 'square' or 'cicular', the plate diameter (in pixels) is estimate 
+          using a fast algorithm. Otherwise, find the radius of the bigest 
+          inscribed circle (considering the shape to be convex) by optimization.
+          *** Currently only square and circular are implemented *** 
+          
+    :Outputs:
+      - a labeled image of the petri plate and selected border. Pixels with 
+        values 0 are not petri plate, value 1 is the plate border and 2 is the 
+        plate content (once border is removed).
+      - the pixel scale to real unit: the size of 1 pixel in real units
+      - the hull of the detected (whole) plate as a list of x-y coordinates lists
+    """
+    # find biggest connex area
+    fg_label = _nd.label(fg_mask)[0]
+    fg_size  = _label_size(fg_label)
+    fg_size[0] = 0
+    pmask = fg_label==fg_size.argmax()
+    
+    # compute te hull
+    hull = _np.transpose((pmask<>_nd.uniform_filter(pmask,size=(3,3))).nonzero())
+    hull = _polygon.convex_hull(hull)
+    
+    # estimated plate diameter in pixels and pixels size in real unit
+    if plate_shape=='square':
+        pdiam = pmask.sum()**.5
+    elif plate_shape=='circular':
+        pdiam = pmask.sum()**.5/_np.pi
+    else:
+        raise NotImplementedError("shape should be square of circular: general fitting is not implemented")##
+    px_scale = plate_size/pdiam
+    
+    # make the petri plate labeled image
+    if border_width<1:
+        border_width = pdiam * border_width
+    pmask  = pmask + 2*_nd.binary_erosion(pmask>0, iterations=int(border_width))
+    
+    return pmask, px_scale, hull
+    
 @_aleanode('grad')
 def border_filter(img, size, axis):
     # "convolve" by flat kernel

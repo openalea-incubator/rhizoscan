@@ -2,9 +2,9 @@ import numpy as _np
 import scipy as _sp
 from scipy import ndimage as _nd
 
-from rhizoscan.workflow import Struct  as _Struct
-from rhizoscan.ndarray  import reshape as _reshape
-from rhizoscan.tool     import _property    
+from rhizoscan.datastructure import Struct  as _Struct
+from rhizoscan.ndarray       import reshape as _reshape
+from rhizoscan.tool          import _property    
 
 
 def segment_digraph(segment, cost='direction_difference', callback=None):

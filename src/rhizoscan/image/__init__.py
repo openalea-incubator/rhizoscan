@@ -14,10 +14,10 @@ from rhizoscan.ndarray import add_dim as _add_dim
 from rhizoscan.ndarray import aslice  as _aslice
 
 from rhizoscan.workflow.openalea import aleanode as _aleanode  # decorator to declare openalea nodes        
-from rhizoscan.workflow    import Data     as _Data     
-from rhizoscan.workflow    import Sequence as _Sequence     
-from rhizoscan.tool        import static_or_instance_method as _static_or_instance
-from rhizoscan.tool        import _property
+from rhizoscan.datastructure     import Data     as _Data     
+from rhizoscan.datastructure     import Sequence as _Sequence     
+from rhizoscan.tool   import static_or_instance_method as _static_or_instance
+from rhizoscan.tool   import _property
 
 class Image(_np.ndarray, _Data):
     """

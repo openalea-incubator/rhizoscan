@@ -4,11 +4,11 @@ from scipy import ndimage as _nd
 
 from rhizoscan.workflow.openalea  import aleanode as _aleanode # decorator to declare openalea nodes
 
-from rhizoscan.workflow  import static_or_instance_method as _static_or_instance_method
+from rhizoscan.tool  import static_or_instance_method as _static_or_instance_method
 
 from rhizoscan.ndarray.measurements import clean_label as _clean_label
-from rhizoscan.image    import Image as _Image
-from rhizoscan.workflow import Data  as _Data
+from rhizoscan.image                import Image as _Image
+from rhizoscan.datastructure        import Data  as _Data
 
 from .dataset import make_dataset as _make_dataset
 from . import compute_tree   as _compute_tree

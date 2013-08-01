@@ -3,10 +3,10 @@ import scipy as sp
 
 from rhizoscan.workflow.openalea  import aleanode as _aleanode # decorator to declare openalea nodes
 
-from rhizoscan.workflow import Sequence as _Sequence 
-from rhizoscan.workflow import Struct   as _Struct 
-from rhizoscan.workflow import Data     as _Data
-from rhizoscan.tool     import _property
+from rhizoscan.datastructure import Sequence as _Sequence 
+from rhizoscan.datastructure import Struct   as _Struct 
+from rhizoscan.datastructure import Data     as _Data
+from rhizoscan.tool          import _property
 
 # measurments for unordered list of trees object having a metadata attribute
 # --------------------------------------------------------------------------

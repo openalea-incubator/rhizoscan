@@ -1,8 +1,8 @@
 import numpy as _np
 
-from rhizoscan.workflow import Struct as _Mapping
-from rhizoscan.workflow import Sequence
-from rhizoscan.workflow import _property
+from rhizoscan.datastructure import Struct as _Mapping
+from rhizoscan.datastructure import Sequence
+from rhizoscan.tool  import _property
 from rhizoscan.image import ImageSequence
 
 # decorator that copy a function doc

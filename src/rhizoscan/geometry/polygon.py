@@ -17,9 +17,10 @@ def convex_hull(vertices):
     hull = _sp.sparse.csgraph.depth_first_order(graf,hull[0,0],directed=False)[0]
     
     return vertices[hull]
+    
 
 
-def fit_quad(polygon, corner0='bbox', focus=0.9, method='BFGS', **min_kargs):
+def fit_quad(polygon, corner0='bbox', focus=0.9, method='BFGS', dof_map=None, **min_kargs):
     """
     Find the 4 corners of a quad to `polygon` 
     
@@ -41,6 +42,13 @@ def fit_quad(polygon, corner0='bbox', focus=0.9, method='BFGS', **min_kargs):
         function f:X->scalar-cost, and initial corner position
     **min_kargs:
         option key-arguments to give to `scipy.optimize.minimize`
+        
+    dof_map:
+        Use to change the degree of freedom (dof) that is optimized 
+        - mostly for internal purpose -
+        If not None, use be a function that takes as input the dof variables and 
+        return the respective corner array. In this case, the optimization is 
+        done for the given dof. And input `corner0` should be given accordingly.
         
     Return the result object from `scipy.optimize.minimize` where x the solution
     """
@@ -80,19 +88,71 @@ def fit_quad(polygon, corner0='bbox', focus=0.9, method='BFGS', **min_kargs):
     else:
         h = polygon
         w = vertice_weight(polygon)
+        
+    if dof_map is None:
+        dof_map = lambda x:x
     
     # cost function (to minimize)
     def dist2quad(c):
-        c = c.reshape(-1,2)
+        c = dof_map(c).reshape(-1,2)
         t = hnormalize(_np.roll(c,-1,0)-c)  # tangent of quad
         p = _np.diag(projdist(c,t))         # shift of tangent origin w.r.t tangent vector  
         
         return _np.sum(abs(projdist(h,t)-p[None,:]).min(axis=1)*w)
         
-        
+                                                                                 
     # do the fitting:
     from scipy.optimize import minimize
     c = minimize(fun=dist2quad, x0=c0, method=method, **min_kargs)
     c.x = c.x.reshape(c0.shape)
     
     return c
+    
+
+def rect2corner(C):
+    """
+    Convert rectangle coordinates - C=[x,y,w,h,r] - to corner array
+    """
+    x,y,w,h,r = C
+    cr, sr = _np.cos(r), _np.sin(r)
+    return _np.array([[x,y],[x-sr*h,y+cr*h],[x+cr*w-sr*h,y+sr*w+cr*h],[x+cr*w,y+sr*w]])
+    
+def fit_rect(polygon, corner0='bbox', focus=0.9, method='BFGS', **min_kargs):
+    """
+    Same as fit quad but restricted to rectangle (x,y,w,h,rotation)
+    """
+    if corner0=='bbox':
+        hmin = polygon.min(axis=0)
+        hdif = polygon.max(axis=0)-hmin
+        corner0 = _np.hstack((hmin,hdif,[0])).astype(float)
+              
+    r = fit_quad(polygon=polygon, corner0=corner0, focus=focus, method=method,
+                 dof_map=rect2corner, **min_kargs)
+                                               
+    return r
+    
+def rect2corner_b(C):
+    """
+    Convert rectangle coordinates - C=[x,y,dx1,dy1,d2] - to corner array
+    """
+    x,y,dx1,dy1,d2 = C
+    
+    dratio  = d2/(dx1**2+dy1**2)**.5    # normalisation
+    dx2 = -dy1*dratio                   # 90 degree rotation
+    dy2 =  dx1*dratio                   # ---------"--------
+    
+    return _np.array([[x,y],[x+dx1,y+dy1],[x+dx1+dx2,y+dy1+dy2],[x+dx2,y+dy2]])
+    
+def fit_rect_b(polygon, corner0='bbox', focus=0.9, method='BFGS', **min_kargs):
+    """
+    Same as fit quad but restricted to rectangle (x,y,w,h,rotation)
+    """
+    if corner0=='bbox':
+        hmin = polygon.min(axis=0)
+        hdif = polygon.max(axis=0)-hmin
+        corner0 = _np.hstack((hmin,[hdif[0],0,hdif[1]])).astype(float)
+            
+    r = fit_quad(polygon=polygon, corner0=corner0, focus=focus, method=method,
+                    dof_map=rect2corner_b, **min_kargs)
+    r.x = corner0
+    return r

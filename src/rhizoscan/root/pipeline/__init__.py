@@ -9,10 +9,10 @@ from rhizoscan.workflow.openalea  import find_interface as _interface # decorato
 
 from rhizoscan.tool import static_or_instance_method as _static_or_instance_method
 
-from rhizoscan.workflow import save_data as _save
-from rhizoscan.workflow import Struct as _Struct
-from rhizoscan.workflow import Data   as _Data
-from rhizoscan.image    import Image  as _Image
+from rhizoscan.datastructure import save_data as _save
+from rhizoscan.datastructure import Struct as _Struct
+from rhizoscan.datastructure import Data   as _Data
+from rhizoscan.image         import Image  as _Image
 from rhizoscan.ndarray.measurements import clean_label as _clean_label
 
 from rhizoscan.root.image          import normalize_image             as _normalize_image 
@@ -324,7 +324,7 @@ class PipelineModule(object):
                 suffux is appended to this base_name to form the the name of the
                 storage file.
           - update:
-                If True, force computation, even of data can be loaded.
+                If True, force computation, even if data can be loaded.
           - verbose:
                 If True, print current process stage at run time
           

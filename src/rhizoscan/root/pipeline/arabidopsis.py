@@ -6,8 +6,8 @@ from rhizoscan.workflow.openalea  import aleanode as _aleanode # decorator to de
 
 from rhizoscan.ndarray.measurements import clean_label as _clean_label
 from rhizoscan.ndarray.filter       import otsu as _otsu
-from rhizoscan.image    import Image as _Image
-from rhizoscan.workflow import Data  as _Data
+from rhizoscan.image                import Image as _Image
+from rhizoscan.datastructure        import Data  as _Data
 
 from .dataset import make_dataset as _make_dataset
 from . import PipelineModule   as _PModule

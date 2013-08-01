@@ -3,8 +3,8 @@ from scipy import ndimage as _nd
 
 from rhizoscan.workflow.openalea  import aleanode as _aleanode # decorator to declare openalea nodes
 
-from rhizoscan.image    import Image as _Image
-from rhizoscan.workflow import Data  as _Data
+from rhizoscan.image         import Image as _Image
+from rhizoscan.datastructure import Data  as _Data
 
 from .dataset import make_dataset as _make_dataset
 from . import _print_state, _print_error

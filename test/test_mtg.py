@@ -1,4 +1,4 @@
-from rhizoscan.workflow import Data
+from rhizoscan.datastructure import Data
 from openalea.mtg import algo, traversal
 from openalea.plantgl.all import Vector3 as V3, norm
 

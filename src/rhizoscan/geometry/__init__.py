@@ -1,35 +1,55 @@
 """
-Module for some geometry functionalities
+Module containing some homogenous geometry functionalities
 """
 
 import numpy as _np
 import scipy as _sp
 import scipy.ndimage as _nd
 
-from rhizoscan.ndarray     import as_vector as _vector
-from rhizoscan.ndarray     import lookup    as _lookup
-from scipy.linalg import inv, pinv, svd  as _svd
-from rhizoscan.workflow.openalea import aleanode as _aleanode # decorator to declare openalea nodes        
+from scipy.linalg import inv, pinv
+from scipy.linalg import svd  as _svd
 
 from numpy.lib.stride_tricks import broadcast_arrays as _broadcast
+
+from rhizoscan.ndarray     import as_vector as _vector
+from rhizoscan.ndarray     import lookup    as _lookup
+
+from rhizoscan.workflow.openalea import aleanode as _aleanode # decorator to declare openalea nodes        
 
 # quick access
 dot = _np.dot
 
 @_aleanode('product')
 def mdot(*args):
-    """ apply multiple dot product mdot(T1, T2,...,Tn) = T1 * T2 * ... * Tn """
+    """ Apply multiple dot product: mdot(T1, T2,...,Tn) = T1 * T2 * ... * Tn """
     return reduce(dot,args)
+
+@_aleanode('homogeneous_coordinates')
+def homogeneous(coordinates, N=None):
+    """
+    Assert `coordinates` are NxK homogeneous coordinates in (N-1)-dimension of K vectors
+
+    Assert `coordinates` is numpy array and, if the first array dimension is 
+    less than N, add one-valued rows at the bottom of `coordinates`.
+    
+    If N is None, add one "homogeneous coordinate": `N=coordinates.shape[0]+1`
+    """
+    c = _np.asanyarray(coordinates)
+    
+    if N is None:      N = c.shape[0]+1
+    if c.shape[0]<N: c = _np.concatenate((c,_np.ones((N-c.shape[0],) + c.shape[1:])),axis=0)
+        
+    return c
 
 @_aleanode('normalized_data')
 def normalize(data, istransform=False):
     """
-    Normalize data by its "projective" coordinates - ie. set w=1 of vector [x,y,w] 
+    Normalize data by its "projective coordinates" - ie. set w=1 of vector [x,y,w] 
     
-    By default, 'data' should be a vector -shape=(k,)- or a shpaed (k,N) array 
+    By default, `data` should be a vector -shape=(k,)- or a shpaed (k,N) array 
     of N vectors. Each vector is then normalized its last value.
     
-    If 'istransform' is True, data is considered a transformation matrix and is
+    If `istransform` is True, data is considered a transformation matrix and is
     normalized by its lower right value.
         
     If data is a (k,) vector, returns a (k,1) array 
@@ -159,43 +179,27 @@ def fit_affine(src,dst):
 
     return H / H[2][2]
     
-def homogeneous(coordinates, N=None):
-    """
-    Assert given coordinates are Nx[...] homogeneous coordinates in (N-1)-dimension
-
-    Assert coordinates are numpy array and if the first coordinates dimension is 
-    less than N, add one-values slice(s).
-    
-    If N is None, coordinates.shape[0]+1 is used => i.e. add the homogeneous coordinate
-    """
-    c = _np.asanyarray(coordinates)
-    
-    if N is None:      N = c.shape[0]+1
-    if c.shape[0]<N: c = _np.concatenate((c,_np.ones((N-c.shape[0],) + c.shape[1:])),axis=0)
-        
-    return c
-
 @_aleanode('array')
 def transform(data=None, T=None, coordinates=None, grid=None, order=1, mode='constant',cval=0.0):
     """
     Apply general homogeneous transformation T.
     
-    Compute an array where each point value is taken in 'data' at position 
-    determined by transformation 'T' using spline interpolation.
+    Compute an array where each point value is taken in `data` at position 
+    determined by transformation `T` (with spline interpolation)::
     
         out[coord] = data[ T * coord ]
     
     :Inputs:
-        data       
+      - data       
             a N-dimensional array-like object.
             if None, return the transformed coordinates (T * coord)
-        T
+      - T
             a (N+1)x(M+1) projection matrix
-        coordinates
+      - coordinates
             a Mx[K] or homogeneous (M+1)xK coordinates of K M-dimensional points.
             [K] might be of any shape. 
             If coordinates is None, use "grid" arguments
-        grid
+      - grid
             can be used to generate coordinates. Grid should be a tuple of
             length M indicating the indices in each dimension. 
             Any of the following is allowed:
@@ -205,9 +209,9 @@ def transform(data=None, T=None, coordinates=None, grid=None, order=1, mode='con
               - a set of pixel indices      Eg: [4,2,3]
               - or any combinaison          Eg: (3,slice(2,5),[7,2])
         
-        order
+      - order
             the order of spline interpolation
-        mode and cval
+      - mode and cval
             how interpolation treats points transformed out of input data
         
     :See Also: 
@@ -216,7 +220,7 @@ def transform(data=None, T=None, coordinates=None, grid=None, order=1, mode='con
     """
     
     if T is None: raise TypeError('Transformation T is required')
-    if coordinates is None and grid is None: raise TypeError('One of coodintates or grid argument is required')
+    if coordinates is None and grid is None: raise TypeError('Either of coodinates or grid should be given')
     
     # manage coordinates
     if coordinates is not None:

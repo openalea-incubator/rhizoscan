@@ -33,7 +33,7 @@ x0 = xn -------"-------
 # ------ neuronJ loader ------ 
 # ----------------------------
 import numpy as np
-from rhizoscan.workflow import Data, Struct, Sequence
+from rhizoscan.datastructure import Data, Struct, Sequence
 
 def parse_neuronJ_file(filename):
     f = NJ_iterator(filename)
@@ -301,8 +301,8 @@ def load_tree_db(auto, ref, output='tree'):
         automatically computed tree sequence
         reference tree sequence
     """
-    from rhizoscan.image    import ImageSequence
-    from rhizoscan.workflow import Sequence
+    from rhizoscan.image         import ImageSequence
+    from rhizoscan.datastructure import Sequence
     
     auto, ref = load_db_with_ref(auto=auto, ref=ref, output=output)[:2]
     

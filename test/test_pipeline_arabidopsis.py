@@ -6,12 +6,12 @@ image_file   = 'data/pipeline/arabidopsis/J10/Photo_011.jpg'
 
 
 def test_load_DB():
-    from rhizoscan.root.pipeline.database import parse_image_db
+    from rhizoscan.root.pipeline.dataset import make_dataset
     pfile = os.path.abspath(project_file)
     
     assert os.path.exists(pfile)   # project file in absolute 
     
-    db, invalid, output = parse_image_db(ini_file=pfile, output='output', verbose=0)
+    db, invalid, output = make_dataset(ini_file=pfile, output='output', verbose=0)
     
     assert len(db)==4
     assert len(invalid)==1
@@ -30,7 +30,7 @@ def test_image_pipeline():
     
     try:
         # test pipeline with enforced modules computation 
-        output = os.path.join(outdir, 'test_image_pipeline')
+        output = os.path.join(outdir, 'tmp_output_of_test_image_pipeline')
         pa.pipeline.run(image=ifile, output=output, plant_number=5, update=['all'])
         assert all([m.updated for m in pa.pipeline.modules])
         

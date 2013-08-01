@@ -3,7 +3,7 @@ import scipy.ndimage as nd
 
 from rhizoscan.workflow.openalea  import aleanode as _aleanode # decorator to declare openalea nodes
 
-from rhizoscan.workflow  import Struct as _Struct
+from rhizoscan.datastructure  import Struct as _Struct
 
 from rhizoscan.root.measurements import compute_tree_stat
 from rhizoscan.root.measurements import statistic_name_list

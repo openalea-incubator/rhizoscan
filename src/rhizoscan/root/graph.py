@@ -4,8 +4,8 @@ from   scipy   import ndimage       as _nd
 from rhizoscan         import geometry      as _geo
 from rhizoscan.ndarray import reshape       as _reshape
 from rhizoscan.image.measurements   import color_label    as _color_label
-from rhizoscan.workflow             import Data as _Data
-from rhizoscan.workflow             import Struct as _Struct
+from rhizoscan.datastructure        import Data as _Data
+from rhizoscan.datastructure        import Struct as _Struct
 
 from rhizoscan.ndarray.graph import ArrayGraph as _ArrayGraph # used by SegmentGraph
 
@@ -112,6 +112,10 @@ class AxeList(GraphList):
             self._length = length
             self.temporary_attribute.add('_length')
         return self._length
+    @length.setter
+    def length(self, value):
+        self._length = value
+        self.clear_temporary_attribute('_length')
         
     @_property
     def segment1(self):

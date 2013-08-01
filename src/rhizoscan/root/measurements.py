@@ -4,7 +4,7 @@ import scipy as sp
 from rhizoscan.workflow.openalea  import aleanode as _aleanode # decorator to declare openalea nodes
 
 from rhizoscan.datastructure import Sequence as _Sequence 
-from rhizoscan.datastructure import Struct   as _Struct 
+from rhizoscan.datastructure import Mapping  as _Mapping 
 from rhizoscan.datastructure import Data     as _Data
 from rhizoscan.tool          import _property
 
@@ -28,7 +28,7 @@ def compute_tree_stat(tree, stat_names='all', mask=None, save=True):
     else:
         run = dict([(n,stat_list[n]) for n in stat_names])
         
-    stat = _Struct()
+    stat = _Mapping()
     for name, fct in run.iteritems():
         stat[name] = fct(tree, mask=mask)
     tree.stat = stat
@@ -37,7 +37,7 @@ def compute_tree_stat(tree, stat_names='all', mask=None, save=True):
     
     return tree
         
-class TreeStat(_Struct):
+class TreeStat(_Mapping):
     """ deprecated ? """
     def __init__(self,tree):
         self._tree_file = tree.get_data_file()
@@ -71,7 +71,7 @@ class TreeStat(_Struct):
     def __repr__(self):
         return str(self)
         
-class TreeCompare(_Struct):
+class TreeCompare(_Mapping):
     def __init__(self, auto, ref, filename, image=None):
         if hasattr(auto[0], 'output') and not hasattr(auto[0],'axe'):
             self.auto = [TreeStat(t) for t in _Sequence([a.output+'.tree' for a in auto])]
@@ -101,7 +101,7 @@ class TreeCompare(_Struct):
         s.auto = [a._data_to_save_() for a in s.auto]
         s.ref  = [r._data_to_save_() for r in s.ref]
         
-        return _Struct._data_to_save_(s)
+        return _Mapping._data_to_save_(s)
                 
 @_aleanode(name='TreeCompare')
 def make_TreeCompare(auto, ref, filename='.tmp-TreeCompare', compute_stat='all'):
@@ -242,7 +242,7 @@ def plot(tc, stat='axe1_length', title=None, prefilter=None, split=None, legend=
     ax.set_ylim(0,bound)
     ax.set_xlim(0,bound)
     
-    ax.tree_data = _Struct(stat=stat, trees=tree, x=ref, y=auto)
+    ax.tree_data = _Mapping(stat=stat, trees=tree, x=ref, y=auto)
 
 @_aleanode(name='treeCompare_plot')
 def multi_plot(tc, split='metadata.date', scale=1):

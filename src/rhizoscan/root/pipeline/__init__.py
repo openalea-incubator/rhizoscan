@@ -10,7 +10,6 @@ from rhizoscan.workflow.openalea  import find_interface as _interface # decorato
 from rhizoscan.tool import static_or_instance_method as _static_or_instance_method
 
 from rhizoscan.datastructure import save_data as _save
-from rhizoscan.datastructure import Struct as _Struct
 from rhizoscan.datastructure import Data   as _Data
 from rhizoscan.image         import Image  as _Image
 from rhizoscan.ndarray.measurements import clean_label as _clean_label
@@ -132,7 +131,7 @@ class RootAnalysisPipeline(object):
 
 class pipeline_node(_aleanode):
     """
-    Decorator that create a pipeline and attach it to the goven function
+    Decorator that create a pipeline and attach it to the given function
     
     Example:
         @pipeline_node([module1, module2, module3])

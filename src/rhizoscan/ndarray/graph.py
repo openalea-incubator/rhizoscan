@@ -1,3 +1,7 @@
+"""
+This is some abandoned code which is not updated and nor maintained
+"""
+
 import numpy as np
 from scipy   import ndimage as nd
 from .       import ravel_indices, unravel_indices, add_dim 

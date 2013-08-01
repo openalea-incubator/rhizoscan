@@ -5,8 +5,8 @@ import numpy as _np
 
 from rhizoscan.workflow.openalea  import aleanode as _aleanode # decorator to declare openalea nodes
 
-from rhizoscan.datastructure import Struct as _Struct
-from rhizoscan.datastructure import Data   as _Data
+from rhizoscan.datastructure import Mapping as _Mapping
+from rhizoscan.datastructure import Data    as _Data
 
 from . import _print_state, _print_error, _param_eval 
 
@@ -46,7 +46,7 @@ def make_dataset(ini_file, output='output', verbose=False):
     # load content of ini file
     ini = cfg.ConfigParser()
     ini.read(ini_file)       
-    ini = _Struct(**dict([(s,_Struct(**dict((k,_param_eval(v)) for k,v in ini.items(s)))) for s in ini.sections()])) 
+    ini = _Mapping(**dict([(s,_Mapping(**dict((k,_param_eval(v)) for k,v in ini.items(s)))) for s in ini.sections()])) 
     
     if verbose>2:
         print 'loaded ini:'
@@ -79,7 +79,7 @@ def make_dataset(ini_file, output='output', verbose=False):
     
     # meta data list and regular expression to parse file names
     meta_parser = re.compile('(.*)'.join([fp.replace('*','.*') for fp in file_pattern[::2]]))
-    meta_list = [_Struct(name=s[0],type=s[1]) for s in [m.split(':') for m in file_pattern[1::2]]]
+    meta_list = [_Mapping(name=s[0],type=s[1]) for s in [m.split(':') for m in file_pattern[1::2]]]
     date_pattern = ini['PARSING'].get('date','')
     for m in meta_list:
         if m.type=='date': 
@@ -128,7 +128,7 @@ def make_dataset(ini_file, output='output', verbose=False):
             meta_value = meta_parser.match(subf).groups()
             if verbose>1:
                 print '   ' + str(meta_value) + ' from ' + subf + str(rm_len)
-            meta = _Struct(**default_meta)
+            meta = _Mapping(**default_meta)
             if group is not None:
                 meta.merge(get_from_ini(group[ind], []))
             for i,value in enumerate(meta_value):
@@ -137,7 +137,7 @@ def make_dataset(ini_file, output='output', verbose=False):
                 if field=='$': meta.merge(value)
                 else:          meta[field] = value
                 
-            img_list.append(_Struct(filename=f, metadata=meta, output=out))
+            img_list.append(_Mapping(filename=f, metadata=meta, output=out))
         except Exception as e:
             invalid.append((type(e).__name__,e.message, f))
             

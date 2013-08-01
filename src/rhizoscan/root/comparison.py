@@ -3,13 +3,13 @@ import scipy.ndimage as nd
 
 from rhizoscan.workflow.openalea  import aleanode as _aleanode # decorator to declare openalea nodes
 
-from rhizoscan.datastructure  import Struct as _Struct
+from rhizoscan.datastructure  import Mapping as _Mapping
 
 from rhizoscan.root.measurements import compute_tree_stat
 from rhizoscan.root.measurements import statistic_name_list
 
 
-class TreeCompare(_Struct):
+class TreeCompare(_Mapping):
     def __init__(self, reference, compared, image=None, filename=None):
         """
         Allow to compare a reference tree with the compared one.
@@ -79,7 +79,7 @@ class TreeCompare(_Struct):
 
 # statistical root tree comparison
 # --------------------------------
-class TreeCompareSequence(_Struct):
+class TreeCompareSequence(_Mapping):
     """
     :todo:
         once Sequence is finished (not required to have a file per element)
@@ -117,7 +117,7 @@ class TreeCompareSequence(_Struct):
     def _data_to_save_(self):
         s = self.__copy__()
         s.tc_list = [tc._data_to_save_() for tc in s.tc_list]
-        return _Struct._data_to_save_(s)
+        return _Mapping._data_to_save_(s)
 
 def plot(self, stat='axe1_length', title=None, prefilter=None, split=None, legend=True, merge_unique=False, scale=1, cla=True):
         import matplotlib.pyplot as plt
@@ -192,7 +192,7 @@ def plot(self, stat='axe1_length', title=None, prefilter=None, split=None, legen
         ax.set_ylim(0,bound)
         ax.set_xlim(0,bound)
         
-        ax.tree_data = _Struct(stat=stat, trees=meta, x=refs, y=cmps) ##tree=>meta?
+        ax.tree_data = _Mapping(stat=stat, trees=meta, x=refs, y=cmps) ##tree=>meta?
 
 def tree_compare_from_db(reference, compared, tree_suffix='.tree', filename=None):
     from .pipeline.dataset import get_column

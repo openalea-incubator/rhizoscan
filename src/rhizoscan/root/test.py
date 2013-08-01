@@ -2,11 +2,11 @@ import numpy as _np
 import scipy as _sp
 from scipy import ndimage as _nd
 
-from rhizoscan.datastructure import Struct  as _Struct
+from rhizoscan.datastructure import Mapping  as _Mapping
 from rhizoscan.ndarray  import reshape as _reshape
 from rhizoscan.tool     import _property    
 
-class SegmentGraph(_Struct):
+class SegmentGraph(_Mapping):
     """ A graph where vertices are segment, and so they have two sides
     
     At construction, a Segment graph has two attributs:

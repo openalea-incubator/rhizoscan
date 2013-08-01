@@ -1,6 +1,6 @@
 import numpy as _np
 
-from rhizoscan.datastructure import Struct as _Mapping
+from rhizoscan.datastructure import Mapping as _Mapping
 from rhizoscan.datastructure import Sequence
 from rhizoscan.tool  import _property
 from rhizoscan.image import ImageSequence

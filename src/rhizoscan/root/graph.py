@@ -3,16 +3,16 @@ from   scipy   import ndimage       as _nd
 
 from rhizoscan         import geometry      as _geo
 from rhizoscan.ndarray import reshape       as _reshape
-from rhizoscan.image.measurements   import color_label    as _color_label
-from rhizoscan.datastructure        import Data as _Data
-from rhizoscan.datastructure        import Struct as _Struct
+from rhizoscan.image.measurements   import color_label as _color_label
+from rhizoscan.datastructure        import Data    as _Data
+from rhizoscan.datastructure        import Mapping as _Mapping
 
 from rhizoscan.ndarray.graph import ArrayGraph as _ArrayGraph # used by SegmentGraph
 
 from rhizoscan.tool import _property    
 from rhizoscan.workflow.openalea import aleanode as _aleanode
 
-class GraphList(_Struct): ## del dynamic property when saved (etc...) / no direct access (get_prop)?
+class GraphList(_Mapping): ## del dynamic property when saved (etc...) / no direct access (get_prop)?
     @_property
     def properties(self):
         """ list of list properties (use add_property to add one)"""
@@ -391,7 +391,7 @@ class SegmentGraph(_ArrayGraph):
         self.setEdges(snbor)
 
 
-class RootGraph(_Struct):
+class RootGraph(_Mapping):
     """
     A graph representation of roots system
     

@@ -33,7 +33,7 @@ x0 = xn -------"-------
 # ------ neuronJ loader ------ 
 # ----------------------------
 import numpy as np
-from rhizoscan.datastructure import Data, Struct, Sequence
+from rhizoscan.datastructure import Data, Mapping, Sequence
 
 def parse_neuronJ_file(filename):
     f = NJ_iterator(filename)
@@ -43,7 +43,7 @@ def parse_neuronJ_file(filename):
 
     return T
     
-class NJ_loader(Struct):
+class NJ_loader(Mapping):
     def __init__(self,filename):
         self.lines = file(filename,'r').readlines()
         self.i = 0
@@ -179,7 +179,7 @@ class NJ_loader(Struct):
             plt.plot(t.node[:,0]*scale,t.node[:,1]*scale,'.')
             plt.plot(t.node[:,0]*scale,t.node[:,1]*scale)
                         
-class NJ_Tracing(Struct):
+class NJ_Tracing(Mapping):
     def __init__(self,nj):
         self.id      = nj.read_int()
         self.type    = nj.read_int()  # type is order+2

@@ -4,12 +4,11 @@ Data classes
 ------------
  - Data:     base class of all other Data classes. 
              also provide simple IO interface using pickle.
- - Struct:   a Data subclass that provide a dictionary-like functionality.
+ - Mapping:  a Data subclass that provide a dictionary-like functionality.
  - Sequence: a Data subclass that provide a list-like functionality.
  
 TODO:
 -----
-    - rename Struct by Mapping
     - automatically set Data.__file attribute to loaded Data 
         * same for subclasses 
         * same for contained data
@@ -40,7 +39,7 @@ class Data(object):
          See the constructor documentation
       2) It can be used as a superclass in order to get the saving and loading
          ability of `Data` (see below), and easily provide special behavior for 
-         objects being saved or loaded by container Data (`Struct`, `Sequence`)
+         objects being saved or loaded by container Data (`Mapping`, `Sequence`)
          by overriding the `_data_to_save_` and `_data_to_load_` method.
          
     **Note for subclassing**:
@@ -312,40 +311,39 @@ class DataWrapper(Data):
 
 # a simple structure data
 # -----------------------
-class Struct(Data):
+class Mapping(Data):
     """
-    Class Struct provide a structure Data type with dynamique field names
+    Class Mapping provide a structure Data type with dynamique field names
     
     Example:
     --------
-        s1 = Struct()
-        s1.q1 = 6
-        s1.q2 = 9
-        s1.ans = s1.q1 * s1.q2
-        print s1
+        m1 = Mapping()
+        m1.q1 = 6
+        m1.q2 = 9
+        m1.ans = m1.q1 * m1.q2
+        print repr(m1)            # q1:6  q2:9  ans:54
         
-        s2 = Struct(the_question='6x9', ans=42)
-        s1.merge(s2,False)
-        print s1
-        s1.merge(s2)
-        print s1
+        m2 = Mapping(the_question='6x9', ans=42)
+        m1.merge(m2,False)
+        print m1.ans              # 54
+        m1.merge(m2)
+        print m1.ans              # 42
          
-    Struct object can be treated as dictionaries:
-    ---------------------------------------------
+    Mapping object can be treated as dictionaries:
+    ----------------------------------------------
         * the double-star operator can be used: 
-            some_function(**myStructObject)
+            some_function(**myMappingObject)
             
         * implement iterator. However, iteration return tuple (field,value):
-            s = Struct(a=42,z=0,t=None)
-            for field,value in s: print field, 'has value', value
+            m = Mapping(a=42,z=0,t=None)
+            for field,value in m: print field, 'has value', value
          
     Warning:
     --------
-        As Struct is a Data object the field names _Data__file and _Data__data 
-        are reserved. Overwriting them will induce failure of Data 
-        functionalities (save & load)
+        Mapping are Data objects and have the fields _Data__file and _Data__data 
+        reserved. Overwriting them will induce failure of Data functionalities.
     """
-    ##TODO Struct:
+    ##TODO Mapping:
     ##  - save doc (for now it's the Data.save doc)
     ##  - saving using pyyaml (by default, keeping pickle saving in option)
     ##  - what about saving to intermediate file when in a container ?
@@ -353,7 +351,7 @@ class Struct(Data):
     #      > then needs some 'update' flag ?
     def __init__(self, load_file=None, **kwds):
         """
-        Create a Struct object containing all keyword arguments as fields
+        Create a Mapping object containing all keyword arguments as fields
         
         If Data_file is given, it loads the file and save it as the Data file 
         attribute for later saving/loading. 
@@ -366,7 +364,7 @@ class Struct(Data):
         """ return a list of all field names """
         return self.__dict__.keys()
     def keys(self):
-        """ Same as fields - implement keys s.t. Struct can be treated as dict """
+        """ Same as fields - implement keys s.t. Mapping can be treated as dict """
         return self.__dict__.keys()
     def values(self):
         """ return a list of all field values """
@@ -385,13 +383,13 @@ class Struct(Data):
 
 
     def iteritems(self):
-        """ return an iterator over the (field, value) items of Structure """
+        """ return an iterator over the (field, value) items of Mapping object """
         return self.__dict__.iteritems()
     def itervalues(self):
-        """ return an iterator over the values of Structure """
+        """ return an iterator over the values of Mapping object """
         return self.__dict__.itervalues()
     def iterfields(self):
-        """ return an iterator over the fields of Structure """
+        """ return an iterator over the fields of Mapping object """
         return self.__dict__.iterkeys()
 
     def has_field(self, fieldname):
@@ -401,7 +399,7 @@ class Struct(Data):
 
     def merge(self, other, overwrite=True):
         """ ## todo: doc """
-        if isinstance(other,Struct):
+        if isinstance(other,Mapping):   ## if other hasattr '__dict__' ??
             other = other.__dict__
         if overwrite:
             self.__dict__.update(other)
@@ -474,7 +472,7 @@ class Struct(Data):
         :Inputs:
           - filename
               If None, load file given by this object Data file attribute.
-              The loaded file should be a Struct object saved using the save 
+              The loaded file should be a Mapping object saved using the save 
               method, or anything that can be loaded by the Data save method 
               (i.e. pickle files) and can be passed as input of the merge method
               
@@ -572,8 +570,8 @@ class Struct(Data):
         """ x.__ge__(y) <==> x>=y """
         return s1.__dict__.__ge__(getattr(s2,'__dict__',s2))
         
-    # make Struct a valid iterator
-    # ----------------------------
+    # make Mapping a valid iterator
+    # -----------------------------
     def __iter__(self):
         return self.iteritems()#__dict__.__iter__() ##?
         

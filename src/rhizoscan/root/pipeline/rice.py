@@ -181,7 +181,7 @@ def rice_test0(filename=None):
         
     ini = cfg.ConfigParser()
     ini.read(filename)
-    ini = dict([(s,_Struct(**dict(ini.items(s)))) for s in ini.sections()])
+    ini = dict([(s,_Mapping(**dict(ini.items(s)))) for s in ini.sections()])
 
     out = [] # to store output
 
@@ -203,7 +203,7 @@ def rice_test0(filename=None):
         print param
         mask, tree = image_pipeline_no_frame(image=image, **param)
         
-        res = _Struct()
+        res = _Mapping()
         res.mask = mask#_Image(mask).save(mfile, dtype='uint8', scale=255)
         res.tree = tree#tree.save(tfile)
         

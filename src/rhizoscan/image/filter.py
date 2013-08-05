@@ -1,9 +1,8 @@
 import numpy as _np
 from ..ndarray import second_derivatives as _2nd_derivatives
 
-from rhizoscan.workflow.openalea import aleanode as _aleanode # decorator to declare openalea nodes
-
-@_aleanode('uu','uv','vv')
+from rhizoscan.workflow import node as _node # to declare workflow nodes
+@_node('uu','uv','vv')
 def gradient_covariance_2d(image, size=3):
     """
     Compute the uu,uv,vv covariances of the gradient over a neighborhood of each image pixel
@@ -57,7 +56,7 @@ def eigen_gradient_2d(image, size=3, sort='descend'):
     uu,uv,vv = gradient_covariance_2d(image,size=size)
     return eigenvalue_2d(uu,uv,uv,vv, sort=sort)
 
-@_aleanode('eigenvalues')
+@_node('eigenvalues')
 def eigenvalue_2d(a,b,c,d, sort='descend'):
     """
     For arrays a,b,c and d, compute the eigenvalues of all matrices 
@@ -126,7 +125,7 @@ def ridge_2d(img):
     return ridge
 
 
-@_aleanode({'name':'eigenvalues'})
+@_node({'name':'eigenvalues'})
 def hessian_value_2d(array,sort='descend'):
     """
     Compute and return the eigenvalues of the hessian marix 
@@ -166,7 +165,7 @@ def hessian_value_2d(array,sort='descend'):
     return eigenvalue_2d( Ixx, Ixy, Ixy, Iyy, sort=sort)
     
 
-@_aleanode({'name':'vesselness'})
+@_node({'name':'vesselness'})
 def frangi_2d(image, b=1, c=1):
     """
     Compute the frangi Vesselness value of all pixels of input image

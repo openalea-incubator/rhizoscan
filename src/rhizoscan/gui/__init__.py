@@ -6,8 +6,7 @@ Otherwise import will fail
 """
 import matplotlib.pyplot as _plt  # check if matplotlib exist
 
-from rhizoscan.workflow.openalea import aleanode as _aleanode # decorator to declare openalea nodes
-
+from rhizoscan.workflow import node as _node # to declare workflow nodes
 __icon__ = 'window.png'
 
 # check if current backend is QtAgg
@@ -78,4 +77,4 @@ else:
             
             
 # declare getOpenFileName as an aleanode
-_aleanode("file_path")(getOpenFileName)
+_node("file_path")(getOpenFileName)

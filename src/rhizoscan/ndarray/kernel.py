@@ -2,9 +2,8 @@ import numpy as _np
 from scipy import ndimage as _nd
 from .     import norm    as _norm
 
-from rhizoscan.workflow.openalea import aleanode as _aleanode # decorator to declare openalea nodes
-
-@_aleanode({'name':'kernel'})
+from rhizoscan.workflow import node as _node # to declare workflow nodes
+@_node({'name':'kernel'})
 def coordinates(shape):
     """
     Compute an array containing for each axis the coordinates arrays of given shape:
@@ -33,7 +32,7 @@ def coordinates(shape):
     
     return _np.mgrid[map(slice,[-((s-1)/2) for s in shape],[s/2+1 for s in shape])]
     
-@_aleanode({'name':'kernel'})
+@_node({'name':'kernel'})
 def distance(shape, metric=2):
     """
     return a distance kernel of given shape:
@@ -57,7 +56,7 @@ def distance(shape, metric=2):
     coord = coordinates(shape)
     return _norm(coord,method=metric,axis=0)
     
-@_aleanode({'name':'kernel'})
+@_node({'name':'kernel'})
 def ellipse(radius,shape=None):
     """
     return a boolean array an ellipse kernel
@@ -87,7 +86,7 @@ def ellipse(radius,shape=None):
     coord = map(_np.divide,tuple(coordinates(shape=shape)), radius)
     return _np.sqrt(reduce(_np.add,map(_np.square,coord)))<=1
 
-@_aleanode({'name':'kernel'})
+@_node({'name':'kernel'})
 def gaussian(sigma, shape=[]):
     """
     return a gaussian kernel of given shape:

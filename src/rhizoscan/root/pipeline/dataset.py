@@ -3,8 +3,7 @@ __icon__    = 'database.png'   # icon of openalea package
 
 import numpy as _np
 
-from rhizoscan.workflow.openalea  import aleanode as _aleanode # decorator to declare openalea nodes
-from rhizoscan.workflow  import node as _node # decorator to declare workflow nodes
+from rhizoscan.workflow import node as _node # to declare workflow nodesfrom rhizoscan.workflow  import node as _node # decorator to declare workflow nodes
 
 from rhizoscan.datastructure import Mapping as _Mapping
 from rhizoscan.datastructure import Data    as _Data
@@ -12,7 +11,7 @@ from rhizoscan.datastructure import Data    as _Data
 from . import _print_state, _print_error, _param_eval 
 
 
-#@_aleanode('image_list', 'invalid_file', 'output_directory')
+#@_node('image_list', 'invalid_file', 'output_directory')
 @_node('image_list', 'invalid_file', 'output_directory', hidden=['verbose'])
 def make_dataset(ini_file, output='output', verbose=False):
     """
@@ -146,12 +145,12 @@ def make_dataset(ini_file, output='output', verbose=False):
     return img_list, invalid, base_out
     
     
-@_aleanode('to_update')
+@_node('to_update')
 def to_update(db, suffix='.tree'):
     from os.path import exists
     return [d for d in db if not exists(d.output+suffix)],
 
-@_aleanode('db_data')
+@_node('db_data')
 def retrieve_data_file(db, name='tree', suffix='.tree'):
     """
     Add the data filename to all db element as attribute 'name'
@@ -159,8 +158,8 @@ def retrieve_data_file(db, name='tree', suffix='.tree'):
     for d in db: d[name] = d.output+suffix
     return db,
     
-@_aleanode('db_column')
-def get_column(db, suffix, missing=None, datatype=_Data):
+@_node('db_column')
+def get_column(db, suffix, missing=None):
     """
     Retrieve the dataset column related to 'suffix'
     """
@@ -172,7 +171,7 @@ def get_column(db, suffix, missing=None, datatype=_Data):
             
     return [load(d) for d in db]
     
-@_aleanode('filtered_db')
+@_node('filtered_db')
 def filter(db, key='', value='', metadata=True):
     """
     Return the subset of db that has its key attribute equal to value
@@ -193,7 +192,7 @@ def filter(db, key='', value='', metadata=True):
     if metadata: key = 'metadata.'+key
     return [d for d in db if reduce(lambda x,f: getattr(x,f,None),[d]+key.split('.'))==value],
     
-@_aleanode('metadata_name')
+@_node('metadata_name')
 def get_metadata(db):
     """
     Return the union of all db element metadata
@@ -202,7 +201,7 @@ def get_metadata(db):
     meta = [m for m in meta if m[0]!='_']
     return meta
     
-@_aleanode('clustered_db')
+@_node('clustered_db')
 def cluster(db, key, metadata=True):
     """ cluster db by (unique) 'key' 
     
@@ -238,7 +237,7 @@ def cluster(db, key, metadata=True):
         
         return cluster
 
-@_aleanode('tree')  
+@_node('tree')  
 def load_tree(db_item, ext='.tree'):     ## still useful ?
     return _Data.load(db_item.output+ext)
 

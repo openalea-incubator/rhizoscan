@@ -1,8 +1,7 @@
 import numpy as np
 import scipy as sp
 
-from rhizoscan.workflow.openalea  import aleanode as _aleanode # decorator to declare openalea nodes
-
+from rhizoscan.workflow import node as _node # to declare workflow nodes
 from rhizoscan.datastructure import Sequence as _Sequence 
 from rhizoscan.datastructure import Mapping  as _Mapping 
 from rhizoscan.datastructure import Data     as _Data
@@ -16,11 +15,11 @@ def _tree_stat(f):
     return f
     
 stat_list = dict()    # store the declared tree statistics
-@_aleanode('stat_name')
+@_node('stat_name')
 def statistic_name_list():
     return sorted(stat_list.keys())
 
-@_aleanode('tree')
+@_node('tree')
 def compute_tree_stat(tree, stat_names='all', mask=None, save=True):
     """ compute all statistic listed in stat_name, using optional mask filter function"""
     if stat_names=='all':
@@ -103,7 +102,7 @@ class TreeCompare(_Mapping):
         
         return _Mapping._data_to_save_(s)
                 
-@_aleanode(name='TreeCompare')
+@_node(name='TreeCompare')
 def make_TreeCompare(auto, ref, filename='.tmp-TreeCompare', compute_stat='all'):
     tc = TreeCompare(auto=auto, ref=ref, filename=filename)
     if compute_stat:
@@ -244,7 +243,7 @@ def plot(tc, stat='axe1_length', title=None, prefilter=None, split=None, legend=
     
     ax.tree_data = _Mapping(stat=stat, trees=tree, x=ref, y=auto)
 
-@_aleanode(name='treeCompare_plot')
+@_node(name='treeCompare_plot')
 def multi_plot(tc, split='metadata.date', scale=1):
     """ deprecated """
     import matplotlib.pyplot as plt
@@ -327,7 +326,7 @@ def multi_plot(tc, split='metadata.date', scale=1):
         cid = pylab.connect('button_press_event', display_tree)
         setattr(plt.gcf(),flag,cid)
 
-@_aleanode()
+@_node()
 def cmp_plot(db, stat, key1, key2, update_stat=False, fig=42, outliers=.05, key_color=2):
     """
     db is a dataset (list) of root image descriptor (filename, metadata, output)
@@ -629,7 +628,7 @@ def correlation(a,b):
     def score(x): return (x-x.mean())/x.std() 
     return np.mean(score(a)*score(b))
 
-@_aleanode()
+@_node()
 def hist_cmp(a, b, bins=10, subplot=None, ac='g', bc='b', log=False):
     """ plot a histogram of 'a' vs histogram of 'b' """
     from matplotlib import pyplot as plt
@@ -646,7 +645,7 @@ def hist_cmp(a, b, bins=10, subplot=None, ac='g', bc='b', log=False):
     plt.xlim(ba[0],ba[-1])#ba.size/2])#
 
 
-@_aleanode('property')
+@_node('property')
 def get_axes_property(t,property_name, mask=None, order=None, per_plant=True, scale=None):
     """ Retrieve the property value for all axes in RootAxialTree t
     
@@ -683,7 +682,7 @@ def get_axes_property(t,property_name, mask=None, order=None, per_plant=True, sc
     else:
         return value
         
-@_aleanode('joined_list')        
+@_node('joined_list')        
 def list_join(list_of_list):
     """ convert list_of_list to a list - just a practical openalea node """
     return [item for sublist in list_of_list for item in sublist]

@@ -5,8 +5,7 @@ import scipy.ndimage as _nd
 from numpy.lib.stride_tricks import as_strided     as _as_strided
 from scipy.ndimage.filters   import minimum_filter as _minimum_filter
 
-from rhizoscan.workflow.openalea import aleanode as _aleanode # decorator to declare openalea nodes
-
+from rhizoscan.workflow import node as _node # to declare workflow nodes
 # icon of openalea package
 __icon__ = 'cube.png'
 
@@ -52,7 +51,7 @@ def as_vector(array,dim=0, size=None,fvalue=0,fside=False):
     
     return vector
 
-@_aleanode('integer_array')
+@_node('integer_array')
 def asint(array, default='int', minbyte=1, u=True, i=True):
     """
     return the array unchanged if it is an ndarray of integer dtype, or convert 
@@ -65,7 +64,7 @@ def asint(array, default='int', minbyte=1, u=True, i=True):
     """
     return array if isint(array,u=u,i=i)>=minbyte else _np.array(array,dtype=default)
 
-@_aleanode('is_integer_array')
+@_node('is_integer_array')
 def isint(array, u=True, i=True):
     """
     Test weither array is of integer dtype.
@@ -78,7 +77,7 @@ def isint(array, u=True, i=True):
           return array.dtype.itemsize
     else: return False
     
-@_aleanode('float_array')
+@_node('float_array')
 def asfloat(array, default='float', minbyte=2):
     """
     return the array unchanged if it is an ndarray of float dtype, or convert 
@@ -89,7 +88,7 @@ def asfloat(array, default='float', minbyte=2):
     """
     return array if isfloat(array)>=minbyte else _np.array(array,dtype=default)
 
-@_aleanode('is_float_array')
+@_node('is_float_array')
 def isfloat(array):
     """
     Test weither array is of float dtype.
@@ -101,7 +100,7 @@ def isfloat(array):
           return array.dtype.itemsize
     else: return False
     
-@_aleanode('axis','start','stop','step')
+@_node('axis','start','stop','step')
 def aslice(axis, *args):
     """
     same as slice but return a tuple with None-slice for all preceding axis
@@ -110,7 +109,7 @@ def aslice(axis, *args):
     return (slice(None),)*axis + (slice(*args),)
     
 
-@_aleanode({'name':'norm'})
+@_node({'name':'norm'})
 def norm(array, method=2, axis=None, squeeze=True):
     """
     Compute the norm of the input array, following either method
@@ -147,7 +146,7 @@ def norm(array, method=2, axis=None, squeeze=True):
 
     return norm
 
-@_aleanode({'name':'gradient_norm'})
+@_node({'name':'gradient_norm'})
 def gradient_norm(array):
     """
     Compute the norm of gradient of the array: ( sum of squared derivatives )**1/2
@@ -155,7 +154,7 @@ def gradient_norm(array):
     return reduce(_np.add,map(_np.square,_np.gradient(array)))**0.5
 
 
-@_aleanode({'name':'sec_derivatives_list'})
+@_node({'name':'sec_derivatives_list'})
 def second_derivatives(array, smooth=2):
     """
     Compute the second derivatives of all dimensions pairs of the input array
@@ -195,7 +194,7 @@ def second_derivatives(array, smooth=2):
 
 # managing nD indices
 # -------------------
-@_aleanode({'name':'flat_indices'})
+@_node({'name':'flat_indices'})
 def ravel_indices(indices, shape):
     """
     Convert nD to 1D indices for an array of given shape.
@@ -223,7 +222,7 @@ def ravel_indices(indices, shape):
     return _np.sum(ind*dim_prod,-1)
     
 
-@_aleanode({'name':'nD_indices'})
+@_node({'name':'nD_indices'})
 def unravel_indices(indices,shape):
     """
     Convert indices in a flatten array to nD indices of the array with given shape.
@@ -262,7 +261,7 @@ def unravel_indices(indices,shape):
     
 
 # virtual 1-dimentional tiling that use stride tricks
-@_aleanode({'name':'plus1D_array'})
+@_node({'name':'plus1D_array'})
 def add_dim(array, axis=-1, size=1, shift=0):
     """
     Insert a virtual dimension using stride tricks  (i.e. broadcasting)
@@ -328,7 +327,7 @@ def add_dim(array, axis=-1, size=1, shift=0):
     return _as_strided(A,shape=sh, strides=st)
 
 
-@_aleanode('reshaped_array')
+@_node('reshaped_array')
 def reshape(array, newshape, order='A'):
     """
     Similar as numpy.reshape but allow to had virtual dimension of size > 1
@@ -386,7 +385,7 @@ def reshape(array, newshape, order='A'):
     return _as_strided(array,shape=shape, strides=strid)
     
 # make a bigger array by adding elements around it
-@_aleanode({'name':'padded_array'})
+@_node({'name':'padded_array'})
 def pad_array(array, low_pad, high_pad, fill_value = 0):
     """
     Returned a copy of input array with increased shape
@@ -462,7 +461,7 @@ def pad_array(array, low_pad, high_pad, fill_value = 0):
     return arr.view(type(array))
 
 
-@_aleanode({'name':'local_min'})
+@_node({'name':'local_min'})
 def local_min(array, footprint=3, mask = None, strict=False, return_indices=False):
     """
     Detects the local minima of the given array using the local minimum scipy filter.
@@ -521,7 +520,7 @@ def local_min(array, footprint=3, mask = None, strict=False, return_indices=Fals
     else:
         return loc_min
     
-@_aleanode({'name':'filled_array'})
+@_node({'name':'filled_array'})
 def fill(data, invalid=None, max_distance=-1):
     """
     Replace the value of invalid 'data' cells (indicated by 'invalid') 

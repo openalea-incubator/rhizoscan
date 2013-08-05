@@ -13,9 +13,11 @@ import scipy.ndimage as _nd
 from rhizoscan.ndarray import add_dim as _add_dim
 from rhizoscan.ndarray import aslice  as _aslice
 
-from rhizoscan.workflow.openalea import aleanode as _aleanode  # decorator to declare openalea nodes        
-from rhizoscan.datastructure     import Data     as _Data     
-from rhizoscan.datastructure     import Sequence as _Sequence     
+from rhizoscan.workflow import node as _node # to declare workflow nodes
+
+from rhizoscan.datastructure import Data as _Data
+from rhizoscan.datastructure import Sequence as _Sequence     
+
 from rhizoscan.tool   import static_or_instance_method as _static_or_instance
 from rhizoscan.tool   import _property
 
@@ -445,7 +447,7 @@ def detect_color_space(image_array):
     elif image_array.shape[-1]==4: return 'rgba'
     else:                          return 'gray'
     
-        
+#_node('converted_image')
 def imconvert(image, color=None, dtype=None, scale='dtype', from_color=None):
     """
     Convert Image color space and/or dtype

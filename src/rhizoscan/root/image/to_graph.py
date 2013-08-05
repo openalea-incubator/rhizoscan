@@ -18,9 +18,8 @@ from ..graph import RootGraph   as _RootGraph
 from ..graph import NodeList    as _NodeList
 from ..graph import SegmentList as _SegmentList
 
-from rhizoscan.workflow.openalea import aleanode as _aleanode
-
-@_aleanode('segment_map', 'segment_skeleton','node_map', 'seeds_structure')
+from rhizoscan.workflow import node as _node # to declare workflow nodes
+@_node('segment_map', 'segment_skeleton','node_map', 'seeds_structure')
 def linear_label(mask, seed_map=None, compute_segment_map=True):
     """
     Partition mask as a set of linear segments
@@ -106,7 +105,7 @@ def linear_label(mask, seed_map=None, compute_segment_map=True):
     return segment_skl, node_map, segment_map, seed
 
 
-@_aleanode('image_graph')
+@_node('image_graph')
 def image_graph(segment_skeleton, node_map, segment_map=None, seed=None):
     """
     Construct a RootGraph representing a "linear map" image
@@ -247,7 +246,7 @@ def image_graph(segment_skeleton, node_map, segment_map=None, seed=None):
         
     return _RootGraph(node=node, segment=segment)
     
-@_aleanode('polyline_graph')
+@_node('polyline_graph')
 def line_graph(image_graph, segment_skeleton, print_fit_error=True):
     """
     Convert segments of image_graph to polyline

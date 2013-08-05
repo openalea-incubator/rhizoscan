@@ -3,11 +3,10 @@ Widget tools for Visualea
 """
 
 
-from rhizoscan.workflow.openalea import aleanode as _aleanode # decorator to declare openalea nodes        
-
+from rhizoscan.workflow import node as _node # to declare workflow nodes
 from list_selector_widget import ListSelector as widget_ListSelect
 
-@_aleanode(widgetclass='widget_ListSelect') 
+@_node(widgetclass='widget_ListSelect') 
 class item_selector(object):
     """
     Node function that manage an item selector widget

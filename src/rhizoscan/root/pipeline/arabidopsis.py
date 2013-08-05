@@ -2,8 +2,7 @@ import numpy as _np
 import scipy as _sp
 from scipy import ndimage as _nd
 
-from rhizoscan.workflow.openalea  import aleanode as _aleanode # decorator to declare openalea nodes
-
+from rhizoscan.workflow import node as _node # to declare workflow nodes
 from rhizoscan.ndarray.measurements import clean_label as _clean_label
 from rhizoscan.ndarray.filter       import otsu as _otsu
 from rhizoscan.image                import Image as _Image
@@ -25,7 +24,7 @@ from ..image.to_graph import image_graph         as _image_graph
 from ..image.to_graph import line_graph          as _line_graph
 
 
-##@_aleanode('failed_files')
+##@_node('failed_files')
 ##def process(ini_file, indices=None, **kargs):
 ##    if isinstance(ini_file, basestring):
 ##        flist, invalid, outdir = _make_dataset(ini_file=ini_file, output='output')

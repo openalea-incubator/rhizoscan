@@ -14,17 +14,16 @@ from numpy.lib.stride_tricks import broadcast_arrays as _broadcast
 from rhizoscan.ndarray     import as_vector as _vector
 from rhizoscan.ndarray     import lookup    as _lookup
 
-from rhizoscan.workflow.openalea import aleanode as _aleanode # decorator to declare openalea nodes        
-
+from rhizoscan.workflow import node as _node # to declare workflow nodes
 # quick access
 dot = _np.dot
 
-@_aleanode('product')
+@_node('product')
 def mdot(*args):
     """ Apply multiple dot product: mdot(T1, T2,...,Tn) = T1 * T2 * ... * Tn """
     return reduce(dot,args)
 
-@_aleanode('homogeneous_coordinates')
+@_node('homogeneous_coordinates')
 def homogeneous(coordinates, N=None):
     """
     Assert `coordinates` are NxK homogeneous coordinates in (N-1)-dimension of K vectors
@@ -41,7 +40,7 @@ def homogeneous(coordinates, N=None):
         
     return c
 
-@_aleanode('normalized_data')
+@_node('normalized_data')
 def normalize(data, istransform=False):
     """
     Normalize data by its "projective coordinates" - ie. set w=1 of vector [x,y,w] 
@@ -65,7 +64,7 @@ def normalize(data, istransform=False):
         return data / data[-1][_np.newaxis]
         
         
-@_aleanode('H')
+@_node('H')
 def fit_homography(src,dst):
     """ 
     Find 3x3 homography matrix, such that 'src' points are mapped to 'dst'
@@ -129,7 +128,7 @@ def fit_homography(src,dst):
     return H / H[2,2]
     
     
-@_aleanode('T')
+@_node('T')
 def fit_affine(src,dst):
     """ 
     Find 3x3 affine transformation matrix, mapping 'src' points to 'dst'.
@@ -179,7 +178,7 @@ def fit_affine(src,dst):
 
     return H / H[2][2]
     
-@_aleanode('array')
+@_node('array')
 def transform(data=None, T=None, coordinates=None, grid=None, order=1, mode='constant',cval=0.0):
     """
     Apply general homogeneous transformation T.

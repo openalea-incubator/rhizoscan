@@ -648,7 +648,7 @@ __institutes__  = 'Virtual Plants, INRIA - CIRAD - INRA'
 __description__ = 'package for image processing and analysis of root system architecture'
 __url__         = 'https://sites.google.com/site/juliendiener/'
 __editable__    = 'True'
-__icon__        = '/Users/diener/openalea/rhizoscan/src/rhizoscan/icon/om.png'
+__icon__        = '/Users/diener/openalea/rhizoscan/src/rhizoscan/icon/root.png'
 __alias__       = []
 
 

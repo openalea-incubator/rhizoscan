@@ -6,9 +6,8 @@ from rhizoscan.ndarray.measurements import label_size as _label_size
 from rhizoscan.stats import gmm1d       as _gmm1d
 from rhizoscan.stats import cluster_1d  as _cluster_1d
 
-from rhizoscan.workflow.openalea import aleanode as _aleanode
-
-@_aleanode('leaf_map')
+from rhizoscan.workflow import node as _node # to declare workflow nodes
+@_node('leaf_map')
 def detect_leaves(mask, image, leaf_number, root_radius, leaf_height=None, sort=True):
     """
     Detect leaves cluster in 'mask' based on pixels luminosity of 'image'
@@ -57,7 +56,7 @@ def detect_leaves(mask, image, leaf_number, root_radius, leaf_height=None, sort=
     
     return _cluster_seed(seed_mask=leaf, seed_number=leaf_number, seed_height=leaf_height, sort=sort)
 
-@_aleanode('seed_map')
+@_node('seed_map')
 def detect_seeds(mask, seed_number, radius_min, seed_height=None, sort=True):
     """
     Detect seed clusters in 'mask' based on local shape radius
@@ -115,7 +114,7 @@ def _cluster_seed(seed_mask, seed_number, seed_height=None, sort=True):
 
     return seed_map[seed_lab]
 
-@_aleanode('blob_map','blob_number','distance_map')
+@_node('blob_map','blob_number','distance_map')
 def blob_cluster(mask, dmin=1):
     """
     Cluster mask into the distance map local maximum

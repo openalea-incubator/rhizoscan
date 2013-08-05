@@ -5,10 +5,9 @@ from rhizoscan.ndarray              import virtual_array  as _virtual_arr
 from rhizoscan.ndarray.measurements import clean_label    as _clean_label
 from rhizoscan.ndarray.measurements import label_size     as _label_size
 
-from rhizoscan.workflow.openalea import aleanode as _aleanode # decorator to declare openalea nodes
+from rhizoscan.workflow import node as _node # to declare workflow nodes
 
-
-@_aleanode('root_cluster','transform', 'bbox')
+@_node('root_cluster','transform', 'bbox')
 def segment_root(image, n=4, pixel_size=1, min_dimension=5, is_segmented=False):
     """
     Segment root image and find 'n' circles 

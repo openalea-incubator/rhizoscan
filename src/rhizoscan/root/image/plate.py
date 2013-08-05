@@ -20,10 +20,9 @@ from rhizoscan          import geometry   as _geo
 from rhizoscan.geometry import polygon    as _polygon
 from rhizoscan.stats    import cluster_1d as _cluster_1d
     
-from rhizoscan.workflow.openalea import aleanode as _aleanode # decorator to declare openalea nodes
-
+from rhizoscan.workflow import node as _node # to declare workflow nodes
    
-@_aleanode('foreground_mask')
+@_node('foreground_mask')
 def detect_foreground(image, smooth=5, gradient_classes=(2,1)):
     """
     Segment foreground areas: separated from background by suffisant gradient wall
@@ -101,7 +100,7 @@ def detect_petri_plate(fg_mask, border_width, plate_size, plate_shape='square'):
     
     return pmask, px_scale, hull
     
-@_aleanode('grad')
+@_node('grad')
 def border_filter(img, size, axis):
     # "convolve" by flat kernel
     grad = _nd.uniform_filter1d(img,size=size,axis=axis)
@@ -118,7 +117,7 @@ def border_filter(img, size, axis):
 
     return grad
 
-@_aleanode('west','east','north','south')
+@_node('west','east','north','south')
 def fit_border(img, border=0.1, scan_area=[0.25,0.75], verbose=False, bg=1, Wbg=None,Ebg=None,Nbg=None,Sbg=None, pad=True):
     """
     :WARNING: not sure it still works...
@@ -259,7 +258,7 @@ def fit_border(img, border=0.1, scan_area=[0.25,0.75], verbose=False, bg=1, Wbg=
     return west,east, north, south
     
     
-@_aleanode('transform')
+@_node('transform')
 def find_plate(img, border=0.1, fit='homography', plate_width=1., verbose=False, white_stand=False):
     w,e,n,s = fit_border(img, border=border, scan_area=[0.25,0.75], verbose=verbose)
     
@@ -282,7 +281,7 @@ def plot_plate(plate_width, T, color='r',lw=2):
     import matplotlib.pyplot as plt
     plt.plot(pos[1],pos[0],color=color, lw=lw)
     
-@_aleanode()
+@_node()
 def track_plate(sequence,step=1, stand=False):
     """
     ##Obsolete
@@ -305,7 +304,7 @@ def track_plate(sequence,step=1, stand=False):
         k = raw_input(" 'q' to quit':")
         if k=='q': break
     
-@_aleanode()
+@_node()
 def draw_line(l,x=None,y=None, color='r'):
     """
     plot a line given in homogeneous coordinates.
@@ -325,7 +324,7 @@ def draw_line(l,x=None,y=None, color='r'):
     import matplotlib.pyplot as plt
     plt.plot(x,y,color)
 
-@_aleanode()
+@_node()
 def draw_plate(w,e,n,s, imshape, color='r', fig=None):
     """ ##to be moved to root.gui"""
     if fig:

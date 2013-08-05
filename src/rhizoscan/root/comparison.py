@@ -1,8 +1,7 @@
 import numpy as np
 import scipy.ndimage as nd
 
-from rhizoscan.workflow.openalea  import aleanode as _aleanode # decorator to declare openalea nodes
-
+from rhizoscan.workflow import node as _node # to declare workflow nodes
 from rhizoscan.datastructure  import Mapping as _Mapping
 
 from rhizoscan.root.measurements import compute_tree_stat

@@ -3,8 +3,7 @@ from scipy import ndimage as nd
 from scipy import signal  as sg
 
 
-from rhizoscan.workflow.openalea import aleanode as _aleanode # decorator to declare openalea nodes
-
+from rhizoscan.workflow import node as _node # to declare workflow nodes
 
 del2 = nd.filters.laplace
 ##TODO:
@@ -16,7 +15,7 @@ del2 = nd.filters.laplace
 
 
 
-@_aleanode({'name':'u'},{'name':'v'})
+@_node({'name':'u'},{'name':'v'})
 def GVF_2d(image, iterations, mu, dt='max',filter='default',mode='reflect',cval=0, verbose=False,callback=None):
     """
     Compute the gradient vector field of a 2D image.
@@ -106,7 +105,7 @@ def GVF_2d(image, iterations, mu, dt='max',filter='default',mode='reflect',cval=
     return u,v
     
     
-@_aleanode({'name':'u'},{'name':'v'},{'name':'w'})
+@_node({'name':'u'},{'name':'v'},{'name':'w'})
 def GVF_3d(volume, iterations, mu, dt='max',mode='reflect',cval=0, verbose=False,callback=None):
     """
     Compute the gradient vector field of a 3D volume.

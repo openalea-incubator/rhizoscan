@@ -2,8 +2,7 @@ import numpy as _np
 import scipy as _sp
 from scipy import ndimage as _nd
 
-from rhizoscan.workflow.openalea  import aleanode as _aleanode # decorator to declare openalea nodes
-
+from rhizoscan.workflow import node as _node # to declare workflow nodes
 from rhizoscan.tool  import static_or_instance_method as _static_or_instance_method
 
 from rhizoscan.ndarray.measurements import clean_label as _clean_label
@@ -24,15 +23,15 @@ from ..image.to_graph import line_graph          as _line_graph
 from ..graph          import RootAxialTree       as _RootAxialTree 
 
 
-class Test(object):
-    @_static_or_instance_method
-    def run(self, value):
-        print value
-        return 42
+##class Test(object):
+##    @_static_or_instance_method
+##    def run(self, value):
+##        print value
+##        return 42
+##
+##_aleanode('42', name='Test.run', nodeclass='Test.run')(Test.run)
 
-_aleanode('42', name='Test.run', nodeclass='Test.run')(Test.run)
-
-@_aleanode('failed_files')
+@_node('failed_files')
 def process(ini_file, indices=None, **kargs):
     if isinstance(ini_file, basestring):
         flist, invalid, outdir = _make_dataset(ini_file=ini_file, output='output')
@@ -52,7 +51,7 @@ def process(ini_file, indices=None, **kargs):
             
     return failed
     
-@_aleanode('tree')
+@_node('tree')
 def image_pipeline(image, plate_width=120, min_dimension=50, smooth=1, to_tree=2, to_axe=2, seed_height=[0,.25], metadata=None, output=None, update=[], verbose=True):
     import os
     

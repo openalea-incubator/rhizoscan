@@ -19,6 +19,8 @@ TODO:
     - look intop the __del__ deconstructor and the ability to automate saving
         * call to del seems not garantied...
 """
+__icon__    = 'datastructure.png'   # icon of openalea package
+
 #from openalea import * ## should be optional
 from rhizoscan.tool import static_or_instance_method, _property
 from pprint import pprint
@@ -26,8 +28,7 @@ from copy   import copy as _copy
 
 _PICKLE_PROTOCOL_ = -1 # by default all pickle saving (dump) are done with the latest protocol
 
-from rhizoscan.workflow.openalea import aleanode as _aleanode
-
+from rhizoscan.workflow import node as _node # to declare workflow nodes
 
 class Data(object):
     """ 
@@ -286,7 +287,7 @@ class Data(object):
         cls = self.__class__
         return cls.__module__ +'.'+ cls.__name__ + ' with file: ' + str(self.get_data_file())
             
-@_aleanode('data_loader')
+@_node('data_loader')
 def save_data(data, filename):
     """
     Use Data class to save input 'data'. Return a Data instance.
@@ -580,7 +581,7 @@ class Mapping(Data):
     def __contains__(self, key):
         return key in self.__dict__
 
-@_aleanode(auto_caption=1)
+@_node(auto_caption=1)
 def get_field(data={}, field='metadata', default=None):
     """
     Return data[field], or default if it does not exist.

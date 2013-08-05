@@ -15,8 +15,7 @@ import scipy.ndimage as _nd
 from matplotlib import pyplot as _plt
 from matplotlib.figure import Figure as _Figure
 
-from rhizoscan.workflow.openalea  import aleanode as _aleanode # decorator to declare openalea nodes
-from ..image.measurements import color_label
+from rhizoscan.workflow import node as _node # to declare workflow nodesfrom ..image.measurements import color_label
 from ..ndarray            import lookup as _lookup
 
 def gci():
@@ -25,7 +24,7 @@ def gci():
     """
     return _plt.gci().get_array().data
 
-@_aleanode('subimage', 'slices')
+@_node('subimage', 'slices')
 def subimage(img=None, verbose=False):
     """
     Select subrectangle of an image using matplotlib interface
@@ -55,7 +54,7 @@ def subimage(img=None, verbose=False):
 
 
 
-@_aleanode('axes_image')
+@_node('axes_image')
 def label_show(label, order='shuffle', cmap=None, start=1, negative=0, weight=None, clear=True):
     """
     Display a label (integer) image:
@@ -235,7 +234,7 @@ class BlockPolyline(_BlockMouse):
         
         return self.clicks
         
-@_aleanode('points')
+@_node('points')
 def ginput(n=1, timeout=30, fig=None, **key_event):
     """
     replace matplotlib.pyplot.ginput treating any keyboard event as 'enter' if
@@ -245,7 +244,7 @@ def ginput(n=1, timeout=30, fig=None, **key_event):
     bm = BlockPolyline(fig=fig, **key_event)
     return bm(n=1, p=n, timeout=timeout, show_clicks=True)
     
-@_aleanode('polylines')
+@_node('polylines')
 def linput(n=0, p=0, timeout=30, fig=None, **key_event):
     """
     Similar to matplotlib.pyplot.ginput but allow input of a polyline.
@@ -262,7 +261,7 @@ def linput(n=0, p=0, timeout=30, fig=None, **key_event):
     bm = BlockPolyline(fig=fig, **key_event)
     return bm(n=n, p=p, timeout=timeout, show_clicks=True)
     
-@_aleanode('X','Y','value')
+@_node('X','Y','value')
 def gvalue(n=1, image=None, verbose=False, **key_event):
     """
     Similar as ginput, but also return plotted image value on clicked pixels
@@ -336,7 +335,7 @@ def glvalue(step=1, interpolation=1, image=None, fig=None):
 from .       import getOpenFileName as _getOpenFileName
 from ..image import Image as _Image
 
-@_aleanode('image')
+@_node('image')
 def load(filename="", dtype=None, color=None):## to finish !
     """
     Load image from file. If filename is not a file, provide an interface to select it
@@ -379,7 +378,7 @@ def plot_graph(g,x,y, color='b', directed=0):
 #    from ..gui      import MplCanvasWidget as _MplCanvasWidget
 #    from .convert   import gray
 #            
-#    @_aleanode('thresholded_image')
+#    @_node('thresholded_image')
 #    def threshold(image):
 #        """ open a GUI to manually threshold a given image using a slider"""
 #        gui  = ThresholdWindow(image)

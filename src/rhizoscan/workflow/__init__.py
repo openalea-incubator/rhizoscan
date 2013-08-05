@@ -119,6 +119,10 @@ def node_attributes(function):
         value = (None,)*(len(names)-len(value)) + value
         
         node['inputs'] = [dict(name=n, value=v) for n,v in zip(names,value)]
+    else:
+        for i,d in enumerate(node['inputs']):
+            d.setdefault('name', 'in'+str(i+1))
+            d.setdefault('value',None)
     
     if not node.has_key('outputs'):
         node['outputs'] = [dict(name='None')]

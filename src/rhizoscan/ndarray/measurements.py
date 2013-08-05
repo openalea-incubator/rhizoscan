@@ -9,10 +9,9 @@ from . import fill               as _fill
 from .filter import linear_map   as _linear_map
 from .filter import apply        as _filter
 
-from rhizoscan.workflow.openalea import aleanode as _aleanode # decorator to declare openalea nodes
+from rhizoscan.workflow import node as _node # to declare workflow nodes
 
-
-@_aleanode('label','N')
+@_node('label','N')
 def cluster(array, method='watershed', seed='local_min', seed_min_d=1, **filter_args):
     """ Segment image in area around selected seeds
     
@@ -89,7 +88,7 @@ def cluster(array, method='watershed', seed='local_min', seed_min_d=1, **filter_
     
     return label,N
 
-@_aleanode('seed','N')
+@_node('seed','N')
 def find_seed(image, method='local_min', min_distance=1, **filter_args):
     """
     Select seed pixels for clustering
@@ -138,7 +137,7 @@ def find_seed(image, method='local_min', min_distance=1, **filter_args):
     
     return seed,N
         
-@_aleanode('labeled_cluster')
+@_node('labeled_cluster')
 def shortest_path_cluster(array,seed,geometric=True):
     """
     cluster array cells around seeds such that the connecting path has minimum cost
@@ -183,7 +182,7 @@ def shortest_path_cluster(array,seed,geometric=True):
 
 
 
-@_aleanode('dilated_label')
+@_node('dilated_label')
 def label_dilation(label, distance, metric='chessboard'):
     """
     Dilate labeled area in label array by given distance (in pixels)
@@ -206,7 +205,7 @@ def label_dilation(label, distance, metric='chessboard'):
 
     return dil_label
 
-@_aleanode('closed_label')
+@_node('closed_label')
 def label_erosion(label, distance, metric='chessboard'):
     """
     Erode labeled area in label array by given distance (in pixels)
@@ -234,7 +233,7 @@ def label_erosion(label, distance, metric='chessboard'):
 
     return ero_label
 
-@_aleanode('label_size')
+@_node('label_size')
 def label_size(label, min_label=None):
     """
     Number of pixels in each label
@@ -245,7 +244,7 @@ def label_size(label, min_label=None):
     #D return _np.array(_nd.sum(rar.virtual_array(label.shape),labels=label, index=range(0,label.max()+1)))
     return _np.bincount(label.ravel(), minlength=min_label)
 
-@_aleanode('cleaned_label')
+@_node('cleaned_label')
 def clean_label(label, min_size = 1, min_dim=0):
     """
     remove labeled area that have 

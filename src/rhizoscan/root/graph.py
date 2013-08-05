@@ -10,8 +10,7 @@ from rhizoscan.datastructure        import Mapping as _Mapping
 from rhizoscan.ndarray.graph import ArrayGraph as _ArrayGraph # used by SegmentGraph
 
 from rhizoscan.tool import _property    
-from rhizoscan.workflow.openalea import aleanode as _aleanode
-
+from rhizoscan.workflow import node as _node # to declare workflow nodes
 class GraphList(_Mapping): ## del dynamic property when saved (etc...) / no direct access (get_prop)?
     @_property
     def properties(self):
@@ -991,7 +990,7 @@ class RootAxialTree(RootGraph):
     def __repr__(self): 
         return self.__str__()  ## for ipython of RootGraph obj...
 
-@_aleanode('root_tree')
+@_node('root_tree')
 def make_RootAxialTree(node, segment, to_tree, to_axe, single_axe1):
     """
     Aleanode function which call RootAxialTree constructor

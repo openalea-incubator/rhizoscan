@@ -62,7 +62,7 @@ from rhizoscan.workflow.openalea import wrap_package, clean_wralea_package
 left = clean_wralea_package('rhizoscan_wralea')
 
 if left:
-    print '\n not generated files in wralea folder'
+    print '\n There are not-generated content in the folloing wralea files:'
     print '\n'.join(left)
 else:
     print '\n wralea folder is empty'

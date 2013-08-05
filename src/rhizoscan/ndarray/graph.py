@@ -7,8 +7,7 @@ from scipy   import ndimage as nd
 from .       import ravel_indices, unravel_indices, add_dim 
 from ..tool  import tic, toc
 
-from rhizoscan.workflow.openalea import aleanode as _aleanode # decorator to declare openalea nodes
-## how to make a node out of a graph ? make an independant function for each method ?
+from rhizoscan.workflow import node as _node # to declare workflow nodes## how to make a node out of a graph ? make an independant function for each method ?
 
 ##TODO: 
 ##
@@ -268,7 +267,7 @@ class ArrayGraph:
         self._unravelArrays()
         
         
-    @_aleanode({'name':'dmap'})
+    @_node({'name':'dmap'})
     def makeDistanceMap(self, method='edges'):
         """
         create distance map used by the shortestPath() method
@@ -776,7 +775,7 @@ class ArrayGraph:
         return self.nValue
 
 
-@_aleanode({'name':'graph'},description=ArrayGraph.__doc__)
+@_node({'name':'graph'},description=ArrayGraph.__doc__)
 def makeArrayGraph(nodes_value,footprint=3):
     return ArrayGraph(nodes_value,footprint=footprint)
 

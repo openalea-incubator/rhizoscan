@@ -4,8 +4,7 @@ import os    as _os
 from ast import literal_eval as _literal_eval
 
 _aleanodes_ = []
-from rhizoscan.workflow.openalea  import aleanode as _aleanode # decorator to declare openalea nodes
-from rhizoscan.workflow.openalea  import find_interface as _interface # decorator to declare openalea nodes
+from rhizoscan.workflow import node as _node # to declare workflow nodesfrom rhizoscan.workflow.openalea  
 
 from rhizoscan.tool import static_or_instance_method as _static_or_instance_method
 
@@ -130,7 +129,7 @@ class RootAnalysisPipeline(object):
         karg = dict(zip(self.input_names, args))
         return self.run(**karg)##base_name=base_name, update=update, **kargs)
 
-class pipeline_node(_aleanode):
+class pipeline_node(_node):
     """
     Decorator that create a pipeline and attach it to the given function
     
@@ -164,7 +163,7 @@ class pipeline_node(_aleanode):
                 if p in input_names: continue
                 
                 input_names.append(p)
-                node_inputs.append(dict(name=p,interface=_interface(v), value=v, hide=(p in m.hidden)))
+                node_inputs.append(dict(name=p,value=v, hide=(p in m.hidden)))
          
         self.node_inputs = node_inputs
         self.pipeline.input_names = input_names ##

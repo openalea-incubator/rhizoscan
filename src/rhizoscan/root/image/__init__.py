@@ -7,17 +7,16 @@ from rhizoscan.ndarray.measurements import label_size     as _label_size
 from rhizoscan.image.measurements   import skeleton_label as _skeleton_label # used by linear_label
 from rhizoscan.image                import Image          as _Image
 
-from rhizoscan.workflow.openalea import aleanode as _aleanode # decorator to declare openalea nodes
+from rhizoscan.workflow import node as _node # to declare workflow nodes
 
-
-@_aleanode('image', inputs=[dict(name='filename',interface='IFileStr'),dict(name='normalize',interface='IBool',value=True)])
+@_node('image', inputs=[dict(name='filename',interface='IFileStr'),dict(name='normalize',interface='IBool',value=True)])
 def load_image(filename, normalize=True):
     img = _Image(filename, dtype='f', color='gray')
     if normalize:
         img = normalize_image(img)
     return img
 
-@_aleanode('normalized_image')
+@_node('normalized_image')
 def normalize_image(img):
     """
     Set image [min,max] to [0,1] and root pixel lighter than background
@@ -29,7 +28,7 @@ def normalize_image(img):
     return img
 
 
-@_aleanode('filtered_image')
+@_node('filtered_image')
 def remove_background(image, distance, smooth=1):
     """
     Simple background removal method
@@ -52,7 +51,7 @@ def remove_background(image, distance, smooth=1):
     else:      return image - lmin
     
 
-@_aleanode('mask')
+@_node('mask')
 def segment_root_image(image, mask=None):
     """
     Segment root pixels from background pixels
@@ -74,7 +73,7 @@ def segment_root_image(image, mask=None):
     
     return mask
         
-@_aleanode('root_mask','transform', 'bbox')
+@_node('root_mask','transform', 'bbox')
 def segment_root_in_petri_frame(image, plate_border=0.06, plate_width=1, min_dimension=5, filtering=1, is_segmented=False):
     """
     Segment root image and detect a petri plate
@@ -162,7 +161,7 @@ def segment_root_in_petri_frame(image, plate_border=0.06, plate_width=1, min_dim
 
     return mask, plate, plate_box
 
-@_aleanode('root_cluster','transform', 'bbox')
+@_node('root_cluster','transform', 'bbox')
 def segment_root_in_circle_frame(image, n=4, pixel_size=1, min_dimension=5, is_segmented=False):
     """
     Segment root image and detect a petri plate

@@ -3,10 +3,9 @@ from scipy import ndimage as _nd
 from .     import norm    as _norm, add_dim as _add_dim
 from .     import kernel  as _kernel
 
-from rhizoscan.workflow.openalea import aleanode as _aleanode # decorator to declare openalea nodes
+from rhizoscan.workflow import node as _node # to declare workflow nodes
 
-
-@_aleanode({'name':'filtered_array'})
+@_node({'name':'filtered_array'})
 def apply(array, **kwargs):
     """
     Apply a set of standard filter to array data: 
@@ -65,7 +64,7 @@ def apply(array, **kwargs):
             
     return array
 
-@_aleanode({'name':'mapped_array'})
+@_node({'name':'mapped_array'})
 def linear_map(array, min=0, max=1, axis=None):
     """
     mapped_array = linear_map( array, min=0, max=1, axis=None ) 
@@ -96,7 +95,7 @@ def linear_map(array, min=0, max=1, axis=None):
     
     return (max-min) * (array-amin)/(amax-amin) + min  
 
-@_aleanode({'name':'normalized_array'})
+@_node({'name':'normalized_array'})
 def normalize(array, method='euclidian', axis=None):
     """
     normalized_array = normalize(array, method='minmax')
@@ -126,7 +125,7 @@ def normalize(array, method='euclidian', axis=None):
     else:                
         return array / (_norm(array, method=method, axis=axis,squeeze=False) + 2**-1000)
 
-@_aleanode({'name':'filtered_data'})
+@_node({'name':'filtered_data'})
 def adaptive(data, sigma=None, kernel='gaussian'):
     """
     Compute adaptive filtering on data:     data - mu(data)
@@ -147,7 +146,7 @@ def adaptive(data, sigma=None, kernel='gaussian'):
     
     return data - mu
 
-@_aleanode({'name':'threshold'})
+@_node({'name':'threshold'})
 def otsu(array,step='all',stat=None):
     """
     Compute the threshold value (with otsu's method) that maximize intra-class inertia 
@@ -209,7 +208,7 @@ def otsu(array,step='all',stat=None):
 
     return threshold
 
-@_aleanode({'name':'mask'})
+@_node({'name':'mask'})
 def threshold(array, value='otsu'):
     """
     Basic array thresholding: return array >= value
@@ -219,7 +218,7 @@ def threshold(array, value='otsu'):
     if value=='otsu': value = otsu(array)
     return array >= value
 
-@_aleanode({'name':'mask'})
+@_node({'name':'mask'})
 def adaptive_threshold(data, sigma=None, size=3, threshold=0):
     """
     Compute adaptive thresholding on data

@@ -6,8 +6,7 @@ from glob import glob as _ls
 
 from rhizoscan.image import ImageSequence as _Seq
 from rhizoscan.image import Image         as _Img
-from rhizoscan.workflow.openalea import aleanode as _aleanode # decorator to declare openalea nodes
-
+from rhizoscan.workflow import node as _node # to declare workflow nodes
 image_path = '/Users/diener/root_data/test_set/'
 seq_path   = '/Users/diener/root_data/nacry/sequence_21-05-2012/'
 dart2_path  = '/Users/diener/root_data/nacry/scan_serie_1/DART/scan_serie_1_J2'
@@ -18,7 +17,7 @@ __icon__ = 'database.png'
 
 
 
-#@_aleanode({'name':'files'},inputs=({'name':'reload','interface':'IBool'},))
+#@_node({'name':'files'},inputs=({'name':'reload','interface':'IBool'},))
 def _test_image_list(update=False, files=[]):
     if update or len(files)==0:
         for i in range(len(files)): files.pop()
@@ -54,16 +53,16 @@ def _dart3_name_(update=False, names=[]):
         for f in files: names.append(f)
     return names
     
-#@_aleanode('dart_J2')
+#@_node('dart_J2')
 def dart_J2(number, color='gray', dtype='f'):
     filename = _dart2_name_()[number]
     return _Img(filename,color=color,dtype=dtype)
-#@_aleanode('dart_J3')
+#@_node('dart_J3')
 def dart_J3(number, color='gray', dtype='f'):
     filename = _dart3_name_()[number]
     return _Img(filename,color=color,dtype=dtype)
     
-#@_aleanode('image')
+#@_node('image')
 def test_image(filename):
     if not isinstance(filename,basestring):
         filename = _test_image_list()[filename]
@@ -81,7 +80,7 @@ def normalize(img):
     
     return img
 
-#@_aleanode('seq')
+#@_node('seq')
 def seq(filename, color='gray', dtype='f'):
     if not isinstance(filename,basestring):
         filename = _seq_name_()[filename]

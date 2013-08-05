@@ -1,8 +1,7 @@
 import numpy as _np
 from scipy import ndimage as _nd
 
-from rhizoscan.workflow.openalea  import aleanode as _aleanode # decorator to declare openalea nodes
-
+from rhizoscan.workflow import node as _node # to declare workflow nodes
 from rhizoscan.image         import Image as _Image
 from rhizoscan.datastructure import Data  as _Data
 
@@ -17,7 +16,7 @@ from ..image.to_graph import image_graph                 as _image_graph
 from ..image.to_graph import line_graph                  as _line_graph
 from ..graph          import RootAxialTree               as _RootAxialTree 
 
-@_aleanode('failed_files')
+@_node('failed_files')
 def process(ini_file, indices=None, **kargs):
     if isinstance(ini_file, basestring):
         flist, invalid, outdir = _make_dataset(ini_file=ini_file, output='tree')
@@ -38,7 +37,7 @@ def process(ini_file, indices=None, **kargs):
     return failed
     
 
-@_aleanode('mask', 'tree')
+@_node('mask', 'tree')
 def image_pipeline(image, seed_min_radius, circle_number, pixel_size, min_dimension, plant_number, to_tree, to_axe, smooth=1, seed_height=[.35,.65], metadata=None, output=None, update=[], verbose=True):
     import os
     

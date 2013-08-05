@@ -4,10 +4,9 @@ import scipy.ndimage as _nd
 
 from rhizoscan.ndarray   import kernel, add_dim, virtual_array as _virtual_array
 
-from rhizoscan.workflow.openalea  import aleanode as _aleanode # decorator to declare openalea nodes
+from rhizoscan.workflow import node as _node # to declare workflow nodes
 
-
-@_aleanode('segment_map','node_map')
+@_node('segment_map','node_map')
 def skeleton_label(mask, closing=1, fill_node=True, terminal=True):
     """
     Skeletonize (thin) mask, and return map of labeled skeleton segments and nodes
@@ -95,7 +94,7 @@ def skeleton_label(mask, closing=1, fill_node=True, terminal=True):
     return seg, node, ns, nn, nt
     
     
-@_aleanode('size')
+@_node('size')
 def corner_count(curve_map, background=0):
     """
     compute the length of (linear) label using the corner count method

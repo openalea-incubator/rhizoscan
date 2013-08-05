@@ -508,7 +508,9 @@ class Mapping(Data):
     def __str__(self):
         #from pprint import pformat
         #return pformat(self.__dict__)
-        return "length %d %s object with associated file: %s" % (len(self), self.__class__.__name__, self.get_data_file()) # self.multilines_str()
+        #return "length %d %s object with associated file: %s" % (len(self), self.__class__.__name__, self.get_data_file()) # self.multilines_str()
+        cls_name = self.__class__.__module__ + '.' + self.__class__.__name__
+        return cls_name+":"+str(self.__dict__)
     def display(self, tab=0, max_width=80, avoid_obj_id=None):
         """ same as print, but give access to arguments  
         see multilines_str for details """
@@ -516,7 +518,7 @@ class Mapping(Data):
     def multilines_str(self, tab=0, max_width=80, avoid_obj_id=None, self_name=''):
         """ multilines string representation, potentially hierarchical 
         
-        tab: number of tab to start all lines with
+        tab: number of tab to start all lines with                                       
         max_width: maximum number of character per lines
         
         (optional)

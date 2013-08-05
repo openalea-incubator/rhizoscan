@@ -18,6 +18,7 @@ from rhizoscan.root.image          import normalize_image             as _normal
 from rhizoscan.root.image          import remove_background           as _remove_background 
 from rhizoscan.root.image          import segment_root_image          as _segment_root_image
 from rhizoscan.root.image          import segment_root_in_petri_frame as _segment_root_in_petri_frame
+from rhizoscan.root.image          import plate                       as _plate
 from rhizoscan.root.image.seed     import detect_leaves               as _detect_leaves
 from rhizoscan.root.image.seed     import detect_seeds                as _detect_seeds
 from rhizoscan.root.image.to_graph import linear_label                as _linear_label
@@ -181,7 +182,7 @@ class pipeline_node(_aleanode):
         self.pipeline.__module__ = fct.__module__
         self.kwargs = oanode
         
-        return _aleanode.__call__(self, self.pipeline) 
+        return fct##_aleanode.__call__(self, self.pipeline) 
         #self.pipeline._aleanode_ = oanode
         #return self.pipeline
         
@@ -378,208 +379,12 @@ load_root_image = PipelineModule(name='image', \
                                  load=None,    compute=lambda filename, imagefile: (load_image(filename=imagefile),), \
                                  suffix='',    outputs=['image'])
 
-
-#### to be (re)moved
-##def arabido(ini_file, indices=None, **kargs):
-##    from .dataset import make_dataset
-##    if isinstance(ini_file, basestring):
-##        flist, invalid, outdir = make_dataset(ini_file=ini_file, output='tree')
-##    else:
-##        flist = ini_file
-##    
-##    if indices is None: indices = slice(None)
-##    imgNum = len(flist[indices])
-##    failed = []
-##    for i,f in enumerate(flist[indices]):
-##        print 'processing (img %d/%d):' %(i+1,imgNum), f.filename
-##        try:
-##            image_pipeline_arabido(f, **kargs)
-##        except Exception as e:
-##            print 'image %s failed:' % f, e.message
-##            failed.append((f,e))
-##            
-##    return failed
-##     
-##
-##@_aleanode('mask', 'tree')
-##def image_pipeline_no_frame(image, rm_bg, root_max_radius, min_dimension, seed_type, seed_number, to_tree, to_axe, verbose=True):
-##    img = image
-##    
-##    if all(map(hasattr,(image,)*3, ('filename', 'metadata', 'output'))):
-##        metadata = image.metadata
-##        output   = image.output
-##        image    = image.filename
-##        
-##    if isinstance(image,basestring):
-##        _print_state(verbose, 'load image file')
-##        img = _normalize_image(_Image(img,dtype='f',color='gray'))
-##        
-##    # background removal
-##    if rm_bg:
-##        _print_state(verbose,'remove background')
-##        img = _remove_background(img, distance=root_max_radius, smooth=1)
-##    
-##    # image binary segmentation
-##    _print_state(verbose,'segment binary mask')                                      
-##    mask = _nd.binary_closing(_segment_root_image(img)>0)
-##    mask = _clean_label(_nd.label(mask)[0], min_dim=min_dimension)>0
-##    
-##    
-##    # detect seed:
-##    _print_state(verbose,'detect seeds')
-##    if seed_type=='seed':
-##        seed_map = _detect_seeds(mask=mask, seed_number=seed_number, radius_min=root_max_radius, sort=True)
-##    else: # seed_type=='leaves'
-##        seed_map = _detect_leaves(mask=mask, image=img, leaf_number=seed_number, root_radius=root_max_radius, sort=True)
-##
-##    # image linear decomposition
-##    _print_state(verbose,'compute mask linear decomposition')
-##    sskl, nmap, smap, seed = _linear_label(mask=mask, seed_map=seed_map, compute_segment_map=True)
-##    
-##    # make "image-graph"
-##    _print_state(verbose,'compute graph representation of mask decomposition')
-##    im_graph = _image_graph(segment_skeleton=sskl, node_map=nmap, segment_map=smap, seed=seed)
-##    
-##    # make polyline graph
-##    _print_state(verbose,'compute graph of roots')
-##    pl_graph = _line_graph(image_graph=im_graph, segment_skeleton=sskl)
-##                                                              
-##    # extract axial tree
-##    _print_state(verbose,'convert graph to axial tree (%d segmens)' % pl_graph.segment.size)
-##    tree = _RootAxialTree(node=pl_graph.node, segment=pl_graph.segment, to_tree=to_tree, to_axe=to_axe)
-##
-##    return mask, tree
-##
-##
-##@_aleanode('tree')
-##def image_pipeline_arabido(image, root_max_radius, plate_border, plate_width, min_dimension, plant_number, to_tree, to_axe, smooth=1, leaf_height=[0,0.25], metadata=None, output=None, update=[], verbose=True):
-##    import os
-##    
-##    if all(map(hasattr,(image,)*3, ('filename', 'metadata', 'output'))):
-##        metadata = image.metadata
-##        output   = image.output
-##        image    = image.filename
-##        
-##    if output is not None:
-##        out_mask = output+'_mask.png'
-##        out_seed = output+'_seed.png'
-##        out_tree = output+'.tree'
-##    else:
-##        update = ['all']
-##        
-##    # segment image:
-##    # --------------
-##    mask = None
-##    if 'mask' not in update and 'all' not in update and os.path.exists(out_mask):
-##        # try to load mask
-##        from ast import literal_eval 
-##        import PIL
-##        try:
-##            info = PIL.Image.open(out_mask).info
-##            bbox = literal_eval(info['bbox'])
-##            bbox = map(lambda x: slice(*x),bbox)
-##            T    = literal_eval(info['T'])
-##            T    = _np.array(T)
-##            mask = _Image(out_mask,dtype=bool)      
-##        except:
-##            _print_error('Error while loading mask: unreadable file or missing/invalid metadata')  ## print error line ?
-##            
-##    if mask is None:
-##        update = ['all']  # from here on, update everything
-##        
-##        # load image
-##        if isinstance(image,basestring):
-##            _print_state(verbose, 'load image file')
-##            image = _normalize_image(_Image(image,dtype='f',color='gray'))
-##            
-##        if smooth:
-##            img = _nd.gaussian_filter(image, sigma=smooth)
-##        else:
-##            img = image
-##        
-##        # background removal
-##        _print_state(verbose,'remove background')
-##        img = _remove_background(img, distance=root_max_radius, smooth=1)
-##        
-##        # image binary segmentation
-##        _print_state(verbose,'segment binary mask')
-##        cluster,T,bbox = _segment_root_in_petri_frame(img,plate_border=plate_border, plate_width=plate_width, min_dimension=min_dimension)
-##        mask = cluster>0
-##        
-##        if output is not None:   
-##            from PIL.PngImagePlugin import PngInfo
-##            dir_mask = os.path.dirname(out_mask)
-##            if len(dir_mask) and not os.path.exists(dir_mask):
-##                os.makedirs(dir_mask)
-##            meta = PngInfo()
-##            meta.add_text('bbox', repr([(bbox[0].start,bbox[0].stop),(bbox[1].start,bbox[1].stop)])) 
-##            meta.add_text('T',    repr(T.tolist())) 
-##            _Image(mask).save(out_mask, dtype='uint8', scale=255, pnginfo=meta)
-##        
-##    # detect seed:
-##    # ------------
-##    seed_map = None
-##    seed_save_scale = 36  ## jsut for visualisation, auto scaling should be done, with clean_label at loading
-##    if 'seed' not in update and 'all' not in update and os.path.exists(out_seed):
-##        try:
-##            seed_map = _Image(out_seed, dtype='uint8', scale = 1./seed_save_scale)
-##        except:
-##            _print_error('Error while loading seed_map file') 
-##        
-##    if seed_map is None:
-##        update = ['all']  # from here on, update everything
-##        
-##        _print_state(verbose,'detect seeds')
-##        seed_map = _detect_leaves(mask=mask, image=img[bbox], leaf_number=plant_number, root_radius=int(root_max_radius/4), leaf_height=leaf_height, sort=True) ##
-##    
-##        if output is not None:   
-##            _Image(seed_map).save(out_seed, dtype='uint8', scale=36)
-##
-##    # compute graph:
-##    # --------------
-##    pl_graph = None
-##    if 'graph' not in update and 'all' not in update and os.path.exists(out_tree):  ## only tree is saved
-##        try:
-##            pl_graph = _Data.load(out_tree)
-##        except:
-##            _print_error('Error while loading graph file (actually, the tree file which stores the graph)') 
-##            
-##    if pl_graph is None:
-##        update = ['all']  # from here on, update everything
-##        
-##        # image linear decomposition
-##        _print_state(verbose,'compute mask linear decomposition')
-##        sskl, nmap, smap, seed = _linear_label(mask=mask, seed_map=seed_map, compute_segment_map=True)
-##        
-##        # make "image-graph"
-##        _print_state(verbose,'compute graph representation of mask decomposition')
-##        im_graph = _image_graph(segment_skeleton=sskl, node_map=nmap, segment_map=smap, seed=seed)
-##        
-##        # make polyline graph
-##        _print_state(verbose,'compute graph of roots')
-##        pl_graph = _line_graph(image_graph=im_graph, segment_skeleton=sskl)    
-##        
-##        # shift graph node position by cropped box left corner
-##        pl_graph.node.x[:] += bbox[1].start
-##        pl_graph.node.y[:] += bbox[0].start
-##        pl_graph.node.position[:,0] = 0
-##
-##    # extract axial tree:
-##    # -------------------
-##    tree = None
-##    if 'tree' not in update and 'all' not in update and os.path.exists(out_tree):
-##        try:
-##            tree = _Data.load(out_tree)
-##        except:
-##            _print_error('Error while loading tree file') 
-##    
-##    if tree is None:
-##        _print_state(verbose,'extract axial tree')
-##        tree = compute_tree(pl_graph, to_tree=to_tree, to_axe=to_axe, metadata=metadata, output_file=out_tree, verbose=verbose) 
-##    
-##    return tree
-
-
+# petri plate detection, function and module
+def detect_petri_plate(image, border_width=.05, plate_size=120, plate_shape='square', smooth=5, gradient_classes=(2,1)):
+    fg_mask = plate.detect_foreground(image=image, smooth=smooth, gradient_classes=gradient_classes)
+    pmask, px_scale, hull = plate.detect_petri_plate(fg_mask=fg_mask, border_width=border_width,
+                                                     plate_size=plate_size, plate_shape=plate_shape)
+    return pmaks, px_scale, hull
     
 def compute_tree(rg, to_tree, to_axe, metadata=None, output_file=None, verbose=False):
     # extract axial tree

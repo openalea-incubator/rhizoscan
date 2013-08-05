@@ -37,16 +37,47 @@ except:
 import os, sys, imp, pkgutil
 
 
+# Define the openalea workflow "plugin" (see workflow doc)
+# --------------------------------------------------------
+##  To replace aleanode decorator etc...
+def declare_node(function):
+    """
+    Functions to create (label) openalea node from workflow node
+    """
+    # add function to the _aleanodes_ attribute of the function's module
+    mod = sys.modules[function.__module__]
+    if not hasattr(mod,'_aleanodes_'):
+        mod._aleanodes_ = [function]
+    else:
+        mod._aleanodes_.append(function)
+
+def node_attributes(function):
+    """ Add node attributes for openalea """
+    from . import node_attributes
+    node = node_attributes(function).copy()
+    hidden = node.get('hidden', [])
+    for node_input in node['inputs']:
+        node_input['interface'] = find_interface(node_input['value'])
+        if node_input['name'] in hidden:
+            node_input['hide'] = True
+        
+    node['description'] = node['doc']
+
+    return node
+    
+## current decorator system
+#  ------------------------
+
 # print color
 R = '\033[31m'  # red
 G = '\033[32m'  # green
 B = '\033[34m'  # blue
 K = '\033[30m'  # black
 
-__all__ = ['aleanode', '_aleanode',
+__all__ = ['aleanode',
            'wrap_module', 'wrap_package', 'create_wrap_folder', 'clean_wralea_package', 
            'Factory','FuncFactory', 'PFuncNode', 'find_interface', 
-           'function_node_attributs', 'node_attribute', 'load_module']
+           'function_node_attributs', 'module_attributes', 'load_module']
 
 
 class aleanode:
@@ -524,40 +555,40 @@ def function_node_attributs(fct, modulename='', search_path=[], test=False, verb
       - and `test='raise'` raise the error
       - otherwise, return `None`
     """
-    node = fct._aleanode_.copy()
+    node = node_attributes(fct).copy()
     
     # set suitable reference to the function the node is refering to
-    node.setdefault('name',       fct.__name__)
+    ##node.setdefault('name',       fct.__name__)
     node.setdefault('nodemodule', modulename)
     node.setdefault('nodeclass',  fct.__name__)
     node.setdefault('search_path',search_path)   ## restrict to path of this module (package) ?
 
-    # in case, fct is not a function but is still callable
-    if not hasattr(fct,'__code__') and hasattr(fct,'__call__'): 
-        fct = fct.__call__
-    
-    # if node doesn't have 'inputs', infer it from function
-    if not node.has_key('inputs'):
-        c = fct.__code__
-        in_name = c.co_varnames[:c.co_argcount]
-        in_numb = c.co_argcount
-        
-        import types
-        if type(fct)==types.MethodType:
-            in_name = in_name[1:]
-            in_numb = in_numb-1
-            
-        def_val = () if fct.__defaults__ is None else fct.__defaults__
-        def_val = (None,)*(in_numb - len(def_val)) + def_val
-        node['inputs'] = tuple([dict(name=name, value=val, interface=find_interface(val)) for name,val in zip(in_name,def_val)])
+    ## in case, fct is not a function but is still callable
+    #if not hasattr(fct,'__code__') and hasattr(fct,'__call__'): 
+    #    fct = fct.__call__
+    #
+    ## if node doesn't have 'inputs', infer it from function
+    #if not node.has_key('inputs'):
+    #    c = fct.__code__
+    #    in_name = c.co_varnames[:c.co_argcount]
+    #    in_numb = c.co_argcount
+    #    
+    #    import types
+    #    if type(fct)==types.MethodType:
+    #        in_name = in_name[1:]
+    #        in_numb = in_numb-1
+    #        
+    #    def_val = () if fct.__defaults__ is None else fct.__defaults__
+    #    def_val = (None,)*(in_numb - len(def_val)) + def_val
+    #    node['inputs'] = tuple([dict(name=name, value=val, interface=find_interface(val)) for name,val in zip(in_name,def_val)])
 
+    ## appened function doc to node "description"
+    #if fct.__doc__: doc = fct.__doc__
+    #else:           doc = ''
+    #node['description'] = node.get('description','') + (fct.__doc__ if fct.__doc__ else '') 
+    
     if verbose:
         print "   -> '%s' (%s.%s)" % (node['name'],node['nodemodule'], node['nodeclass'])
-    
-    # appened function doc to node "description"
-    if fct.__doc__: doc = fct.__doc__
-    else:           doc = ''
-    node['description'] = node.get('description','') + (fct.__doc__ if fct.__doc__ else '') 
     
     # Assert the generated factory:
     # make a Factory from given arguments and load the function from it,
@@ -655,7 +686,7 @@ def wrap_package(pkg, pkg_attrib={}, wrap_name=None, wrap_path=None, entry_point
     join = lambda path,pack: os.path.join(path,pack.replace('.',os.path.sep))
     
     # wrap package __init__ module
-    attrib = node_attribute(pkg, entry_name=entry_name, parent_attrib=pkg_attrib)
+    attrib = module_attributes(pkg, entry_name=entry_name, parent_attrib=pkg_attrib)
     nodes  = wrap_module(pkg, attrib=attrib,wrapper_path=join(wrap_path,wrap_name), verbose=False)
     
     # if it's not a valid aleanode container (i.e. it has no attribute _aleanodes_)
@@ -684,7 +715,7 @@ def wrap_package(pkg, pkg_attrib={}, wrap_name=None, wrap_path=None, entry_point
                          verbose=verbose)
         else:
             # wrap module
-            mod_attrib = node_attribute(module, entry_name=mod_entry, parent_attrib=attrib)
+            mod_attrib = module_attributes(module, entry_name=mod_entry, parent_attrib=attrib)
             nodes = wrap_module(module,attrib=mod_attrib, wrapper_path=join(wrap_path,mod_name), verbose=False)
             
             if nodes:
@@ -780,7 +811,7 @@ def clean_wralea_package(wrap_pkg):
 
     
 
-def node_attribute(module, entry_name=None, parent_attrib={}):
+def module_attributes(module, entry_name=None, parent_attrib={}):
     """
     Make openalea node attributs for the given module.
     

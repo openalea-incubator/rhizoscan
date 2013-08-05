@@ -24,7 +24,7 @@ from rhizoscan.workflow.openalea import aleanode as _aleanode # decorator to dec
 
    
 @_aleanode('foreground_mask')
-def detect_foreground(img, smooth=5, gradient_classes=(2,1)):
+def detect_foreground(image, smooth=5, gradient_classes=(2,1)):
     """
     Segment foreground areas: separated from background by suffisant gradient wall
     
@@ -41,8 +41,8 @@ def detect_foreground(img, smooth=5, gradient_classes=(2,1)):
       A binary mask of the detected foreground objects
     """
     if smooth:
-        img = _nd.gaussian_filter(img,sigma=smooth)
-    lgl = _gradient_norm(img)
+        image = _nd.gaussian_filter(image,sigma=smooth)
+    lgl = _gradient_norm(image)
     fg  = _cluster_1d(lgl, bins=256, classes=gradient_classes[0])>=gradient_classes[1]
     fg  = _nd.binary_fill_holes(fg)
     

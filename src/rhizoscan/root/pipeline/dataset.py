@@ -4,6 +4,7 @@ __icon__    = 'database.png'   # icon of openalea package
 import numpy as _np
 
 from rhizoscan.workflow.openalea  import aleanode as _aleanode # decorator to declare openalea nodes
+from rhizoscan.workflow  import node as _node # decorator to declare workflow nodes
 
 from rhizoscan.datastructure import Mapping as _Mapping
 from rhizoscan.datastructure import Data    as _Data
@@ -11,7 +12,8 @@ from rhizoscan.datastructure import Data    as _Data
 from . import _print_state, _print_error, _param_eval 
 
 
-@_aleanode('image_list', 'invalid_file', 'output_directory')
+#@_aleanode('image_list', 'invalid_file', 'output_directory')
+@_node('image_list', 'invalid_file', 'output_directory', hidden=['verbose'])
 def make_dataset(ini_file, output='output', verbose=False):
     """
     Return an iterator over all images following parsing format

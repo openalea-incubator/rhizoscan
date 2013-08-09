@@ -168,7 +168,7 @@ def image_pipeline(image, plate_width=120, min_dimension=50, smooth=1, to_tree=2
         pwidth = pmask.sum()**.5                                 # estimated plate width in pixels
         border = pwidth * .03                                    ## constant 3% of plate width
         pmask  = pmask + 2*_nd.binary_erosion(pmask>0, iterations=int(border))
-        px_ratio = plate_width/pwidth
+        px_scale = plate_width/pwidth
         
         # detect codebar box as the biggest connex cluster
         cbmask = _nd.label(_nd.binary_closing((cluster>0) & (pmask==3), iterations=5))[0]
@@ -188,19 +188,19 @@ def image_pipeline(image, plate_width=120, min_dimension=50, smooth=1, to_tree=2
         # save plate mask
         from PIL.PngImagePlugin import PngInfo
         meta = PngInfo()
-        meta.add_text('px_ratio', repr(px_ratio)) 
+        meta.add_text('px_scale', repr(px_scale)) 
         _Image(pmask).save(filename, dtype='uint8', scale=85, pnginfo=meta) # 85 = 255/pmask.max()
         
-        return pmask, px_ratio
+        return pmask, px_scale
         
     def load_plate_mask(filename):
         from ast import literal_eval 
         import PIL
         info = PIL.Image.open(filename).info
-        px_ratio = literal_eval(info['px_ratio'])
-        return _Image(filename,dtype='uint8')/85, px_ratio
+        px_scale = literal_eval(info['px_scale'])
+        return _Image(filename,dtype='uint8')/85, px_scale
     
-    pmask, px_ratio = get_data('frame', out_frame, load_plate_mask, {}, \
+    pmask, px_scale = get_data('frame', out_frame, load_plate_mask, {}, \
                                         find_plate, dict(image=image, plate_width=plate_width))
     
     # do the actual image segmentation
@@ -285,7 +285,7 @@ def image_pipeline(image, plate_width=120, min_dimension=50, smooth=1, to_tree=2
         pl_graph.node.y[:] += bbox[0].start
         pl_graph.node.position[:,0] = 0
         
-        pl_graph.save(filename)
+        pl_graph.dump(filename)
         
         return pl_graph
         
@@ -302,12 +302,12 @@ def image_pipeline(image, plate_width=120, min_dimension=50, smooth=1, to_tree=2
     
     # compute axial tree:
     # -------------------
-    def compute_tree(filename, graph, to_tree, to_axe, metadata, px_ratio, verbose):
-        metadata.px_ratio = px_ratio
+    def compute_tree(filename, graph, to_tree, to_axe, metadata, px_scale, verbose):
+        metadata.px_scale = px_scale
         tree = _compute_tree(graph, to_tree=to_tree, to_axe=to_axe, metadata=metadata, output_file=filename, verbose=verbose) 
         return tree
         
     tree = get_data('tree', out_tree, load_graph, dict(tree=True), \
-                     compute_tree, dict(graph=graph, to_tree=to_tree, to_axe=to_axe, metadata=metadata, px_ratio=px_ratio, verbose=verbose))
+                     compute_tree, dict(graph=graph, to_tree=to_tree, to_axe=to_axe, metadata=metadata, px_scale=px_scale, verbose=verbose))
 
     return tree

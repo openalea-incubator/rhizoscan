@@ -35,26 +35,28 @@ except:
     warnings.warn("OpenAlea.core.node.FuncNode could not be found. Aleanode won't be defined", ImportWarning)
     
 import os, sys, imp, pkgutil
-
+from types import MethodType
 
 # Define the openalea workflow "plugin" (see workflow doc)
 # --------------------------------------------------------
 ##  To replace aleanode decorator etc...
-def declare_node(function):
+def declare_node(node):
     """
     Functions to create (label) openalea node from workflow node
     """
-    # add function to the _aleanodes_ attribute of the function's module
-    mod = sys.modules[function.__module__]
+    # add node to the _aleanodes_ attribute of the node's module
+    mod = sys.modules[node.__module__]
     if not hasattr(mod,'_aleanodes_'):
-        mod._aleanodes_ = [function]
+        mod._aleanodes_ = [node]
     else:
-        mod._aleanodes_.append(function)
+        mod._aleanodes_.append(node)
+        
+    node.__OA_call__ = MethodType(__OA_call__,node) ## not useful?
 
-def node_attributes(function):
+def node_attributes(node):
     """ Add node attributes for openalea """
     from . import node_attributes
-    node = node_attributes(function).copy()
+    node = node_attributes(node).copy()
     hidden = node.get('hidden', [])
     for node_input in node['inputs']:
         node_input['interface'] = find_interface(node_input['value'])
@@ -64,6 +66,16 @@ def node_attributes(function):
     node['description'] = node['doc']
 
     return node
+    
+def __OA_call__(node, *args):
+    """
+    call function from openalea dataflow 
+    """
+    in_names = [i['name'] for i in node.get_node_attribute('inputs')]
+    karg = dict(zip(in_names, args))
+    return node(**karg)
+    
+
     
 ## current decorator system
 #  ------------------------

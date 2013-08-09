@@ -219,7 +219,7 @@ def load_ref_trees(p):
         
         s.tree = tree
         s.ndf_files = ndf_files
-        s.save()
+        s.dump()
         
 # ------ pipeline stuff ------ 
 # ----------------------------
@@ -246,12 +246,12 @@ def parse_refdata_db(ini_file, output='tree', overwrite=False, verbose=True):
             else:                     scale = 1 
             tree   = NJ_loader(njFile).to_tree(scale)[-1]
             tree.metadata = meta
-            tree.save(trFile)
+            tree.dump(trFile)
         T.append(trFile)
         
     T = Sequence(files=T)
     T.set_data_file(join(out_dir,output+'.db'))
-    T.save()
+    T.dump()
         
     return flist, invalid, out_dir, T
     

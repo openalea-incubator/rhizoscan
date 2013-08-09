@@ -32,7 +32,7 @@ def compute_tree_stat(tree, stat_names='all', mask=None, save=True):
         stat[name] = fct(tree, mask=mask)
     tree.stat = stat
     
-    if save: tree.save() 
+    if save: tree.dump() 
     
     return tree
         
@@ -93,14 +93,14 @@ class TreeCompare(_Mapping):
             r.compute_stat(stat_names=stat_names, mask=mask)
             r.clear_temporary_attribute()
         if save:
-            self.save()
+            self.dump()
             
-    def _data_to_save_(self):
+    def _serialize_(self):
         s = self.__copy__()
-        s.auto = [a._data_to_save_() for a in s.auto]
-        s.ref  = [r._data_to_save_() for r in s.ref]
+        s.auto = [a._serialize_() for a in s.auto]
+        s.ref  = [r._serialize_() for r in s.ref]
         
-        return _Mapping._data_to_save_(s)
+        return _Mapping._serialize_(s)
                 
 @_node(name='TreeCompare')
 def make_TreeCompare(auto, ref, filename='.tmp-TreeCompare', compute_stat='all'):
@@ -111,26 +111,26 @@ def make_TreeCompare(auto, ref, filename='.tmp-TreeCompare', compute_stat='all')
                 
 @_tree_stat
 def axe1_length(tree, mask=None):
-    scale = getattr(getattr(tree,'metadata',None),'px_ratio',None)
+    scale = getattr(getattr(tree,'metadata',None),'px_scale',None)
     ax1L = get_axes_property(tree, 'length', order=1, mask=None if mask is None else mask(tree), scale=scale)
     return dict((k,v[0] if len(v) else 0) for k,v in ax1L.iteritems())
 @_tree_stat
 def axe2_length(tree, mask=None): 
-    scale = getattr(getattr(tree,'metadata',None),'px_ratio',None)
+    scale = getattr(getattr(tree,'metadata',None),'px_scale',None)
     return get_axes_property(tree, 'length', order=2, mask=None if mask is None else mask(tree), scale=scale)
 @_tree_stat
 def axe2_length_total(tree, mask=None): 
-    scale = getattr(getattr(tree,'metadata',None),'px_ratio',None)
+    scale = getattr(getattr(tree,'metadata',None),'px_scale',None)
     L = get_axes_property(tree, 'length', order=2, mask=None if mask is None else mask(tree), scale=scale)
     return dict([(k,v.sum()) for k,v in L.iteritems()])
 @_tree_stat
 def axe2_length_mean(tree, mask=None): 
-    scale = getattr(getattr(tree,'metadata',None),'px_ratio',None)
+    scale = getattr(getattr(tree,'metadata',None),'px_scale',None)
     L = get_axes_property(tree, 'length', order=2, mask=None if mask is None else mask(tree), scale=scale)
     return dict([(k,v.mean() if len(v) else 0) for k,v in L.iteritems()])
 @_tree_stat
 def total_length(tree, mask=None):
-    scale = getattr(getattr(tree,'metadata',None),'px_ratio',None)
+    scale = getattr(getattr(tree,'metadata',None),'px_scale',None)
     tl = get_axes_property(tree, 'length', mask=None if mask is None else mask(tree),scale=scale)
     for k,l in tl.iteritems():
         tl[k] = l.sum()
@@ -156,7 +156,7 @@ def ramification_length(tree, mask=None):
     plant  = tree.axe.plant[tree.segment.axe[branch]]
     bdist  = tree.segment.axelength[branch]
     
-    scale = getattr(getattr(tree,'metadata',None),'px_ratio',1)
+    scale = getattr(getattr(tree,'metadata',None),'px_scale',1)
 
     return dict(zip(pl_id, maximum(bdist*scale,plant, pl_id)))
     
@@ -343,8 +343,8 @@ def cmp_plot(db, stat, key1, key2, update_stat=False, fig=42, outliers=.05, key_
         if not hasattr(t,'stat') or update_stat:
             t.stat = TreeStat(t)
             t.stat.compute_stat()
-            t.save()
-        ##scale = getattr(t.metadata, 'px_ratio',1)
+            t.dump()
+        ##scale = getattr(t.metadata, 'px_scale',1)
         db_value[i] = t.stat[stat].values()##[v*scale for v in t.stat[stat].values()]
     
     # manage key arguments
@@ -459,7 +459,7 @@ def plant_mesure(P):
             nid = nid[nid>0]
             area[i,1] = hull_area(t.node.position.T[nid])
             
-    P.save()
+    P.dump()
     
     P.total_root_length = dict()
     P.axe1_length = dict()
@@ -492,7 +492,7 @@ def plant_mesure(P):
         # auto
         compute_for(proj_id,proj.tree, 0)
         compute_for(proj_id,proj.dtree,1)
-    P.save()
+    P.dump()
             
 def plot_plant(P, msr,subplot=True, pxpmm=[1,1]):
     from matplotlib import pyplot as plt
@@ -562,7 +562,7 @@ def axe_mesure(P):
         compute_for(proj_id,proj.tree, 0)
         compute_for(proj_id,proj.dtree,1)
         
-    P.save()
+    P.dump()
 
 def distseq_plot(P, msr, plot=3, hist=10, pxpmm=[1,1]):
     msr_data = getattr(P,msr)

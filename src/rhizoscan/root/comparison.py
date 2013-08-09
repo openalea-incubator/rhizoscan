@@ -73,7 +73,7 @@ class TreeCompare(_Mapping):
         self.cmp = c.loader(attribute=['metadata','stat'])
         
         if save:
-            self.save()
+            self.dump()
 
 
 # statistical root tree comparison
@@ -105,18 +105,18 @@ class TreeCompareSequence(_Mapping):
         
         if filename:
             self.set_data_file(filename)
-            self.save()
+            self.dump()
 
     def compute_stat(self, stat_names='all', mask=None, save=True):
         for tc in self.tc_list: 
             tc.compute_stat(stat_names=stat_names, mask=mask, save=tc.get_data_file() is not None)
         if save:
-            self.save()
+            self.dump()
             
-    def _data_to_save_(self):
+    def _serialize_(self):
         s = self.__copy__()
-        s.tc_list = [tc._data_to_save_() for tc in s.tc_list]
-        return _Mapping._data_to_save_(s)
+        s.tc_list = [tc._serialize_() for tc in s.tc_list]
+        return _Mapping._serialize_(s)
 
 def plot(self, stat='axe1_length', title=None, prefilter=None, split=None, legend=True, merge_unique=False, scale=1, cla=True):
         import matplotlib.pyplot as plt

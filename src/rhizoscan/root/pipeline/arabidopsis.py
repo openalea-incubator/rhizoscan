@@ -77,7 +77,7 @@ def find_plate(filename, image, plate_width=120, threshold=0.6, marker_min_size=
     pwidth = pmask.sum()**.5                                 # estimated plate width in pixels
     border = pwidth * .03                                    ## constant 3% of plate width
     pmask  = pmask + 2*_nd.binary_erosion(pmask>0, iterations=int(border))
-    px_ratio = plate_width/pwidth
+    px_scale = plate_width/pwidth
     
     # detect codebar box as the biggest connex cluster
     if codebar:
@@ -95,9 +95,9 @@ def find_plate(filename, image, plate_width=120, threshold=0.6, marker_min_size=
         pmask[cbmask>0] = 2
 
     # save plate mask
-    _Image(pmask).save(filename, dtype='uint8', scale=85, pnginfo=dict(px_ratio=px_ratio)) # 85 = 255/pmask.max()
+    _Image(pmask).save(filename, dtype='uint8', scale=85, pnginfo=dict(px_scale=px_scale)) # 85 = 255/pmask.max()
     
-    return pmask, px_ratio
+    return pmask, px_scale
 
 def find_plate_2(filename, image, plate_width=120, plate_border=100, codebar=False):
     # compute laplacian with radius relative to width
@@ -110,7 +110,7 @@ def find_plate_2(filename, image, plate_width=120, plate_border=100, codebar=Fal
     pwidth = pmask.sum()**.5                                 # estimated plate width in pixels
     #border = pwidth * .03                                    ## constant 3% of plate width
     pmask  = pmask + 2*_nd.binary_erosion(pmask>0, iterations=int(plate_border))
-    px_ratio = plate_width/pwidth
+    px_scale = plate_width/pwidth
     
     # detect codebar box as the biggest connex cluster
     if codebar:
@@ -123,26 +123,26 @@ def find_plate_2(filename, image, plate_width=120, plate_border=100, codebar=Fal
         pmask[cbmask>0] = 2
 
     # save plate mask
-    _Image(pmask).save(filename, dtype='uint8', scale=85, pnginfo=dict(px_ratio=px_ratio)) # 85 = 255/pmask.max()
+    _Image(pmask).save(filename, dtype='uint8', scale=85, pnginfo=dict(px_scale=px_scale)) # 85 = 255/pmask.max()
     
-    return pmask, px_ratio
+    return pmask, px_scale
     
 def load_plate_mask(filename):
     from ast import literal_eval 
     import PIL
     info = PIL.Image.open(filename).info
-    px_ratio = literal_eval(info['px_ratio'])
+    px_scale = literal_eval(info['px_scale'])
     pmask = _Image(filename,dtype='uint8')/85
-    #px_ratio = literal_eval(pmask.info['px_ratio'])
-    return pmask, px_ratio
+    #px_scale = literal_eval(pmask.info['px_scale'])
+    return pmask, px_scale
 
 frame_detection = _PModule(name='frame', \
                            load=load_plate_mask,  compute=find_plate, \
-                           suffix='_frame.png',   outputs=['pmask','px_ratio'])    
+                           suffix='_frame.png',   outputs=['pmask','px_scale'])    
     
 frame_detection2 = _PModule(name='frame', \
                            load=load_plate_mask,  compute=find_plate_2, \
-                           suffix='_frame.png',   outputs=['pmask','px_ratio'])    
+                           suffix='_frame.png',   outputs=['pmask','px_scale'])    
     
 # image segmentation
 # ------------------
@@ -228,7 +228,7 @@ def compute_graph(filename, rmask, seed_map, bbox, verbose=False):
     pl_graph.node.y[:] += bbox[0].start
     pl_graph.node.position[:,0] = 0
     
-    pl_graph.save(filename)
+    pl_graph.dump(filename)
     
     return pl_graph, 
     
@@ -247,15 +247,15 @@ root_graph = _PModule(name='graph', \
 
 # compute axial tree:
 # -------------------
-def compute_tree(filename, graph, px_ratio, to_tree=2, to_axe=2, metadata={}, verbose=False):
-    metadata['px_ratio'] = px_ratio
+def compute_tree(filename, graph, px_scale, to_tree=2, to_axe=2, metadata={}, verbose=False):
+    metadata['px_scale'] = px_scale
     tree = _compute_tree(graph, to_tree=to_tree, to_axe=to_axe, metadata=metadata, output_file=filename, verbose=verbose) 
     return tree, 
     
 root_tree = _PModule(name='tree', \
                      load=load_graph,   compute=compute_tree, \
                      suffix='.tree',    outputs=['tree'],      \
-                     load_kargs=dict(tree=True), hidden=['tree','to_tree','to_axe','metadata','px_ratio'])
+                     load_kargs=dict(tree=True), hidden=['tree','to_tree','to_axe','metadata','px_scale'])
 
 # pipeline of all root image analysis modules
 @_pipeline_node([frame_detection, image_segmentation, leaves_detection, root_graph, root_tree])

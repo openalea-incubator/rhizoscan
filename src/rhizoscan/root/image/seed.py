@@ -262,7 +262,7 @@ def detect_graph_seed(graph,seed_prop,seed_number):
     #idmap = _np.cumsum(idmap)*(idmap>0)
     
     graph.segment.leaves = idmap[sid]
-    graph.save()
+    graph.dump()
 
     return graph.segment.leaves
 

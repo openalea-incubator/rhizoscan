@@ -41,9 +41,11 @@ class Image(_np.ndarray, _Data):
             obj = _nd.imread(array_or_file).view(cls)
             obj.set_data_file(array_or_file)
             
-            # load image info
+            # load image info and timestamp
             from PIL import Image
+            from os.path import getmtime
             obj.info = Image.open(array_or_file).info
+            obj.info['timestamp'] = getmtime(array_or_file)
             obj.info.update(info)
         else:
             obj = _np.asanyarray(array_or_file).view(cls)
@@ -126,9 +128,9 @@ class Image(_np.ndarray, _Data):
         Save the image to file 'filename' using PIL.Image
         
         This method can be called as
-          1a a static   method:  Image.save(some_array,        file_name,      ...)
-          1b a static   method:  Image.save(some_Image_object, file_name=None, ...)
-          2. a instance method:  some_Image_object.save(       file_name=None, ...)
+          1a a static   method:  Image.save(some_array,        filename,      ...)
+          1b a static   method:  Image.save(some_Image_object, filename=None, ...)
+          2. a instance method:  some_Image_object.save(       filename=None, ...)
         
         :Inputs:
           - image:
@@ -277,12 +279,14 @@ class Image(_np.ndarray, _Data):
         """
         Method to load image using the empty image returned by Image.loader()
         
+        - Use Image constructor to load an image file -
+        
         The loaded  image  is *returned*
         the calling object is *unchanged*
         
-        Note:
-        This method actually load the image from file given by its Data file 
-        attribute and apply conversion to the same color and dtype.
+        :Note:
+            This method load the image from file given by the loader Data file 
+            attribute and apply conversion to the same color and dtype.
         """
         return Image(self.get_data_file(),color=self.color, dtype=self.dtype, scale=self.scale)
         
@@ -299,9 +303,9 @@ class Image(_np.ndarray, _Data):
         loader.set_data_file(self.get_data_file())
         return loader
         
-    def _data_to_save_(self):
+    def _serialize_(self):
         return self.loader()
-    def _data_to_load_(self):
+    def _unserialize_(self):
         return self.load()
 
     def __reduce__(self):
@@ -447,7 +451,7 @@ def detect_color_space(image_array):
     elif image_array.shape[-1]==4: return 'rgba'
     else:                          return 'gray'
     
-#_node('converted_image')
+@_node('converted_image')
 def imconvert(image, color=None, dtype=None, scale='dtype', from_color=None):
     """
     Convert Image color space and/or dtype

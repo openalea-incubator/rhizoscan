@@ -166,7 +166,7 @@ def image_pipeline(image, seed_min_radius, circle_number, pixel_size, min_dimens
         tree = _RootAxialTree(node=pl_graph.node, segment=pl_graph.segment, to_tree=to_tree, to_axe=to_axe, single_order1_axe=False)
 
         if metadata is not None: tree.metadata = metadata
-        if output is not None:   tree.save(out_tree)
+        if output is not None:   tree.dump(out_tree)
 
     return tree
     
@@ -204,7 +204,7 @@ def rice_test0(filename=None):
         
         res = _Mapping()
         res.mask = mask#_Image(mask).save(mfile, dtype='uint8', scale=255)
-        res.tree = tree#tree.save(tfile)
+        res.tree = tree#tree.dump(tfile)
         
         out.append(res)
         

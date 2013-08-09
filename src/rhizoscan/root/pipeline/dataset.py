@@ -144,6 +144,9 @@ def make_dataset(ini_file, output='output', verbose=False):
             
     return img_list, invalid, base_out
     
+@_node('filename', 'metadata', 'output')
+def split_item(db_item):
+    return db_item.filename, db_item.metadata, db_item.output
     
 @_node('to_update')
 def to_update(db, suffix='.tree'):

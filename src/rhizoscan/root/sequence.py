@@ -249,13 +249,13 @@ class RootSequence(_Mapping):
         self._check_data([input])
         out_fname = self.make_output_filename(names=output,seq_length=len(self[input]))
         self[output] = remove_background(self[input],output=out_fname, distance=root_max_width, smooth=1)
-        self.save()
+        self.dump()
     @_append_doc(segment_root_image)
     def segment_root_image(self,input='input', output='root_mask', mask=None):
         self._check_data([input])
         out_fname = self.make_output_filename(names=output,seq_length=len(self[input]))
         self[output] = segment_root_image(self[input],output=out_fname, mask=self.get(mask,None))
-        self.save()
+        self.dump()
         
     def segment_root_in_petri_frame(self,input='input', output=['cluster','transform','bbox'], plate_border=0.06, plate_width=1, min_dimension=5):
         self._check_data([input])
@@ -272,7 +272,7 @@ class RootSequence(_Mapping):
         self['c_'+input] = ImageSequence(self[input].get_file())
         self['c_'+input].roi = self[output[2]]
         
-        self.save()
+        self.dump()
         
     def segment_root_in_circle_frame(self,input='input', output='cluster', n=4, pixel_size=1, min_dimension=5):
         out_fname = self.make_output_filename(names=output[0],seq_length=len(self[input]))
@@ -282,7 +282,7 @@ class RootSequence(_Mapping):
                                           min_dimension=min_dimension)
         
         for name,value in zip(output,out): self[name] = value
-        self.save()
+        self.dump()
         
     def mask_to_rootgraph(self,mask='cluster', image='input', output=['mapgraph','plgraph']):
         mgr_fname = self.make_output_filename(names=output[0],seq_length=len(self[mask]))
@@ -291,7 +291,7 @@ class RootSequence(_Mapping):
                                           mapgraph_out=mgr_fname, plgraph_out=grp_fname)
         
         for name,value in zip(output,out): self[name] = value
-        self.save()
+        self.dump()
 
 
     def track_graph_seed(self, graph1='mapgraph', graph2='plgraph', seed_prop='luminosity', plant_number=None):
@@ -313,8 +313,8 @@ class RootSequence(_Mapping):
                 g1 = self[graph1][i]
                 g2 = self[graph2][i]
                 g2.segment.leaves = g1.segment.leaves[g2.segment.sid]
-                g2.save()
-        #self.save() ## useless: g1 and g2 are saved 
+                g2.dump()
+        #self.dump() ## useless: g1 and g2 are saved 
         
     def compute_root_tree(self, graph='plgraph', output='tree', to_tree=2,to_axe=1):
         if not self.has_field(graph):
@@ -323,7 +323,7 @@ class RootSequence(_Mapping):
         out_name = self.make_output_filename(names=output,seq_length=len(self[graph]))
         self[output] = compute_root_tree(graph=self[graph], output=out_name, \
                                           to_tree=to_tree, to_axe=to_axe)
-        self.save()
+        self.dump()
     
     def run(self, root_max_width, to_run=['filter','cluster','label','graph']): ## leaves (requires transition...) 
         """

@@ -80,10 +80,6 @@ def detect_petri_plate(fg_mask, border_width, plate_size, plate_shape='square'):
     fg_size[0] = 0
     pmask = fg_label==fg_size.argmax()
     
-    # compute te hull
-    hull = _np.transpose((pmask<>_nd.uniform_filter(pmask,size=(3,3))).nonzero())
-    hull = _polygon.convex_hull(hull)
-    
     # estimated plate diameter in pixels and pixels size in real unit
     if plate_shape=='square':
         pdiam = pmask.sum()**.5
@@ -91,11 +87,16 @@ def detect_petri_plate(fg_mask, border_width, plate_size, plate_shape='square'):
         pdiam = pmask.sum()**.5/_np.pi
     else:
         raise NotImplementedError("shape should be square of circular: general fitting is not implemented")##
-    px_scale = plate_size/pdiam
-    
-    # make the petri plate labeled image
     if border_width<1:
         border_width = pdiam * border_width
+    px_scale = plate_size/pdiam
+    
+    # compute te hull
+    pmask = _nd.binary_opening(pmask, iterations=int(border_width))
+    hull = _np.transpose((pmask>_nd.binary_erosion(pmask)).nonzero())
+    hull = _polygon.convex_hull(hull)
+    
+    # make the petri plate labeled image
     pmask  = pmask + 2*_nd.binary_erosion(pmask>0, iterations=int(border_width))
     
     return pmask, px_scale, hull

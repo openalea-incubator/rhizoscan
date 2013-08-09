@@ -5,6 +5,7 @@ from ast import literal_eval as _literal_eval
 
 _aleanodes_ = []
 from rhizoscan.workflow import node as _node # to declare workflow nodesfrom rhizoscan.workflow.openalea  
+from rhizoscan.workflow import savable_node as _savable_node
 
 from rhizoscan.tool import static_or_instance_method as _static_or_instance_method
 
@@ -25,6 +26,7 @@ from rhizoscan.root.image.to_graph import image_graph                 as _image_
 from rhizoscan.root.image.to_graph import line_graph                  as _line_graph
 # remove local import: CPL
 from rhizoscan.root.graph          import RootAxialTree               as _RootAxialTree 
+
 
 def _print_state(verbose, msg):
     if verbose: print '  ', msg
@@ -181,9 +183,7 @@ class pipeline_node(_node):
         self.pipeline.__module__ = fct.__module__
         self.kwargs = oanode
         
-        return fct##_aleanode.__call__(self, self.pipeline) 
-        #self.pipeline._aleanode_ = oanode
-        #return self.pipeline
+        return fct
         
 class PipelineModule(object):
     """
@@ -369,8 +369,9 @@ class PipelineModule(object):
         return cls + ' ' + self.compute.__module__ + '.' + self.name 
         
 
-# load image function and module
-# ------------------------------
+# load image function and node
+# ----------------------------
+@_node('image')
 def load_image(filename, *args, **kargs):
     return _normalize_image(_Image(filename,dtype='f',color='gray'))
 
@@ -378,20 +379,38 @@ load_root_image = PipelineModule(name='image', \
                                  load=None,    compute=lambda filename, imagefile: (load_image(filename=imagefile),), \
                                  suffix='',    outputs=['image'])
 
-# petri plate detection, function and module
-def detect_petri_plate(image, border_width=.05, plate_size=120, plate_shape='square', smooth=5, gradient_classes=(2,1)):
-    fg_mask = plate.detect_foreground(image=image, smooth=smooth, gradient_classes=gradient_classes)
-    pmask, px_scale, hull = plate.detect_petri_plate(fg_mask=fg_mask, border_width=border_width,
-                                                     plate_size=plate_size, plate_shape=plate_shape)
-    return pmaks, px_scale, hull
+# petri plate detection, function and node
+# ----------------------------------------
+def _save_detect_petri_plate(filename, pmask, px_scale, hull):
+    pnginfo = dict(px_scale=px_scale, hull=repr(hull.tolist()))
+    _Image(pmask).save(filename, dtype='uint8', scale=85, pnginfo=pnginfo) # 85 = 255/pmask.max()
+def _load_detect_petri_plate(filename):
+    pmask = _Image(filename,dtype='uint8')/85
+    px_scale = pmask.info.pop('px_scale')
+    hull = _np.array(pmask.info.pop('hull'))
+    return pmask, px_scale, hull
     
+@_savable_node('pmask','px_scale', 'hull', 
+    save_fct=_save_detect_petri_plate,
+    load_fct=_load_detect_petri_plate,
+    suffix='_frame.png',
+    hidden=['plate_shape','smooth', 'gradient_classes'])
+def detect_petri_plate(image, border_width=.05, plate_size=120, plate_shape='square', smooth=5, gradient_classes=(2,1)):
+    fg_mask = _plate.detect_foreground(image=image, smooth=smooth, gradient_classes=gradient_classes)
+    pmask, px_scale, hull = _plate.detect_petri_plate(fg_mask=fg_mask, border_width=border_width,
+                                                     plate_size=plate_size, plate_shape=plate_shape)
+    return pmask, px_scale, hull
+
+
+
+
 def compute_tree(rg, to_tree, to_axe, metadata=None, output_file=None, verbose=False):
     # extract axial tree
     _print_state(verbose,'extract axial tree')
     tree = _RootAxialTree(node=rg.node, segment=rg.segment, to_tree=to_tree, to_axe=to_axe)
 
     if metadata    is not None: tree.metadata = metadata
-    if output_file is not None: tree.save(output_file)#; print 'tree saved', output_file
+    if output_file is not None: tree.dump(output_file)#; print 'tree saved', output_file
 
     return tree
 

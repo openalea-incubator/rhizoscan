@@ -15,9 +15,9 @@ TODO:
         * what about contained data with already set data file ?
             + look into the 'Data mode' idea ('r','w','u') ?
     - replace Data.__file by a Data_file property, replacing the get&set methods
-    - replace the _data_to_load/save by the set/get_state protocol
+    - replace the _(un)serialize_ by the set/get_state protocol
     - look intop the __del__ deconstructor and the ability to automate saving
-        * call to del seems not garantied...
+        * call to del is not garantied by carbage collector
 """
 __icon__    = 'datastructure.png'   # icon of openalea package
 
@@ -41,43 +41,44 @@ class Data(object):
       2) It can be used as a superclass in order to get the saving and loading
          ability of `Data` (see below), and easily provide special behavior for 
          objects being saved or loaded by container Data (`Mapping`, `Sequence`)
-         by overriding the `_data_to_save_` and `_data_to_load_` method.
+         by overriding the `_serialize_` and `_unserialize_` method.
          
     **Note for subclassing**:
     
         As stated, one of the main goal of the Data class is to be subclassed. 
-        Subclasses can either keep or override the save, load, _data_to_save_ 
+        Subclasses can either keep or override the dump, load, _serialize_ 
         and _data_to_load methods.
         
-        - The Data save and load methods are simple interface with the pickle 
-          modules. The save method save the objects (more precisely what is 
-          returned by the _data_to_save_ method). And the load method loads it 
-          (more precisely what the loaded object _data_to_load_ method returns).
+        - The Data dump and load methods are simple interface with the pickle 
+          modules. The dump method save the objects (more precisely what is 
+          returned by the _serialize_ method). And the load method loads it 
+          (more precisely what the loaded object _unserialize_ method returns).
           
         - Save and load are primarily supposed to be called statically. Thus
           when used as instance methods, it should be asserted that their
           behavior are suitable (especialy load) or require overriding. 
-          * See save and load documentation for details *
+          * See dump and load documentation for details *
           
-        - The container Data class do not call the Data's save and load method. 
+        - The container Data class do not call the Data's dump and load method. 
           So they can be overriden with no restriction.
+          ## this might not be True anymore...
           
-        - However they call the _data_to_save_ and _data_to_load_ method, which
-          are also called by the default implementation of save and load.
+        - However they call the _serialize_ and _unserialize_ method, which
+          are also called by the default implementation of dump and load.
           
-        - By default, the _data_to_save_ and _data_to_load_ methods simply 
+        - By default, the _serialize_ and _unserialize_ methods simply 
           return the calling instance (i.e. self).
           
         - However, if it is wanted to do some processing prior to saving and/or
-          post loading, then it can be done by overriding the _data_to_save_ and 
-          _data_to_load_ methods.
+          post loading, then it can be done by overriding the _serialize_ and 
+          _unserialize_ methods.
           
         - The only constraint is to keep the same signature working: they should 
           be callable with only self as input, and return the object to be saved
           and the loaded object, respectively
           In both cases the returned object can be different from the calling
-          one. however the saved object (return by _data_to_save_) should have a
-          _data_to_load_ method if you want it to be called at loading.
+          one. But the saved object returned by _serialize_ should have an
+          _unserialize_ method if it is wanted to be called at loading.
           
         The main reasons to do such overriding can be:
           - if the merging ability of the load method is not suitable (see load doc)
@@ -118,16 +119,16 @@ class Data(object):
         return getattr(self,'_Data__file',None)
     
     @static_or_instance_method                           
-    def save(data, filename=None, protocol=None):
+    def dump(data, filename=None, protocol=None):
         """ 
         Save input `data` to file `filename` using pickle 
                                                      
         This method can either be call as a:
-          1. static   method:  Data.save(non_Data, filename,      protocol=None)
-          2. static   method:  Data.save(Data_Obj, filename,      protocol=None)
-          3. instance method:  someDataObject.save(filename=None, protocol=None)
+          1. static   method:  Data.dump(non_Data, filename,      protocol=None)
+          2. static   method:  Data.dump(Data_Obj, filename,      protocol=None)
+          3. instance method:  someDataObject.dump(filename=None, protocol=None)
         
-        In case 2 & 3, save the value returned by the `_data_to_save_` method.
+        In case 2 & 3, save the value returned by the `_serialize_` method.
        
         :Inputs:
           - filename
@@ -152,8 +153,8 @@ class Data(object):
         if filename is None:# and hasattr(data,'get_data_file'):
             filename = data.get_data_file()
 
-        if hasattr(data,'_data_to_save_'):  ##? bug with Data being = to None...
-            data = data._data_to_save_()
+        if hasattr(data,'_serialize_'):  ##? bug with Data being = to None...
+            data = data._serialize_()
 
         if protocol is None: 
             protocol = _PICKLE_PROTOCOL_
@@ -185,7 +186,7 @@ class Data(object):
           2. a static method with a Data object: Data.load(some_Data_obj,merge=True)
           3. an instance method:                 some_data_obj.load(merge=True)
         
-        If the loaded object has the _data_to_load_ method (such as Data objects)
+        If the loaded object has the _unserialize_ method (such as Data objects)
         then it automatically calls this method and return its output.
         
         If case 1, this method return the loaded data.
@@ -219,8 +220,8 @@ class Data(object):
         d = load(f)
         f.close()
         
-        if hasattr(d,'_data_to_load_') and hasattr(d._data_to_load_,'__call__'):
-            d = d._data_to_load_()
+        if hasattr(d,'_unserialize_') and hasattr(d._unserialize_,'__call__'):
+            d = d._unserialize_()
             
         if merge and isinstance(data,Data) and isinstance(d,Data):
             data.__dict__.update(d.__dict__)
@@ -233,7 +234,7 @@ class Data(object):
         
         return data
        
-    def _data_to_save_(self):
+    def _serialize_(self):
         """ 
         Prior processing of saved data. By default return it-self
         
@@ -243,7 +244,7 @@ class Data(object):
           - First this is where useful pre-saving cleaning can be done, 
             such as deleting dynamic data.
           - Sometime, the data object cannot by pickled. Overriding this method
-            as well as _data_to_load_ enable to make a workaround.
+            as well as _unserialize_ enable to make a workaround.
 
         The return value should be savable by pickle, 
         typically its class definition and all its attributes (such as the load
@@ -251,16 +252,16 @@ class Data(object):
         """
         return self
         
-    def _data_to_load_(self):
+    def _unserialize_(self):
         """
         Postprocessing of load. By default return it-self.
 
         Note for subclassing:
         ---------------------
-        Overriding this method (and _data_to_save_) can serves several purposes:
+        Overriding this method (and _serialize_) can serves several purposes:
           - First data that were deleted when saving can ne reloaded / computed.
           - Sometime, the data object cannot by pickled. Overriding this method
-            as well as _data_to_save_ enable to make a workaround.
+            as well as _serialize_ enable to make a workaround.
         """
         return self
         
@@ -287,12 +288,14 @@ class Data(object):
         cls = self.__class__
         return cls.__module__ +'.'+ cls.__name__ + ' with file: ' + str(self.get_data_file())
             
+
+            
 @_node('data_loader')
 def save_data(data, filename):
     """
     Use Data class to save input 'data'. Return a Data instance.
     """
-    return Data.save(data=data,filename=filename)
+    return Data.dump(data=data,filename=filename)
 
 class DataWrapper(Data):
     """ Class that wrap anything inside a Data """
@@ -304,7 +307,7 @@ class DataWrapper(Data):
         Data.__init__(self,filename)
         self.__data = data
         
-    def _data_to_load_(self):
+    def _unserialize_(self):
         """ Postprocessing of load. return the wrapped data """
         return self.__data
 
@@ -345,7 +348,7 @@ class Mapping(Data):
         reserved. Overwriting them will induce failure of Data functionalities.
     """
     ##TODO Mapping:
-    ##  - save doc (for now it's the Data.save doc)
+    ##  - dump doc (for now it's the Data.dump doc)
     ##  - saving using pyyaml (by default, keeping pickle saving in option)
     ##  - what about saving to intermediate file when in a container ?
     #      > useful ?
@@ -433,10 +436,10 @@ class Mapping(Data):
         new._tmp_attr = self.temporary_attribute.copy()
         return new
         
-    def _data_to_save_(self):
+    def _serialize_(self):
         """
-        Return a copy of it-self and call recursively _data_to_save_ on all 
-        contained objects that have the _data_to_save_ method, such as Data objects. 
+        Return a copy of it-self and call recursively _serialize_ on all 
+        contained objects that have the _serialize_ method, such as Data objects. 
         
         Note: This is what is really save by the 'save' method.
         """
@@ -445,23 +448,23 @@ class Mapping(Data):
         
         d = s.__dict__
         for field,value in d.iteritems():
-            if hasattr(value,'_data_to_save_') and hasattr(value._data_to_save_,'__call__'):
+            if hasattr(value,'_serialize_') and hasattr(value._serialize_,'__call__'):
                 #print field,   
                 #try: print value.get_data_file()  ## debug
                 #except: print 'no data file'  
-                d[field] = value._data_to_save_()
+                d[field] = value._serialize_()
             
         return s
 
-    def _data_to_load_(self):
+    def _unserialize_(self):
         """
         Return it-self after calling _data_to_call_ on all contained fields that
         has this method, such as Data objects.
         """
         for field,value in self.iteritems():
-            if hasattr(value,'_data_to_load_') and hasattr(value._data_to_load_,'__call__'):
+            if hasattr(value,'_unserialize_') and hasattr(value._unserialize_,'__call__'):
                 try:
-                    self[field] = value._data_to_load_()
+                    self[field] = value._unserialize_()
                 except: pass##print 'no data file'
             
         return self
@@ -737,13 +740,13 @@ class Sequence(Data):
                 
     def _save_item_(self, filename, item):
         """ 
-        Save 'item' to file 'filename'. By default use the Data.save method
+        Save 'item' to file 'filename'. By default use the Data.dump method
         
         This is called by the __setitem__ method and can be overrided by subclasses
         """
-        Data.save(item,filename)
+        Data.dump(item,filename)
                 
-    def _data_to_save_(self):
+    def _serialize_(self):
         s = _copy(self)
         s.clear_buffer()
         return s

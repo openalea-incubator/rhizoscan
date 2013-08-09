@@ -135,7 +135,7 @@ class node(object):
         >>> print out
         >>> # {'out1':13,'out2':42}
         """
-        _print_state(verbose, '  computing '+ function.get_node_attribute('name', '"unnamed function"'))
+        _print_state(verbose, '  running '+ function.get_node_attribute('name', '"unnamed function"'))
         param = function.get_node_attribute('inputs', [])
         param = dict([(p['name'],p['value']) for p in param])
         kargs_key = kargs.keys()

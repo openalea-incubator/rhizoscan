@@ -2,26 +2,30 @@ import numpy as _np
 import scipy as _sp
 from scipy import ndimage as _nd
 
-from rhizoscan.workflow import node as _node # to declare workflow nodes
+from rhizoscan.workflow import node as _node # to declare workflow nodes & pipelines
+from rhizoscan.workflow import savable_node as _savable_node 
+from rhizoscan.workflow import Pipeline as _Pipeline 
+
 from rhizoscan.ndarray.measurements import clean_label as _clean_label
 from rhizoscan.ndarray.filter       import otsu as _otsu
 from rhizoscan.image                import Image as _Image
 from rhizoscan.datastructure        import Data  as _Data
 
 from .dataset import make_dataset as _make_dataset
-from . import PipelineModule   as _PModule
-from . import pipeline_node    as _pipeline_node
-from . import load_root_image
-from . import compute_tree   as _compute_tree
+##from . import PipelineModule   as _PModule
+##from . import pipeline_node    as _pipeline_node
+from . import load_root_image    as _load_root_image
+from . import detect_petri_plate as _detect_petri_plate
+from . import compute_tree       as _compute_tree
 from . import _print_state, _print_error
 from . import _normalize_image
 
-from ..image import segment_root_image           as _segment_root
-from ..image import remove_background            as _remove_background
-from ..image.seed import detect_leaves           as _detect_leaves
-from ..image.to_graph import linear_label        as _linear_label
-from ..image.to_graph import image_graph         as _image_graph
-from ..image.to_graph import line_graph          as _line_graph
+from rhizoscan.root.image import segment_root_image           as _segment_root
+from rhizoscan.root.image import remove_background            as _remove_background
+from rhizoscan.root.image.seed import detect_leaves           as _detect_leaves
+from rhizoscan.root.image.to_graph import linear_label        as _linear_label
+from rhizoscan.root.image.to_graph import image_graph         as _image_graph
+from rhizoscan.root.image.to_graph import line_graph          as _line_graph
 
 
 ##@_node('failed_files')
@@ -136,17 +140,27 @@ def load_plate_mask(filename):
     #px_scale = literal_eval(pmask.info['px_scale'])
     return pmask, px_scale
 
-frame_detection = _PModule(name='frame', \
-                           load=load_plate_mask,  compute=find_plate, \
-                           suffix='_frame.png',   outputs=['pmask','px_scale'])    
-    
-frame_detection2 = _PModule(name='frame', \
-                           load=load_plate_mask,  compute=find_plate_2, \
-                           suffix='_frame.png',   outputs=['pmask','px_scale'])    
     
 # image segmentation
 # ------------------
-def segment_image(filename, image, pmask, root_max_radius=15, min_dimension=50, smooth=1, verbose=False):
+def _save_segment_image(filename, rmask, bbox):
+    # save the mask, and bbox
+    bb = [(bbox[0].start,bbox[0].stop),(bbox[1].start,bbox[1].stop)]
+    _Image(rmask).save(filename, dtype='uint8', scale=255, pnginfo=dict(bbox=bb))
+    
+def _load_segment_image(filename):
+    rmask = _Image(filename, dtype=bool)
+    bbox  = rmask.info.pop('bbox')
+    bbox = literal_eval(bbox)
+    bbox = map(lambda x: slice(*x),bbox)
+    return rmask, bbox
+    
+@_savable_node('rmask', 'bbox',
+    save_fct=_save_segment_image,
+    load_fct=_load_segment_image,
+    suffix='_mask.png',
+    hidden=['min_dimension','smooth', 'verbose'])
+def segment_image(image, pmask, root_max_radius=15, min_dimension=50, smooth=1, verbose=False):
     #pmask = _nd.binary_erosion(pmask==pmask.max(), iterations=
     pmask = pmask==pmask.max()
     
@@ -174,94 +188,31 @@ def segment_image(filename, image, pmask, root_max_radius=15, min_dimension=50, 
         cluster = _clean_label(cluster, min_dim=min_dimension)
         rmask = cluster>0
     
-    # save the mask, and bbox
-    bb = [(bbox[0].start,bbox[0].stop),(bbox[1].start,bbox[1].stop)]
-    _Image(rmask).save(filename, dtype='uint8', scale=255, pnginfo=dict(bbox=bb))
-    
-    return rmask, bbox
-    
-def load_root_mask(filename):
-    from ast import literal_eval 
-    import PIL
-    info = PIL.Image.open(filename).info
-    bbox = literal_eval(info['bbox'])
-    bbox = map(lambda x: slice(*x),bbox)
-    return _Image(filename, dtype=bool), bbox
-
-image_segmentation = _PModule(name='segmentation', \
-                              load=load_root_mask, compute=segment_image, \
-                              suffix='_mask.png',   outputs=['rmask','bbox'],\
-                              hidden=['min_dimension','smooth'])
+    return rmask, bb
     
     
 # detect leaves:
 # --------------
-def detect_leaves(filename, rmask, image, bbox, plant_number=1, root_min_radius=3, leaf_height=[0,.2], sort=True):
-    seed_map = _detect_leaves(mask=rmask, image=image[bbox], leaf_number=plant_number, root_radius=root_min_radius, leaf_height=leaf_height, sort=sort) ##
-    _Image(seed_map).save(filename, dtype='uint8', scale=25)  ## max 10 plants
-    
-    return seed_map, 
-
-def load_leaves(filename):
+def _save_detect_leaves(filename, seed_map):
+    _Image(seed_map).save(filename, dtype='uint8', scale=25)  ## max 10 plants!
+def _load_detect_leaves(filename):
     return _Image(filename, dtype='uint8', scale = 1./25), 
     
-leaves_detection = _PModule(name='leaves', \
-                            load=load_leaves,   compute=detect_leaves, \
-                            suffix='_seed.png', outputs=['seed_map'], hidden=['sort'])
-    
-# compute graph:
-# --------------
-def compute_graph(filename, rmask, seed_map, bbox, verbose=False):
-    _print_state(verbose,'compute mask linear decomposition')
-    sskl, nmap, smap, seed = _linear_label(mask=rmask, seed_map=seed_map, compute_segment_map=True)
-    
-    # make "image-graph"
-    _print_state(verbose,'compute graph representation of mask decomposition')
-    im_graph = _image_graph(segment_skeleton=sskl, node_map=nmap, segment_map=smap, seed=seed)
-    
-    # make polyline graph
-    _print_state(verbose,'compute graph of roots')
-    pl_graph = _line_graph(image_graph=im_graph, segment_skeleton=sskl)    
-    
-    # shift graph node position by cropped box left corner
-    pl_graph.node.x[:] += bbox[1].start
-    pl_graph.node.y[:] += bbox[0].start
-    pl_graph.node.position[:,0] = 0
-    
-    pl_graph.dump(filename)
-    
-    return pl_graph, 
-    
-def load_graph(filename, tree=False):
-    graph = _Data.load(filename)
-    if tree and not hasattr(graph, 'axe'):
-        return None # induce computing but no error message
-        #raise IOError('loaded graph is not a tree')
+@_savable_node('rmask', 'bbox',
+    save_fct=_save_detect_leaves,
+    load_fct=_load_detect_leaves,
+    suffix='_seed.png',
+    hidden=['sort'])
+def detect_leaves(rmask, image, bbox, plant_number=1, root_min_radius=3, leaf_height=[0,.2], sort=True):
+    seed_map = _detect_leaves(mask=rmask, image=image[bbox], leaf_number=plant_number, root_radius=root_min_radius, leaf_height=leaf_height, sort=sort) ##
+    return seed_map, 
         
-    return graph, 
-        
-root_graph = _PModule(name='graph', \
-                      load=load_graph,  compute=compute_graph,  \
-                      suffix='.tree',   outputs=['graph'],      \
-                      load_kargs=dict(tree=False))##, hidden=['tree'])
-
-# compute axial tree:
-# -------------------
-def compute_tree(filename, graph, px_scale, to_tree=2, to_axe=2, metadata={}, verbose=False):
-    metadata['px_scale'] = px_scale
-    tree = _compute_tree(graph, to_tree=to_tree, to_axe=to_axe, metadata=metadata, output_file=filename, verbose=verbose) 
-    return tree, 
-    
-root_tree = _PModule(name='tree', \
-                     load=load_graph,   compute=compute_tree, \
-                     suffix='.tree',    outputs=['tree'],      \
-                     load_kargs=dict(tree=True), hidden=['tree','to_tree','to_axe','metadata','px_scale'])
 
 # pipeline of all root image analysis modules
-@_pipeline_node([frame_detection, image_segmentation, leaves_detection, root_graph, root_tree])
-def pipeline(): pass
+#@_pipeline_node([frame_detection, image_segmentation, leaves_detection, root_graph, root_tree])
+#def pipeline(): pass
 
 
-@_pipeline_node([frame_detection2, image_segmentation, leaves_detection, root_graph, root_tree])
-def pipeline2(): pass
+#@_pipeline_node([frame_detection2, image_segmentation, leaves_detection, root_graph, root_tree])
+#def pipeline2(): pass
 

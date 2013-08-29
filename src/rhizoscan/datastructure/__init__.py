@@ -600,11 +600,10 @@ class Sequence(Data):
     Simple read-write interface for sequence of data
     
     :TODO: 
-      - make it a DataConatainer
-          > associate it to a folder
+      - make it a Data Container
       - doc
           > setting might save. 
-          > setting Data obj change its Data file attribute
+          > setting Data obj change its Data file attribute (?)
       - manage Data_IO_arg: to be send to _data_to_load/save_ ?  
           > then make suitable change in Data doc, and ImageSequence
       - copy: normal copy followed by a clear buffer (how?)
@@ -640,7 +639,8 @@ class Sequence(Data):
     def output(self, output):
         """
         Set output naming of sequence files.
-        output should be a "printf" string containing 1 and only 1 '%d' element
+        output should be a "printf" string containing 1 and only 1 '%d' element:
+        
             E.g. /tmp/image%03d.data
             
         Note that if this files already has a list of files, this naming will 

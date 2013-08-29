@@ -35,7 +35,7 @@ class node(object):
       - `get_node_attribute(attribute_name, default=None)`
       - `set_node_attribute(attribute_name, value)`
       - `node_attribute()`  to get the full node dictionary 
-      - `run(...)` mainly call the function (see `run` documentation)
+      - `run(...)` by default, simply call the function (see `run` doc)
       - `copy()` make an independant copy of the node (see doc)
 
     Decoration data are stored in `__node__` dictionary, but the above accessors
@@ -103,6 +103,12 @@ class node(object):
             for i,v in enumerate(args):
                 if isinstance(v,basestring): args[i] = {'name':v}
             kwargs['outputs'] = args
+        
+        # for output storage functionality
+        kargs.setdefault('io_mode',  False)
+        kargs.setdefault('save_fct', self.save_fct)
+        kargs.setdefault('load_fct', self.load_fct)
+        
         self.kwargs = kwargs
         
     # call creates a pointer to the functions and attached (key)arguments to it
@@ -121,7 +127,92 @@ class node(object):
         return f
     
     @staticmethod
-    def run(function, verbose=False, **kargs):
+    def save_fct(filename, **outputs):
+        from rhizoscan.datastructure import Data
+        Data.dump(list(outputs.iteritems()), filename)
+        
+    @staticmethod
+    def load_fct(filename):
+        from rhizoscan.datastructure import Data
+        return Data.load(filename)
+        
+    @staticmethod
+    def run(function, io_mode=False, storage=None, verbose=False, **kargs):
+        """
+        Call the node function with optional output IO functionality
+        
+        If the function is a "savable" node: its `io_mode` is not False
+        If prevously computed data can be loaded, and 'io_mode' is not 'update', 
+        retrieve it using the load functions. If it does not work, call this 
+        node's function.
+        
+        :Input:
+          - storage:
+                Either a string to which is appended the name of the node 
+                function's name and suffix to create a file name, or
+                an object with dictionary 
+                *** require if io_mode is not None ***
+          - io_mode:
+                If 'update', force computation even if data can be loaded
+                if None, do not attempt to load data and don't save output:
+                         run is the same as calling the function directly
+                If 'default', use the node attribute `io_mode` value
+                otherwise, attempt to load `data` before computation
+          - verbose:
+                If True, print current process stage at run time
+          
+          **kargs:
+                the arguments of the decorated function, as key-arguments
+                
+        :Outputs:
+            Outputs of the node function, as a dictionary.
+        """
+        data = None
+        
+        fct_attr = function.get_node_attribute
+        
+        if io_mode=='default': 
+            io_mode = fct_attr('io_mode')
+        if io_mode is None:
+            return node._run(function=function, verbose=verbose, **kargs)
+        elif basename is None:
+            raise TypeError("'basename' should be given to run method for saving node's outputs")
+        
+        filename = basename + fct_attr('suffix', '')
+        fct_name = fct_attr('name')
+        load_fct = fct_attr('load_fct')
+        load_arg = fct_attr('load_kargs', {})
+        save_fct = fct_attr('save_fct')
+        save_arg = fct_attr('save_kargs', {})
+        
+        # try to load the data
+        import os
+        attempt_load = (io_mode<>'update') and (io_mode is not None)
+        if attempt_load and load_fct and os.path.exists(filename):
+            try:
+                data = node.format_outputs(function,load_fct(filename=filename, **load_arg))
+            except:
+               _print_error(verbose, 'Error while loading data %s: unreadable file or missing/invalid metadata' % self.name)
+                
+        # compute the data
+        if data is None:
+            data = node._run(function=function, verbose=verbose, **kargs)
+            # save computed data
+            if io_mode is not None:
+                save_fct(filename=filename, **dict(data.items()+save_arg.items()))
+        else:
+            start_txt = '  output of "'+ fct_name + '" loaded from: '
+            start_len = len(start_txt)
+            if len(filename)>80-start_len:
+                end_txt = '...' + filename[-(77-start_len):]
+            else:
+                end_txt = filename
+            _print_state(verbose, start_txt + end_txt)
+            
+        return data
+        
+    @staticmethod
+    def _run(function, verbose=False, **kargs):
         """
         Call the node function, and return the function outputs in a dictionary
         
@@ -280,7 +371,7 @@ class savable_node(node):
           directly calling the function.
           
         :Example:
-            >>> @node('out1','out2', suffix='.save')
+            >>> @savable_node('out1','out2', suffix='fct.data')
             >>> def fct(a,b=1):
             >>>     return a+b, a*b
             >>>
@@ -297,95 +388,6 @@ class savable_node(node):
         ##kargs.setdefault('io_mode',  'IO')
         super(savable_node,self).__init__(*args, **kargs)
             
-    @staticmethod
-    def save_fct(filename, **outputs):
-        from rhizoscan.datastructure import Data
-        Data.dump(list(outputs.iteritems()), filename)
-        
-    @staticmethod
-    def load_fct(filename):
-        from rhizoscan.datastructure import Data
-        return Data.load(filename)
-        
-    @staticmethod
-    def run(function, basename=None, io_mode='default', verbose=False, **kargs):
-        """
-        Call the node function if attempt to load previously saved output failed
-        
-        If prevously computed data can be loaded, and 'io_mode' is not 'update', 
-        retrieve it using the load functions. If it does not work, call this 
-        node's function.
-        
-        :Input:
-          - basename:
-                Base name for storage data file. The value of the node 'suffix'
-                attribute is appended to `basename` to form the storage filename
-                Must be given if io_mode is not None
-          - io_mode:
-                If 'update', force computation even if data can be loaded
-                if None, do not attempt to load data and don't save output:
-                         run is the same as calling the function directly
-                If 'default', use the node attribute `io_mode` value
-                otherwise, attempt to load `data` before computation
-          - verbose:
-                If True, print current process stage at run time
-          
-          **kargs:
-                the arguments of the decorated function, as key-arguments
-                
-        :Outputs:
-            Outputs of the node function, as a dictionary.
-        """
-        data = None
-        
-        fct_attr = function.get_node_attribute
-        
-        if io_mode=='default': io_mode = fct_attr('io_mode')
-        if io_mode is None:
-            return node.run(function=function, verbose=verbose, **kargs)
-        elif basename is None:
-            raise TypeError("'basename' should be given to run method for saving node's outputs")
-        
-        filename = basename + fct_attr('suffix', '')
-        fct_name = fct_attr('name')
-        load_fct = fct_attr('load_fct')
-        load_arg = fct_attr('load_kargs', {})
-        save_fct = fct_attr('save_fct')
-        save_arg = fct_attr('save_kargs', {})
-        
-        # try to load the data
-        import os
-        attempt_load = (io_mode<>'update') and (io_mode is not None)
-        if attempt_load and load_fct and os.path.exists(filename):
-            try:
-                data = node.format_outputs(function,load_fct(filename=filename, **load_arg))
-            except:
-               _print_error(verbose, 'Error while loading data %s: unreadable file or missing/invalid metadata' % self.name)
-                
-        # compute the data
-        if data is None:
-            data = node.run(function=function, verbose=verbose, **kargs)
-            #_print_state(verbose, '  computing '+ fct_name)
-            #param = fct_attr('inputs', [])
-            #param = dict([(p['name'],p['value']) for p in param])
-            #param.update(kargs)
-            #
-            #data = function(**param)
-            
-            # save computed data
-            if io_mode is not None:
-                save_fct(filename=filename, **dict(data.items()+save_arg.items()))
-        else:
-            start_txt = '  output of "'+ fct_name + '" loaded from: '
-            start_len = len(start_txt)
-            if len(filename)>80-start_len:
-                end_txt = '...' + filename[-(77-start_len):]
-            else:
-                end_txt = filename
-            _print_state(verbose, start_txt + end_txt)
-            
-        return data
-        
 class Pipeline(object):
     """
     Simple pipeline workflow: execute a sequence of `workflow.node` 

@@ -55,8 +55,8 @@ def declare_node(node):
 
 def node_attributes(node):
     """ Add node attributes for openalea """
-    from . import node_attributes
-    node = node_attributes(node).copy()
+    ##from . import node_attributes
+    node = node.node_attributes().copy()
     hidden = node.get('hidden', [])
     for node_input in node['inputs']:
         node_input['interface'] = find_interface(node_input['value'])

@@ -30,15 +30,15 @@ class node(object):
     """
     Class that can be used as a decorator to declare workflow nodes.
     
-    A node is a function decorated with additional attributes (methods):
+    A node is a function decorated with the following methods:
     
       - `get_node_attribute(attribute_name, default=None)`
       - `set_node_attribute(attribute_name, value)`
       - `node_attribute()`  to get the full node dictionary 
       - `run(...)` mainly call the function (see `run` documentation)
-      - `copy()` make a independant copy of the node (see doc)
+      - `copy()` make an independant copy of the node (see doc)
 
-    Decorations are stored in `__node__` dictionary, but the above accessors
+    Decoration data are stored in `__node__` dictionary, but the above accessors
     should be used instead of calling it directly.
       
     Any key-value pairs can be attached as decoration. But specific entries are
@@ -296,16 +296,7 @@ class savable_node(node):
         kargs.setdefault('load_fct', self.load_fct)
         ##kargs.setdefault('io_mode',  'IO')
         super(savable_node,self).__init__(*args, **kargs)
-    
-    ##def __call__(self, function):
-    ##    """
-    ##    Decorate `function`
-    ##    """
-    ##    function = super(savable_node,self).__call__(function)
-    ##    function.run = _MethodType(self.run, function)
-    ##    
-    ##    return function
-        
+            
     @staticmethod
     def save_fct(filename, **outputs):
         from rhizoscan.datastructure import Data

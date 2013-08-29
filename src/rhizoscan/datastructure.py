@@ -317,7 +317,7 @@ class DataWrapper(Data):
 # -----------------------
 class Mapping(Data):
     """
-    Class Mapping provide a structure Data type with dynamique field names
+    Class Mapping provide a Data class with a dictionary-like interface
     
     Example:
     --------
@@ -338,13 +338,13 @@ class Mapping(Data):
         * the double-star operator can be used: 
             some_function(**myMappingObject)
             
-        * implement iterator. However, iteration return tuple (field,value):
+        * implement iterator. However, iteration return tuple (key,value):
             m = Mapping(a=42,z=0,t=None)
-            for field,value in m: print field, 'has value', value
+            for key,value in m: print key, 'has value', value
          
     Warning:
     --------
-        Mapping are Data objects and have the fields _Data__file and _Data__data 
+        Mapping are Data objects and have the attributs _Data__file and _Data__data 
         reserved. Overwriting them will induce failure of Data functionalities.
     """
     ##TODO Mapping:
@@ -355,7 +355,7 @@ class Mapping(Data):
     #      > then needs some 'update' flag ?
     def __init__(self, load_file=None, **kwds):
         """
-        Create a Mapping object containing all keyword arguments as fields
+        Create a Mapping object containing all keyword arguments as keys
         
         If Data_file is given, it loads the file and save it as the Data file 
         attribute for later saving/loading. 
@@ -364,41 +364,38 @@ class Mapping(Data):
         if load_file is not None: self.load(load_file)
         self.__dict__.update(kwds)
         
-    def fields(self):
-        """ return a list of all field names """
-        return self.__dict__.keys()
     def keys(self):
-        """ Same as fields - implement keys s.t. Mapping can be treated as dict """
+        """ Return the list of this Mapping keys (same as dict) """
         return self.__dict__.keys()
     def values(self):
-        """ return a list of all field values """
+        """ return the list of this Mapping values (same as dict) """
         return self.__dict__.values()
 
 
-    def set(self,field, value=None):
-        """ set a field, with value, or with None if not provided """
-        return self.__dict__.setdefault(field,value)
-    def get(self,field,default=None):
-        """ return a field value, or default if field doesn't exist """
-        return self.__dict__.get(field,default)
-    def pop(self,field,default=None):
-        """ remove field and return its value or default if it doesn't exist' """ 
-        return self.__dict__.pop(field,default)
+    def set(self,key, value=None):
+        """ set the `key`,`value` pairs (use `value=None` if not provided) """
+        return self.__dict__.setdefault(key,value)
+    def get(self,key,default=None):
+        """ return the value related to `key`, or `default` if `key` doesn't exist """
+        return self.__dict__.get(key,default)
+    def pop(self,key,default=None):
+        """ remove `key` and return its value or default if it doesn't exist' """ 
+        return self.__dict__.pop(key,default)
 
 
     def iteritems(self):
-        """ return an iterator over the (field, value) items of Mapping object """
+        """ return an iterator over the (key, value) items of Mapping object """
         return self.__dict__.iteritems()
     def itervalues(self):
         """ return an iterator over the values of Mapping object """
         return self.__dict__.itervalues()
-    def iterfields(self):
-        """ return an iterator over the fields of Mapping object """
+    def iterkeys(self):
+        """ return an iterator over the keys of this Mapping object """
         return self.__dict__.iterkeys()
 
-    def has_field(self, fieldname):
-        """ return True if field exists, False otherwise """
-        return self.__dict__.has_key(fieldname)
+    def has_key(self, key):
+        """ return True if `key` exists, False otherwise """
+        return self.__dict__.has_key(key)
 
 
     def merge(self, other, overwrite=True):
@@ -447,24 +444,24 @@ class Mapping(Data):
         s.clear_temporary_attribute()
         
         d = s.__dict__
-        for field,value in d.iteritems():
+        for key,value in d.iteritems():
             if hasattr(value,'_serialize_') and hasattr(value._serialize_,'__call__'):
-                #print field,   
+                #print key,   
                 #try: print value.get_data_file()  ## debug
                 #except: print 'no data file'  
-                d[field] = value._serialize_()
+                d[key] = value._serialize_()
             
         return s
 
     def _unserialize_(self):
         """
-        Return it-self after calling _data_to_call_ on all contained fields that
-        has this method, such as Data objects.
+        Return it-self after calling `_unserialize_` on all contained items that
+        have this method, such as Data objects.
         """
-        for field,value in self.iteritems():
+        for key,value in self.iteritems():
             if hasattr(value,'_unserialize_') and hasattr(value._unserialize_,'__call__'):
                 try:
-                    self[field] = value._unserialize_()
+                    self[key] = value._unserialize_()
                 except: pass##print 'no data file'
             
         return self
@@ -481,7 +478,7 @@ class Mapping(Data):
               (i.e. pickle files) and can be passed as input of the merge method
               
           - overwrite: 
-              If True, loaded fields overwrite existing one. 
+              If True, loaded item overwrite existing one with same key. 
               Otherwise, it don't. (same as for the merge method)
                       
         :Output:
@@ -499,7 +496,7 @@ class Mapping(Data):
         """ allow access using [] as for python dictionaries """
         return getattr(self,item)##.__dict__.__getitem__(item)
     def __setitem__(self,item,value):
-        """ allow setting fields using [] as for python dictionaries """
+        """ allow setting item using [] as for python dictionaries """
         return setattr(self,item,value) ##self.__dict__.__setitem__(item,value)
     def __len__(self):
         return self.__dict__.__len__()
@@ -522,30 +519,33 @@ class Mapping(Data):
     def multilines_str(self, tab=0, max_width=80, avoid_obj_id=None, self_name=''):
         """ multilines string representation, potentially hierarchical 
         
-        tab: number of tab to start all lines with                                       
-        max_width: maximum number of character per lines
-        
-        (optional)
-        avoid_object_id: either None, or a dictionary of python object id as key and value to print
-        self_name: name to be print for current object, if referenced by subfield
+        :Inputs: 
+          - tab:
+              number of tab to start all lines with                                       
+          - max_width:
+              maximum number of character per lines
+              
+          - avoid_object_id: (optional) 
+              None or a dictionary of python object id as key and value to print
+          - self_name: (optional) 
+              name to be printed for current object, if referenced by sub-item
         """
         if avoid_obj_id is None:
             avoid_obj_id = dict()
         avoid_obj_id[id(self)] = '&' + self_name
         
         string = ''
-        fields = sorted([f for f in self.fields() if not f.startswith('_')])
-        for field in fields:#self.iteritems():
-            value = self[field]
-            name  = '    '*tab + str(field) + ': '
+        keys = sorted([f for f in self.keys() if not f.startswith('_')])
+        for key,value in self.iteritems():
+            name  = '    '*tab + str(key) + ': '
             shift = ' '*len(name)
             
             if id(value) in avoid_obj_id:
                 string += name + '<%s: %s>\n' % (value.__class__.__name__,avoid_obj_id[id(value)])  
             elif hasattr(value, 'multilines_str'):
                 string += name + '%s\n' % value.__class__.__name__
-                if len(self_name): subname = self_name + '.' + field
-                else:              subname = field   
+                if len(self_name): subname = self_name + '.' + key
+                else:              subname = key   
                 string += value.multilines_str(tab=tab+1, max_width=max_width, avoid_obj_id=avoid_obj_id, self_name=subname)
             else:
                 value = str(value).splitlines()
@@ -585,14 +585,14 @@ class Mapping(Data):
         return key in self.__dict__
 
 @_node(auto_caption=1)
-def get_field(data={}, field='metadata', default=None):
+def get_key(data={}, key='metadata', default=None):
     """
-    Return data[field], or default if it does not exist.
-                                                                                     
-    Either use the data.get method, if it exist, or getattr on data 
+    Return `data[key]`, or `default` if it does not exist.
+
+    Either use the `data.get` method, if it exist, or `getattr` on data 
     """
-    if hasattr(data,'get'): return data.get(field, default)
-    else:                   return getattr(data,field,default)
+    if hasattr(data,'get'): return data.get(key, default)
+    else:                   return getattr(data,key,default)
         
 # Data that manages sequence
 class Sequence(Data):

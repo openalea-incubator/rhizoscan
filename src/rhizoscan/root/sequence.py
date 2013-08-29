@@ -317,7 +317,7 @@ class RootSequence(_Mapping):
         #self.dump() ## useless: g1 and g2 are saved 
         
     def compute_root_tree(self, graph='plgraph', output='tree', to_tree=2,to_axe=1):
-        if not self.has_field(graph):
+        if not self.has_key(graph):
             raise UnboundLocalError("project is not ready for tree graph computation. Call compute_root_graph() first")
         
         out_name = self.make_output_filename(names=output,seq_length=len(self[graph]))
@@ -361,7 +361,7 @@ class RootSequence(_Mapping):
     
     def _check_data(self, data_name, previous_func=''):
         for name in data_name:
-            if not self.has_field(name):
+            if not self.has_key(name):
                 msg = "Data '%s' does not exist" % name + '.'
                 if previous_func is not None: msg += "Call %s() first" % previous_func
                 raise UnboundLocalError(msg)

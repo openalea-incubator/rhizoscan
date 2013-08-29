@@ -301,7 +301,9 @@ def path_to_axes(graph, path, axe_selection=[('length',1),('min_tip_length',10)]
 
     return axelist
     
-    
+
+# general rgraph to axial tree function
+# -------------------------------------
 def make_axial_tree(graph, axe_selection=[('length',1),('min_tip_length',10)]):
     seed = graph.segment.seed
     seed[seed==254] = 0           ##bug with seed=254
@@ -309,8 +311,7 @@ def make_axial_tree(graph, axe_selection=[('length',1),('min_tip_length',10)]):
     cost = graph.segment.direction_difference
     length = graph.segment.length
     
-    ##
-    graph.node.set_segment(graph.segment)
+    graph.node.set_segment(graph.segment)     ## assert it is the case
     
     # convert graph to DAG
     direction = _dg.segment_digraph(graph.segment)[0]

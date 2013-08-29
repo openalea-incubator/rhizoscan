@@ -16,7 +16,7 @@ TODO:
             + look into the 'Data mode' idea ('r','w','u') ?
     - replace Data.__file by a Data_file property, replacing the get&set methods
     - replace the _(un)serialize_ by the set/get_state protocol
-    - look intop the __del__ deconstructor and the ability to automate saving
+    - look into the __del__ deconstructor and the ability to automate saving
         * call to del is not garantied by carbage collector
 """
 __icon__    = 'datastructure.png'   # icon of openalea package

@@ -12,20 +12,14 @@ from rhizoscan.image                import Image as _Image
 from rhizoscan.datastructure        import Data  as _Data
 
 from .dataset import make_dataset as _make_dataset
-##from . import PipelineModule   as _PModule
-##from . import pipeline_node    as _pipeline_node
-from . import load_root_image    as _load_root_image
-from . import detect_petri_plate as _detect_petri_plate
-from . import compute_tree       as _compute_tree
+from . import detect_petri_plate  as _detect_petri_plate
+from . import compute_tree        as _compute_tree
 from . import _print_state, _print_error
 from . import _normalize_image
 
 from rhizoscan.root.image import segment_root_image           as _segment_root
 from rhizoscan.root.image import remove_background            as _remove_background
 from rhizoscan.root.image.seed import detect_leaves           as _detect_leaves
-from rhizoscan.root.image.to_graph import linear_label        as _linear_label
-from rhizoscan.root.image.to_graph import image_graph         as _image_graph
-from rhizoscan.root.image.to_graph import line_graph          as _line_graph
 
 
 ##@_node('failed_files')

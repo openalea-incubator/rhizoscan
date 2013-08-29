@@ -58,6 +58,10 @@ def detect_petri_plate(image, border_width=.05, plate_size=120, plate_shape='squ
 
 # compute graph:
 # --------------
+from rhizoscan.root.image.to_graph import linear_label as _linear_label
+from rhizoscan.root.image.to_graph import image_graph  as _image_graph
+from rhizoscan.root.image.to_graph import line_graph   as _line_graph
+
 def load_graph(filename, tree=False):
     graph = _Data.load(filename)
     if tree and not hasattr(graph, 'axe'):

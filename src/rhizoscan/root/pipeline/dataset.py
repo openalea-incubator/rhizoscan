@@ -39,7 +39,7 @@ def make_dataset(ini_file, output='output', verbose=False):
     from time import strptime
     from glob import glob
     
-    from rhizoscan.tool import abspath
+    from rhizoscan.tool.path import abspath
     
     if not exists(ini_file):
         raise TypeError('input "ini_file" does not exist')

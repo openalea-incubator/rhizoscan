@@ -67,50 +67,6 @@ class static_or_instance_method(object):
             #func.__doc__ = self.func.__doc__ 
         return func
 
-# system and path utilities
-# -------------------------
-def which(program):
-    """ 
-    Equivalent to the unix which command 
-    code taken from http://stackoverflow.com/questions/377017
-    """ 
-    import os
-    def is_exe(fpath):
-        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
-
-    fpath, fname = os.path.split(program)
-    if fpath:
-        if is_exe(program):
-            return program
-    else:
-        for path in os.environ["PATH"].split(os.pathsep):
-            path = path.strip('"')
-            exe_file = os.path.join(path, program)
-            if is_exe(exe_file):
-                return exe_file
-
-    return None
-    
-def abspath(path, base_dir=None):
-    """
-    Return the absolute path, with given default base directory 
-    
-    Similar to os.path.abspath, but if the given *path* is not absolute, prepend 
-    it with *base_dir* instead of the current directory.
-    
-    If *base_dir* is None, use current directory (same behavior as os.path.abspath)
-    """
-    import os
-    from os.path import isabs, join, normpath 
-    if not isabs(path):
-        if base_dir is None: 
-            if isinstance(path, unicode):
-                base_dir = os.getcwdu()
-            else:
-                base_dir = os.getcwd()
-        path = join(base_dir, path)
-    return normpath(path)
-
 # tool to open file, or source of modules and functions, with jedit
 # -----------------------------------------------------------------
 def jedit(file=''):

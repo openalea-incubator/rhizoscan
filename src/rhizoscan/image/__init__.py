@@ -20,6 +20,7 @@ from rhizoscan.datastructure import Sequence as _Sequence
 
 from rhizoscan.tool   import static_or_instance_method as _static_or_instance
 from rhizoscan.tool   import _property
+from rhizoscan.tool.path import assert_directory as _assert_directory
 
 class Image(_np.ndarray, _Data):
     """
@@ -39,7 +40,7 @@ class Image(_np.ndarray, _Data):
         # ---------------------
         if isinstance(array_or_file,basestring):
             obj = _nd.imread(array_or_file).view(cls)
-            obj.set_data_file(array_or_file)
+            obj.set_storage_entry(array_or_file)
             
             # load image info and timestamp
             from PIL import Image
@@ -49,7 +50,7 @@ class Image(_np.ndarray, _Data):
             obj.info.update(info)
         else:
             obj = _np.asanyarray(array_or_file).view(cls)
-            obj.set_data_file('')
+            obj.set_storage_entry('')
             obj.info = info
             
         # conversion
@@ -76,8 +77,8 @@ class Image(_np.ndarray, _Data):
         ##if hasattr(obj,'from_color'): self.from_color = obj.from_color
         ##else:                         self.from_color = None
         ##
-        ##if hasattr(obj,'get_data_file'):
-        ##    self.set_data_file(obj.get_data_file())
+        ##if hasattr(obj,'get_storage_entry'):
+        ##    self.set_storage_entry(obj.get_storage_entry())
         
         if hasattr(obj,'__dict__'):
             self.__dict__.update(obj.__dict__)
@@ -221,16 +222,16 @@ class Image(_np.ndarray, _Data):
         # ------------------
         if isinstance(image,Image):
             if filename is not None:
-                image.set_data_file(filename)
-            elif image.get_data_file() is None:
+                image.set_storage_entry(filename)
+            elif image.get_storage_entry() is None:
                 raise TypeError("filename shoud be provided: input Image object has unset Data file")
         elif filename is None:
             raise TypeError("filename should be provided")
         else:
             image = Image(image)
-            image.set_data_file(filename)
+            image.set_storage_entry(filename)
             
-        filename = image.get_data_file()
+        filename = image.get_storage_entry()
         
         # convert image
         # -------------
@@ -243,15 +244,12 @@ class Image(_np.ndarray, _Data):
             else:                               dtype = 'uint8'
             
         img = imconvert(image, color=color, dtype=dtype, scale=scale)
-        img.set_data_file(filename)
+        img.set_storage_entry(filename)
         
         # save image
         # ----------
-        ## file/dir preparation to be transfered to Data (_open, _close ?) 
-        import os
-        d = os.path.dirname(filename)
-        if len(d) and not os.path.exists(d):
-            os.makedirs(d)
+        ## file/dir preparation to be transfered to Data (_open, _close ?)
+        _assert_directory(filename)
         
         # check for pnginfo in pil_param
         if pil_params.has_key('pnginfo'):
@@ -268,7 +266,7 @@ class Image(_np.ndarray, _Data):
         #loader = Image([])
         loader = image.loader()
         loader.from_color = color
-        loader.set_data_file(filename)
+        loader.set_storage_entry(filename)
         if scale=='normalize':                 loader.scale = 'dtype'
         elif not isinstance(scale,basestring): loader.scale = 1/float(scale)
         
@@ -288,7 +286,7 @@ class Image(_np.ndarray, _Data):
             This method load the image from file given by the loader Data file 
             attribute and apply conversion to the same color and dtype.
         """
-        return Image(self.get_data_file(),color=self.color, dtype=self.dtype, scale=self.scale)
+        return Image(self.get_storage_entry(),color=self.color, dtype=self.dtype, scale=self.scale)
         
     def loader(self):
         """
@@ -300,12 +298,12 @@ class Image(_np.ndarray, _Data):
         loader.dtype  = self.dtype
         loader.color  = self.color
         loader.from_color = self.from_color
-        loader.set_data_file(self.get_data_file())
+        loader.set_storage_entry(self.get_storage_entry())
         return loader
         
-    def _serialize_(self):
+    def __store__(self):
         return self.loader()
-    def _unserialize_(self):
+    def __restore__(self):
         return self.load()
 
     def __reduce__(self):
@@ -398,7 +396,7 @@ class ImageSequence(_Sequence):
             raise AttributeError("This ImageSequence is output only")
             
         img = Image(filename, color=self.color, dtype=self.dtype, scale=self.scale)
-        img.set_data_file(filename)
+        img.set_storage_entry(filename)
         if self.roi    is not None: 
             if self.roi.ndim>1: img = img[self.roi[index].tolist()]
             else:               img = img[self.roi.tolist()]
@@ -414,7 +412,7 @@ class ImageSequence(_Sequence):
         see Image.save documentation
         """
         if not isinstance(image,Image): image = Image(image)
-        image.set_data_file(filename)
+        image.set_storage_entry(filename)
         return image.save(color=self.color,dtype=self.dtype,scale=self.scale)
         
     def play(self, filter=None):

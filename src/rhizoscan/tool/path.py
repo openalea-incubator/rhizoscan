@@ -50,6 +50,13 @@ def abspath(path, base_dir=None):
         path = join(base_dir, path)
     return normpath(path)
 
+def assert_directory(filename):
+    """
+    Create firectory of `filename`if it does not exist
+    """
+    d = os.path.dirname(filename)
+    if len(d) and not os.path.exists(d):
+        os.makedirs(d)
 
 # parse strings using a format-type of pattern
 # --------------------------------------------

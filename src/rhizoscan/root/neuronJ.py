@@ -250,7 +250,7 @@ def parse_refdata_db(ini_file, output='tree', overwrite=False, verbose=True):
         T.append(trFile)
         
     T = Sequence(files=T)
-    T.set_data_file(join(out_dir,output+'.db'))
+    T.set_storage_entry(join(out_dir,output+'.db'))
     T.dump()
         
     return flist, invalid, out_dir, T

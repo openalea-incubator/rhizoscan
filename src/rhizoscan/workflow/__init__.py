@@ -17,6 +17,7 @@ except:
 from types import MethodType   as _MethodType
 from types import FunctionType as _FunctionType
 
+from rhizoscan.storage import StorageEntry as _StorageEntry
 
 # default printing functionality
 def _print_state(verbose, msg):
@@ -42,8 +43,7 @@ class node(object):
     should be used instead of calling it directly.
       
     Any key-value pairs can be attached as decoration. But specific entries are
-    expected and, if not provided, they are extracted automatically from the 
-    function definition by the above accessors. Those entries are: 
+    expected and, if not provided, a default value is set. Those entries are: 
     
       - `name`:
             The name of the node. 
@@ -58,26 +58,51 @@ class node(object):
             [default: one output named `None` is set]
       - `doc`:
             A description of the function (as a string). 
-            [default: the function documentation is taken]
+            [default: the function `__doc__` attribute is taken]
+            
+      - `dump`:
+            Serializer function used to save outputs in a writable stream.
+            The given function should take as two arguments: the outputs of the
+            function (dict) and a writable object (e.g. a file open for writing)
+            [default: use datastructure.storage default]
+      - `load`:
+            Deserializer function used to load previously stored outputs.
+            The given function should take as argument a readable object
+            (such as a file open for reading).
+            It should return the stored outputs as a dictionary.
+            [default: use datastructure.storage default]
+      - `suffix`: 
+            suffix used by workflow storage management. [default ''] ##
+          
+    :IO functionalities:
+        The `run` function attached to a `node` function provide the option to 
+        load previously stored output data instead of calling the function, and
+        to store outputs once computed. The main goal is for workflows to 
+        store intermediate data for later re-run.
+
+        The IO operation are done using the `save_fct` and `load_fct` node 
+        attributes (which use pickle by default).
+        
+        See the run method documentation for details
       
     :Notes:
-      - At call, the decorator only attach the given information to the decorated 
+      - The decorator only attach the given information to the decorated 
         function. Default values (etc...) is done by node_attribute accessors.
       - At least the names of outputs of the decorated function should be given
         as it cannot be infered automatically.
       - If openalea is installed (if `workflow.openalea` can be imported), then
         additional processing is done for the declared nodes in order to be 
-        used as openalea nodes.
+        usable as openalea nodes.
     
-    :Arguments for `outputs`:
-      By default, the `node` decorator expect key-arguments, which are attached
-      to the declared function. However, if unnamed arguments are given, they 
-      are treated as outputs descriptors:
+    :`outputs` arguments:
+       By default, the `node` decorator expect key-arguments, which are attached
+       to the declared function. However, if unnamed arguments are given, they 
+       are treated as outputs descriptors:
       
-      1. dictionaries that describes outputs  - ex: `{'name':'out1'}
-      2. the names (strings) of the outputs   - ex: `'out1'
+         1. dictionaries that describes outputs  - ex: `{'name':'out1'}
+         2. the names (strings) of the outputs   - ex: `'out1'
       
-      If any of these are used, they overwrite the `outputs` key-args, if given.
+       If any of these are used, they overwrite the `outputs` key-args, if given.
     
     :Example:
     
@@ -105,9 +130,10 @@ class node(object):
             kwargs['outputs'] = args
         
         # for output storage functionality
-        kargs.setdefault('io_mode',  False)
-        kargs.setdefault('save_fct', self.save_fct)
-        kargs.setdefault('load_fct', self.load_fct)
+        if kwargs.has_key('dump') and kwargs.has_key('load'):
+            kwargs['serializer'] = (kwargs['dump'],kwargs['load'])
+        else:
+            kwargs['serializer'] = None
         
         self.kwargs = kwargs
         
@@ -125,21 +151,13 @@ class node(object):
             declare_node(f)
             
         return f
-    
+            
     @staticmethod
-    def save_fct(filename, **outputs):
-        from rhizoscan.datastructure import Data
-        Data.dump(list(outputs.iteritems()), filename)
-        
-    @staticmethod
-    def load_fct(filename):
-        from rhizoscan.datastructure import Data
-        return Data.load(filename)
-        
-    @staticmethod
-    def run(function, io_mode=False, storage=None, verbose=False, **kargs):
+    def run(function, storage=None, io_mode=True, verbose=False, **kargs):
         """
         Call the node function with optional output IO functionality
+        
+        The function arguments should be given as key-arguments
         
         If the function is a "savable" node: its `io_mode` is not False
         If prevously computed data can be loaded, and 'io_mode' is not 'update', 
@@ -148,16 +166,14 @@ class node(object):
         
         :Input:
           - storage:
-                Either a string to which is appended the name of the node 
-                function's name and suffix to create a file name, or
-                an object with dictionary 
-                *** require if io_mode is not None ***
+                A storage entry (see datastructure.storage) or a url (string)
+                to/from where is stored/loaded the function's outputs
           - io_mode:
-                If 'update', force computation even if data can be loaded
-                if None, do not attempt to load data and don't save output:
-                         run is the same as calling the function directly
-                If 'default', use the node attribute `io_mode` value
-                otherwise, attempt to load `data` before computation
+                if False, do not attempt to load data and don't save output:
+                          run is the same as calling the function directly.
+                if True, try to load `data` before computation and save outputs
+                if 'update', save outputs (do not try to load).
+                *** if `storage` is None, False is used ***
           - verbose:
                 If True, print current process stage at run time
           
@@ -167,40 +183,28 @@ class node(object):
         :Outputs:
             Outputs of the node function, as a dictionary.
         """
-        data = None
+        func_attr = function.get_node_attribute
         
-        fct_attr = function.get_node_attribute
-        
-        if io_mode=='default': 
-            io_mode = fct_attr('io_mode')
-        if io_mode is None:
+        if io_mode is False or storage is None:
             return node._run(function=function, verbose=verbose, **kargs)
-        elif basename is None:
-            raise TypeError("'basename' should be given to run method for saving node's outputs")
-        
-        filename = basename + fct_attr('suffix', '')
-        fct_name = fct_attr('name')
-        load_fct = fct_attr('load_fct')
-        load_arg = fct_attr('load_kargs', {})
-        save_fct = fct_attr('save_fct')
-        save_arg = fct_attr('save_kargs', {})
         
         # try to load the data
         import os
-        attempt_load = (io_mode<>'update') and (io_mode is not None)
-        if attempt_load and load_fct and os.path.exists(filename):
+        data = None
+        storage = _StorageEntry.create_entry(storage)
+        if io_mode is True:
             try:
-                data = node.format_outputs(function,load_fct(filename=filename, **load_arg))
+                data = node.format_outputs(function,storage.load())
             except:
-               _print_error(verbose, 'Error while loading data %s: unreadable file or missing/invalid metadata' % self.name)
+               _print_error(verbose, 'Error while loading data %s' % self.name)
                 
         # compute the data
         if data is None:
             data = node._run(function=function, verbose=verbose, **kargs)
             # save computed data
-            if io_mode is not None:
-                save_fct(filename=filename, **dict(data.items()+save_arg.items()))
-        else:
+            if io_mode is True:
+                storage.save(dict(data.items()+save_arg.items()))
+        elif verbose:
             start_txt = '  output of "'+ fct_name + '" loaded from: '
             start_len = len(start_txt)
             if len(filename)>80-start_len:
@@ -238,7 +242,12 @@ class node(object):
     def format_outputs(function, outputs):
         """
         Make a dictionary from `outputs` and the function's node outputs name
+        
+        if outputs is a dictionary-like object, return it
         """
+        if hasattr(outputs, '__getitem__'):
+            return outputs
+            
         ##todo: raise error if outputs length != node outputs length ?
         out_name = [o['name'] for o in function.get_node_attribute('outputs')]
         if len(out_name)==1 or not hasattr(outputs,'__iter__'):
@@ -326,68 +335,7 @@ class node(object):
         
         return g
 
-
         
-class savable_node(node):
-    """
-    Same as `node` but also provides I/O iterface for output storage
-    
-    The `run` function of a `savable_node` function attempt first to load
-    previously stored output data and call the function only if it doesn't work. 
-    In order to do this, the `save_fct` and `load_fct` decoration should be 
-    given if default (pickle) serialization is not suitable.
-    
-    The main goal of such nodes are for use in workflows that want intermediate
-    data to be stored for later re-run.
-    
-    See the run method documentation
-    """
-    def __init__(self, *args, **kargs):
-        """
-        Initialize the decorator for a savable_node.
-        
-        Given arguments and key-arguments are the same as those of the `node` 
-        decorator. In addition, the following can be given:
-        
-          - `save_fct`:   function that can save the function output      (1a)
-          - `load_fct`:   function that can load the function output      (1b)
-          - `save_kargs`: optional arguments for `save_fct`               (1a)
-          - `load_kargs`: optional arguments for `load_fct`               (1b)
-          - `suffix`:     suffix to append to the run `basename` argument (2)
-          - `io_mode`:    default io_mode, None if not given              (2)
-          
-        (1)  By default, this class `save_fct` or `load_fct` methods are used
-        (1a) The given function should accept as inputs key-arguments:
-             `filename`, the output of the decorated function and those of 
-             `save_kargs` (that should not be the same as the function output)
-        (1b) The given function should accept as input key-arguments `filename`
-             and those of `load_kargs`. It should return the same output as the
-             decorated function
-        (2)  see the `run` method documentation 
-        
-        :Note:
-          By default, `io_mode` is None as for the default of the respective 
-          run key-argument. In this case, savable_node.run is the same as 
-          directly calling the function.
-          
-        :Example:
-            >>> @savable_node('out1','out2', suffix='fct.data')
-            >>> def fct(a,b=1):
-            >>>     return a+b, a*b
-            >>>
-            >>> out = fct.run(a=6, b=7, verbose=1)# io_mode='default'=>None
-            >>>     computing fct
-            >>> out = fct.run(basename='temp', a=6, b=7, verbose=1, io_mode='IO')
-            >>>     computing fct
-            >>> out = fct.run(basename='temp', a=6, b=7, verbose=1, io_mode='IO')
-            >>>     output of "fct" loaded from file: temp.save
-            
-        """
-        kargs.setdefault('save_fct', self.save_fct)
-        kargs.setdefault('load_fct', self.load_fct)
-        ##kargs.setdefault('io_mode',  'IO')
-        super(savable_node,self).__init__(*args, **kargs)
-            
 class Pipeline(object):
     """
     Simple pipeline workflow: execute a sequence of `workflow.node` 

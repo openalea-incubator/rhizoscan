@@ -9,50 +9,50 @@ Data classes
  
 TODO:
 -----
-    - automatically set Data.__file attribute to loaded Data 
+    - automatically set Data.__entry attribute to loaded Data 
         * same for subclasses 
         * same for contained data
         * what about contained data with already set data file ?
             + look into the 'Data mode' idea ('r','w','u') ?
-    - replace Data.__file by a Data_file property, replacing the get&set methods
+    - replace Data.__entry by a storage_entry property, replacing the get&set methods
     - replace the _(un)serialize_ by the set/get_state protocol
     - look into the __del__ deconstructor and the ability to automate saving
         * call to del is not garantied by carbage collector
 """
 __icon__    = 'datastructure.png'   # icon of openalea package
-
+                                             
 #from openalea import * ## should be optional
-from rhizoscan.tool import static_or_instance_method, _property
 from pprint import pprint
 from copy   import copy as _copy
 
-_PICKLE_PROTOCOL_ = -1 # by default all pickle saving (dump) are done with the latest protocol
-
-from rhizoscan.workflow import node as _node # to declare workflow nodes
+from .tool     import static_or_instance_method, _property 
+from .workflow import node as _node # to declare workflow nodes
+from .storage  import StorageEntry as _StorageEntry
+from .storage  import FileStorage  as _FileStorage
 
 class Data(object):
     """ 
-    Basic Data class: provide simple file IO interface using pickle
+    Basic Data class: provide automated storage IO operation
     
     The Data class has two aims:
-      1) It can be used directly to relate some data to a file, and use the
-         Data saving and loading interface (pickle based).
-         See the constructor documentation
-      2) It can be used as a superclass in order to get the saving and loading
-         ability of `Data` (see below), and easily provide special behavior for 
+      1) It can be used to relate some data to a storage entry (eg. file), and 
+         use the Data saving and loading interface (pickle based).
+         See the constructor documentation for details.
+      2) It can be used as a superclass in order to get the IO functionalities
+         of the `Data` class (see below), and provide special behavior for 
          objects being saved or loaded by container Data (`Mapping`, `Sequence`)
-         by overriding the `_serialize_` and `_unserialize_` method.
+         by overriding the `__store__` and `__restore__` method.
          
     **Note for subclassing**:
     
-        As stated, one of the main goal of the Data class is to be subclassed. 
-        Subclasses can either keep or override the dump, load, _serialize_ 
-        and _data_to_load methods.
+        As stated, one of the main goal of the `Data` class is to be subclassed. 
+        Subclasses can either keep or override the dump, load, __store__ 
+        and __restore__ methods.
         
         - The Data dump and load methods are simple interface with the pickle 
           modules. The dump method save the objects (more precisely what is 
-          returned by the _serialize_ method). And the load method loads it 
-          (more precisely what the loaded object _unserialize_ method returns).
+          returned by the __store__ method). And the load method loads it 
+          (more precisely what the loaded object __restore__ method returns).
           
         - Save and load are primarily supposed to be called statically. Thus
           when used as instance methods, it should be asserted that their
@@ -63,22 +63,22 @@ class Data(object):
           So they can be overriden with no restriction.
           ## this might not be True anymore...
           
-        - However they call the _serialize_ and _unserialize_ method, which
+        - However they call the __store__ and __restore__ method, which
           are also called by the default implementation of dump and load.
           
-        - By default, the _serialize_ and _unserialize_ methods simply 
+        - By default, the __store__ and __restore__ methods simply 
           return the calling instance (i.e. self).
           
         - However, if it is wanted to do some processing prior to saving and/or
-          post loading, then it can be done by overriding the _serialize_ and 
-          _unserialize_ methods.
+          post loading, then it can be done by overriding the __store__ and 
+          __restore__ methods.
           
         - The only constraint is to keep the same signature working: they should 
           be callable with only self as input, and return the object to be saved
           and the loaded object, respectively
           In both cases the returned object can be different from the calling
-          one. But the saved object returned by _serialize_ should have an
-          _unserialize_ method if it is wanted to be called at loading.
+          one. But the saved object returned by __store__ should have an
+          __restore__ method if it is wanted to be called at loading.
           
         The main reasons to do such overriding can be:
           - if the merging ability of the load method is not suitable (see load doc)
@@ -101,181 +101,206 @@ class Data(object):
     ## - make a static method / function isValidData(...) that check if the 
     ##   right attribute exist 
     
-    def __init__(self, filename=None):
+    def __init__(self, storage_entry=None):
         """                      
-        Create an empty Data object that can be used to load the file filename.
-        """
-        self.__file = filename
+        Create an empty Data object that can be realted to `storage_entry`
         
-    def set_data_file(self, filename):
+        `storage_entry` can be a filename, a valid url string or a 
+        `datastructure.StorageEntry` object.
+        
+        See `datastructure.storage` documentation. 
         """
-        Set the file of this data for saving and loading
+        self.set_storage_entry(storage_entry)
+        
+    def set_storage_entry(self, storage_entry):
         """
-        self.__file = filename
-    def get_data_file(self):
+        set the storage entry can be a filename or url string or a StorageEntry.
+        See `datastructure.storage` documentation. 
+        """
+        ## check if entry already set or taken: what to do?  
+        if storage_entry is not None:
+            storage_entry = _StorageEntry.create_entry(storage_entry) 
+        self.__entry = storage_entry
+    def get_storage_entry(self):
         """
         return the file of this data for saving and loading
         """
-        return getattr(self,'_Data__file',None)
+        return getattr(self,'_Data__entry',None)
     
-    @static_or_instance_method                           
-    def dump(data, filename=None, protocol=None):
-        """ 
-        Save input `data` to file `filename` using pickle 
-                                                     
-        This method can either be call as a:
-          1. static   method:  Data.dump(non_Data, filename,      protocol=None)
-          2. static   method:  Data.dump(Data_Obj, filename,      protocol=None)
-          3. instance method:  someDataObject.dump(filename=None, protocol=None)
+    @staticmethod
+    def has_IO_API(obj):
+        """
+        Test if given `obj` has the Data I/O API:
+        if it has the attributes `set_storage_entry`, `get_storage_entry`,
+        `dump` and `load`.
+        """
+        return all(map(hasattr,[obj]*4, ['set_storage_entry','get_storage_entry','dump','load']))
+    @staticmethod
+    def has_store_API(obj):
+        """
+        Test if given `obj` has the "store" API:
+        if it has the attributes `__store__` and `__restore__`
+        """
+        return all(map(hasattr,[obj]*2, ['__store__','__restore__']))
+    @staticmethod
+    def has_serializer_API(obj):
+        """
+        Test if given `obj` has a "serializer" API, i.e. if it has either:
         
-        In case 2 & 3, save the value returned by the `_serialize_` method.
+         - a '__serializer__' attribute (which should implement `dump` and `load`)
+         - or both `__serialize__` and `__deserialize__` attributes 
+        """
+        return hasattr(obj, '__serializer__') or all(map(hasattr,[obj]*2, ['__serialize__','__deserialize__']))
+        
+    @static_or_instance_method                           
+    def dump(data, entry=None):
+        """ 
+        Save input `data` to `entry` (which can be a file name) 
+
+        This method can either be called as a:
+          1. static   method:  Data.dump(non_Data, entry,      protocol=None)
+          2. static   method:  Data.dump(Data_Obj, entry,      protocol=None)
+          3. instance method:  someDataObject.dump(entry=None, protocol=None)
+        
+        If the 1st argument has the "store" API, this function saves the value
+        returned by its `__store__` method.
        
         :Inputs:
-          - filename
-            - In the 1st case, `filename` argument is mandatory     
-            - In the 2nd and 3rd case, the instance Data file attribute is used
-              if `filename` is not given. In this case, `filename` overwrite the
-              Data file attribute of the Data object.
-        
-          - protocol
-              the pickle protocol to use for saving. 
-              If not given (None) use this module `_PICKLE_PROTOCOL_` value.
+          - `entry`
+            Can be either a `StorageEntry` object, a `url` or a path to a file.
+            If it is not a StorageEntry, the value of `entry` is passed to 
+            `storage.StorageEntry.create_entry()` (see create_entry doc)
+            
+            In the case (1), `entry` argument is mandatory. 
+            In the case (2) and (3),  if `entry` is not given (None) the 
+            instance Data `storage_entry` attribute is used. In this case, 
+            `entry` becomes the `storage_entry` attribute of `data`.
         
         :Outputs:
-            Return an empty Data object that can be use to load the saved file
+            Return an empty Data object that can be use to load the stored data
         """
         if getattr(data,'_mode','w')=='r':
             raise IOError("This Data object is read only")
         
-        from cPickle import dump
-        import os, shutil
-        
-        if filename is None:# and hasattr(data,'get_data_file'):
-            filename = data.get_data_file()
+        io_api = Data.has_IO_API(data)
+        if entry is None:
+            if io_api:
+                entry = data.get_storage_entry()
+            else:
+                raise TypeError("argument 'entry' should be given when 'data' does not have an associated storage entry")
 
-        if hasattr(data,'_serialize_'):  ##? bug with Data being = to None...
-            data = data._serialize_()
-
-        if protocol is None: 
-            protocol = _PICKLE_PROTOCOL_
+        if io_api:
+            data.set_storage_entry(entry)
+        else:
+            entry = _StorageEntry.create_entry(entry)
+            
+        if Data.has_store_API(data):
+            data = data.__store__()
+            
+        entry.save(data)
         
-        filetmp = filename + '~pickle_tmp'
-        
-        f = None
-        try:
-            d = os.path.dirname(filetmp)
-            if len(d) and not os.path.exists(d):
-                os.makedirs(d)
-            f = file(filetmp,'wb')
-            dump(data,f,protocol)
-            f.close()
-            shutil.move(filetmp,filename)
-        finally:
-            if f is not None:
-                f.close()
-        
-        return Data(filename)
+        return Data(entry)  ## if lookup in 'Data'base => equiv to return self
         
     @static_or_instance_method
-    def load(filename_or_data, merge=True):
+    def load(url_or_data, merge=True):
         """ 
-        Load the pickled data from file 
-                                                       
-        This method can be used as 
-          1. a static method with a file name:   Data.load(filename)
-          2. a static method with a Data object: Data.load(some_Data_obj,merge=True)
-          3. an instance method:                 some_data_obj.load(merge=True)
+        Load the data serialized at `url_or_data` 
+
+        This method can be used as
+          1. a static method with url:       Data.load(filename)
+          2. a static method with IO object: Data.load(IO_obj,merge=True) (*)
+          3. an instance method:             data_obj.load(merge=True)
         
-        If the loaded object has the _unserialize_ method (such as Data objects)
-        then it automatically calls this method and return its output.
+        (*) `IO_object`must have the "IO" API - see Data.has_IO_API()
         
-        If case 1, this method return the loaded data.
+        If the loaded object has the "store" api (such as Data objects) then 
+        this function return the output of the `__restore__` method.
         
-        In cases 2 & 3, if the loaded data is a Data object and if merge is True
-        then it merges the loaded data into the Data instance:
+        In cases 2 & 3, `merge` can be False, 'dict' or True. If merge is not 
+        False, the loaded data is merged into the Data object:
         
           - it copies all its attributes (found in its `__dict__`) overwriting
             existing attributes with same name 
-          - it changes the instance `__class__` attribute with the loaded one
+          - if the caller and loaded data are Data objects and if `merge` = True
+            it changes  the instance `__class__` attribute with the loaded one.
           
-        If the output is a Data object, then its data file attribute is set to 
-        the loaded file
+        If the output is a Data object, then its storage entry attribute is set
+        to the loaded url
           
-        **Note for subclassing**:
+        :Subclassing:
         
             If the merging behavior is not suitable, it might be necessary to 
             override this methods. However the overriding method can call the 
             static `Data.load` method (case 2) with merge=False.
         """
-        from cPickle import load
+        data = url_or_data  # for readibility
         
-        data = filename_or_data  # for readibility
-        
-        if hasattr(data,'get_data_file'):
-            fname = data.get_data_file()
+        if Data.has_IO_API(data):
+            entry = data.get_storage_entry()
         else:
-            fname = data
+            entry = _StorageEntry.create_entry(entry)
         
-        f = file(fname,'rb')
-        d = load(f)
-        f.close()
+        d = entry.load() # use open(..., 'rb')
         
-        if hasattr(d,'_unserialize_') and hasattr(d._unserialize_,'__call__'):
-            d = d._unserialize_()
+        if Data.has_store_API(d):
+            d = d.__restore__()
             
-        if merge and isinstance(data,Data) and isinstance(d,Data):
+        if merge is not False and hasattr(data,'__dict__'):
             data.__dict__.update(d.__dict__)
-            data.__class__ = d.__class__
+            if merge==True and isinstance(d,Data) and isinstance(data,Data): 
+                data.__class__ = d.__class__
         else:
             data = d
             
-        if isinstance(data,Data):
-            data.set_data_file(fname)
+        if Data.has_IO_API(data):
+            data.set_storage_entry(entry)
         
         return data
        
-    def _serialize_(self):
+    def __store__(self):
         """ 
-        Prior processing of saved data. By default return it-self
+        Prior data processing before saving. By default return it-self
         
-        Note for subclassing:
-        ---------------------
-        Overriding this method can serves several purpose:
-          - First this is where useful pre-saving cleaning can be done, 
-            such as deleting dynamic data.
-          - Sometime, the data object cannot by pickled. Overriding this method
-            as well as _unserialize_ enable to make a workaround.
+        :Subclassing:
+          Overriding this method can serves several purpose:
+            1. this is where useful pre-saving cleaning can be done, 
+               such as deleting dynamic data.
+            2. If the data object cannot by pickled. Overriding this 
+               method as well as __restore__ enable to make a workaround.
 
-        The return value should be savable by pickle, 
-        typically its class definition and all its attributes (such as the load
-        method) must be hard coded. 
+          The return value should be picklable: (typically) its class definition 
+          and all its methods and attributes type must be hard coded.
+          
+          Note that the return object should have the suitable `__restore__` 
+          method callable when reloaded.
+          
+        :See also: __restore__
         """
         return self
         
-    def _unserialize_(self):
+    def __restore__(self):
         """
-        Postprocessing of load. By default return it-self.
+        Postprocessing of loaded data. By default return it-self.
 
-        Note for subclassing:
-        ---------------------
-        Overriding this method (and _serialize_) can serves several purposes:
-          - First data that were deleted when saving can ne reloaded / computed.
-          - Sometime, the data object cannot by pickled. Overriding this method
-            as well as _serialize_ enable to make a workaround.
+        :Subclassing:
+          Overridind this methods allows typically to reverse changes made by 
+          the `__store__` method.
+            
+        :See also: __store__
         """
         return self
         
         
     def loader(self, attribute=None):
         """
-        Return an empty Data object which can be used to load the data from file
+        Return an empty Data object which can be used to load the stored object
         
         `attribute` can be a name (string) or a list of names of attributs that
         the loader will keep.
         
-        *** if this object has no associated file, it won't be able to load ***
+        *** if the object has no associated entry, it won't be able to load ***
         """
-        loader = Data(filename=self.get_data_file())
+        loader = Data(storage_entry=self.get_storage_entry())
         loader._mode = 'r'
         if attribute:
             if isinstance(attribute,basestring):
@@ -286,7 +311,7 @@ class Data(object):
         
     def __str__(self):
         cls = self.__class__
-        return cls.__module__ +'.'+ cls.__name__ + ' with file: ' + str(self.get_data_file())
+        return cls.__module__ +'.'+ cls.__name__ + ' with file: ' + str(self.get_storage_entry())
             
 
             
@@ -297,19 +322,19 @@ def save_data(data, filename):
     """
     return Data.dump(data=data,filename=filename)
 
-class DataWrapper(Data):
-    """ Class that wrap anything inside a Data """
-    def __init__(self, data, filename):
-        """
-        Create a DataWrapper object that bind file filename to the input data
-        Use save and (later) load to save and reload the data
-        """
-        Data.__init__(self,filename)
-        self.__data = data
-        
-    def _unserialize_(self):
-        """ Postprocessing of load. return the wrapped data """
-        return self.__data
+##class DataWrapper(Data):
+##    """ Class that wrap anything inside a Data """
+##    def __init__(self, data, filename):
+##        """
+##        Create a DataWrapper object that bind file filename to the input data
+##        Use save and (later) load to save and reload the data
+##        """
+##        Data.__init__(self,filename)
+##        self.__data = data
+##        
+##    def __restore__(self):
+##        """ Postprocessing of load. return the wrapped data """
+##        return self.__data
 
         
 
@@ -332,7 +357,7 @@ class Mapping(Data):
         print m1.ans              # 54
         m1.merge(m2)
         print m1.ans              # 42
-         
+
     Mapping object can be treated as dictionaries:
     ----------------------------------------------
         * the double-star operator can be used: 
@@ -342,10 +367,12 @@ class Mapping(Data):
             m = Mapping(a=42,z=0,t=None)
             for key,value in m: print key, 'has value', value
          
-    Warning:
+    Storage:
     --------
-        Mapping are Data objects and have the attributs _Data__file and _Data__data 
-        reserved. Overwriting them will induce failure of Data functionalities.
+     1. Mapping are Data objects and have the attribut `_Data__entry` 
+        reserved. Overwriting it will induce failure of IO functionalities.
+     2. Mapping can be use as a container through the `set_container` method,
+        then using the function `set` and  `get` (see docs for details)
     """
     ##TODO Mapping:
     ##  - dump doc (for now it's the Data.dump doc)
@@ -357,9 +384,8 @@ class Mapping(Data):
         """
         Create a Mapping object containing all keyword arguments as keys
         
-        If Data_file is given, it loads the file and save it as the Data file 
-        attribute for later saving/loading. 
-        See the documentation of the load and save methods.
+        If `load_file` is given, it loads the file and stores it as the Data 
+        file attribute for later io operation (see load and save documentation).
         """
         if load_file is not None: self.load(load_file)
         self.__dict__.update(kwds)
@@ -372,12 +398,30 @@ class Mapping(Data):
         return self.__dict__.values()
 
 
+    def set_storage(self, storage):
+        """
+        Attach a storage for automatized I/O of contained attributs objects.
+        
+        `storage` can be either a FileStorage object of a format-type string
+        which is used to create one.
+        
+        :See also: FileStorage
+        """
+        if isinstance(storage, basestring):
+            storage = _FileStorage(storage)
+        self.__storage__ = storage
+
     def set(self,key, value=None):
-        """ set the `key`,`value` pairs (use `value=None` if not provided) """
-        return self.__dict__.setdefault(key,value)
+        """ 
+        Set the `key`,`value` pairs (use `value=None` if not provided)
+        Call the method __setitem__
+        """
+        return self.__setitem__(key,value)
     def get(self,key,default=None):
-        """ return the value related to `key`, or `default` if `key` doesn't exist """
-        return self.__dict__.get(key,default)
+        """ return the value related to `key`, or `default` if `key` doesn't exist
+        Call the method __getitem__
+        """
+        return self.__getitem__(key,default)
     def pop(self,key,default=None):
         """ remove `key` and return its value or default if it doesn't exist' """ 
         return self.__dict__.pop(key,default)
@@ -433,10 +477,10 @@ class Mapping(Data):
         new._tmp_attr = self.temporary_attribute.copy()
         return new
         
-    def _serialize_(self):
+    def __store__(self):
         """
-        Return a copy of it-self and call recursively _serialize_ on all 
-        contained objects that have the _serialize_ method, such as Data objects. 
+        Return a copy of it-self and call recursively __store__ on all 
+        contained objects that have the __store__ method, such as Data objects. 
         
         Note: This is what is really save by the 'save' method.
         """
@@ -445,23 +489,23 @@ class Mapping(Data):
         
         d = s.__dict__
         for key,value in d.iteritems():
-            if hasattr(value,'_serialize_') and hasattr(value._serialize_,'__call__'):
+            if hasattr(value,'__store__') and hasattr(value.__store__,'__call__'):
                 #print key,   
-                #try: print value.get_data_file()  ## debug
+                #try: print value.get_storage_entry()  ## debug
                 #except: print 'no data file'  
-                d[key] = value._serialize_()
+                d[key] = value.__store__()
             
         return s
 
-    def _unserialize_(self):
+    def __restore__(self):
         """
-        Return it-self after calling `_unserialize_` on all contained items that
+        Return it-self after calling `__restore__` on all contained items that
         have this method, such as Data objects.
         """
         for key,value in self.iteritems():
-            if hasattr(value,'_unserialize_') and hasattr(value._unserialize_,'__call__'):
+            if hasattr(value,'__restore__') and hasattr(value.__restore__,'__call__'):
                 try:
-                    self[key] = value._unserialize_()
+                    self[key] = value.__restore__()
                 except: pass##print 'no data file'
             
         return self
@@ -492,12 +536,13 @@ class Mapping(Data):
             
     # accessors
     # ---------
-    def __getitem__(self,item):
+    def __getitem__(self,item, *args):
         """ allow access using [] as for python dictionaries """
-        return getattr(self,item)##.__dict__.__getitem__(item)
+        if len(args): return self.__dict__.get(item,*args)
+        else:         return self.__dict__[item]
     def __setitem__(self,item,value):
         """ allow setting item using [] as for python dictionaries """
-        return setattr(self,item,value) ##self.__dict__.__setitem__(item,value)
+        return self.__dict__.setdefault(item,value)
     def __len__(self):
         return self.__dict__.__len__()
         
@@ -509,7 +554,7 @@ class Mapping(Data):
     def __str__(self):
         #from pprint import pformat
         #return pformat(self.__dict__)
-        #return "length %d %s object with associated file: %s" % (len(self), self.__class__.__name__, self.get_data_file()) # self.multilines_str()
+        #return "length %d %s object with associated file: %s" % (len(self), self.__class__.__name__, self.get_storage_entry()) # self.multilines_str()
         cls_name = self.__class__.__module__ + '.' + self.__class__.__name__
         return cls_name+":"+str(self.__dict__)
     def display(self, tab=0, max_width=80, avoid_obj_id=None):
@@ -746,7 +791,7 @@ class Sequence(Data):
         """
         Data.dump(item,filename)
                 
-    def _serialize_(self):
+    def __store__(self):
         s = _copy(self)
         s.clear_buffer()
         return s
@@ -798,7 +843,7 @@ class Sequence(Data):
             
         # save data and buffer it
         if self.auto_save: self._save_item_(filename,data)
-        if isinstance(data,Data): data.set_data_file(filename)
+        if isinstance(data,Data): data.set_storage_entry(filename)
         self._set_buffer_item_(data,index)
         
         # add this file to the file list

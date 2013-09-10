@@ -62,7 +62,7 @@ class TreeCompare(_Mapping):
         self.plant_missed = rpid.size - len(self.plant_map)
         
         # set save filename
-        self.set_data_file(filename)
+        self.set_storage_entry(filename)
         
     def compute_stat(self, stat_names='all', mask=None, save=True):
         r = self.ref.load(merge=False)
@@ -104,19 +104,19 @@ class TreeCompareSequence(_Mapping):
         self.unmatched_number = sum(tc.plant_missed   for tc in self.tc_list)
         
         if filename:
-            self.set_data_file(filename)
+            self.set_storage_entry(filename)
             self.dump()
 
     def compute_stat(self, stat_names='all', mask=None, save=True):
         for tc in self.tc_list: 
-            tc.compute_stat(stat_names=stat_names, mask=mask, save=tc.get_data_file() is not None)
+            tc.compute_stat(stat_names=stat_names, mask=mask, save=tc.get_storage_entry() is not None)
         if save:
             self.dump()
             
-    def _serialize_(self):
+    def __store__(self):
         s = self.__copy__()
-        s.tc_list = [tc._serialize_() for tc in s.tc_list]
-        return _Mapping._serialize_(s)
+        s.tc_list = [tc.__store__() for tc in s.tc_list]
+        return _Mapping.__store__(s)
 
 def plot(self, stat='axe1_length', title=None, prefilter=None, split=None, legend=True, merge_unique=False, scale=1, cla=True):
         import matplotlib.pyplot as plt
@@ -243,7 +243,7 @@ def compare_sequence(vs, storage='mtg_compare', display=True, slices=slice(None)
     for i in range(len(vs.ref))[slices]:
         a = vs.auto[i].tree
         r = vs.ref[i].tree
-        print '--- comparing file: ...', a.get_data_file()[-30:], '---'
+        print '--- comparing file: ...', a.get_storage_entry()[-30:], '---'
         r.segment.radius = np.zeros(r.segment.size+1)
         a = split_mtg(a.to_mtg())
         r = split_mtg(r.to_mtg())

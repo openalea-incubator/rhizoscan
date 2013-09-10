@@ -39,7 +39,7 @@ def compute_tree_stat(tree, stat_names='all', mask=None, save=True):
 class TreeStat(_Mapping):
     """ deprecated ? """
     def __init__(self,tree):
-        self._tree_file = tree.get_data_file()
+        self._tree_file = tree.get_storage_entry()
         self.metadata = tree.metadata
         
     @_property
@@ -83,7 +83,7 @@ class TreeCompare(_Mapping):
             
         self.image = image
         
-        self.set_data_file(filename)
+        self.set_storage_entry(filename)
 
     def compute_stat(self, stat_names='all', mask=None, save=True):
         for a in self.auto: 
@@ -95,12 +95,12 @@ class TreeCompare(_Mapping):
         if save:
             self.dump()
             
-    def _serialize_(self):
+    def __store__(self):
         s = self.__copy__()
-        s.auto = [a._serialize_() for a in s.auto]
-        s.ref  = [r._serialize_() for r in s.ref]
+        s.auto = [a.__store__() for a in s.auto]
+        s.ref  = [r.__store__() for r in s.ref]
         
-        return _Mapping._serialize_(s)
+        return _Mapping.__store__(s)
                 
 @_node(name='TreeCompare')
 def make_TreeCompare(auto, ref, filename='.tmp-TreeCompare', compute_stat='all'):

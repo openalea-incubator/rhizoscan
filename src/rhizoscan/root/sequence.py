@@ -228,7 +228,7 @@ class RootSequence(_Mapping):
         Construct a empty RootSequence 
         """
         self.output_directory = directory
-        self.merge(kargs)
+        self.update(kargs)
     
     @_property
     def output_directory(self):

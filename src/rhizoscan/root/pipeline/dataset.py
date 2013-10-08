@@ -131,11 +131,11 @@ def make_dataset(ini_file, output='output', verbose=False):
                 print '   ' + str(meta_value) + ' from ' + subf + str(rm_len)
             meta = _Mapping(**default_meta)
             if group is not None:
-                meta.merge(get_from_ini(group[ind], []))
+                meta.update(get_from_ini(group[ind], []))
             for i,value in enumerate(meta_value):
                 field = meta_list[i].name
                 value = meta_list[i].eval(value)
-                if field=='$': meta.merge(value)
+                if field=='$': meta.update(value)
                 else:          meta[field] = value
                 
             img_list.append(_Mapping(filename=f, metadata=meta, output=out))

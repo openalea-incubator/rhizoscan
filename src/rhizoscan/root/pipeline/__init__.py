@@ -2,7 +2,6 @@ import numpy as _np
 from ast import literal_eval as _literal_eval
 
 from rhizoscan.workflow import node as _node # to declare workflow nodes
-from rhizoscan.workflow import savable_node as _savable_node
 
 from rhizoscan.image       import Image as _Image
 from rhizoscan.root.image  import normalize_image as _normalize_image 

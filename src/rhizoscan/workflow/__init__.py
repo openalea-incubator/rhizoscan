@@ -17,13 +17,13 @@ except:
 from types import MethodType   as _MethodType
 from types import FunctionType as _FunctionType
 
-from rhizoscan.storage import StorageEntry as _StorageEntry
+from rhizoscan.storage import create_entry as _create_entry
 
 # default printing functionality
 def _print_state(verbose, msg):
     if verbose: print '  ', msg
-def _print_error(msg):
-    print '  \033[31m*** %s *** \033[30m' % repr(msg)
+def _print_error(verbose, msg):
+    if verbose: print '  \033[31m*** %s *** \033[30m' % repr(msg)
 
 
 
@@ -153,7 +153,7 @@ class node(object):
         return f
             
     @staticmethod
-    def run(function, storage=None, io_mode=True, verbose=False, **kargs):
+    def run(function, entry=None, io_mode=True, verbose=False, **kargs):
         """
         Call the node function with optional output IO functionality
         
@@ -165,15 +165,15 @@ class node(object):
         node's function.
         
         :Input:
-          - storage:
-                A storage entry (see datastructure.storage) or a url (string)
+          - entry:
+                A storage entry (see storage module) or a url (string)
                 to/from where is stored/loaded the function's outputs
           - io_mode:
                 if False, do not attempt to load data and don't save output:
                           run is the same as calling the function directly.
                 if True, try to load `data` before computation and save outputs
                 if 'update', save outputs (do not try to load).
-                *** if `storage` is None, False is used ***
+                *** if `entry` is None, False is implied ***
           - verbose:
                 If True, print current process stage at run time
           
@@ -183,34 +183,36 @@ class node(object):
         :Outputs:
             Outputs of the node function, as a dictionary.
         """
-        func_attr = function.get_node_attribute
+        func_name  = function.get_node_attribute('name')
+        serializer = function.get_node_attribute('serializer')
         
-        if io_mode is False or storage is None:
+        if io_mode is False or entry is None:
             return node._run(function=function, verbose=verbose, **kargs)
         
         # try to load the data
         import os
         data = None
-        storage = _StorageEntry.create_entry(storage)
-        if io_mode is True:
+        entry = _create_entry(entry, serializer=serializer)
+        if io_mode is True and entry.exist():
             try:
-                data = node.format_outputs(function,storage.load())
+                data = node.format_outputs(function,entry.load())
             except:
-               _print_error(verbose, 'Error while loading data %s' % self.name)
+                _print_error(verbose, 'Error while loading data %s' % func_name)
                 
         # compute the data
         if data is None:
             data = node._run(function=function, verbose=verbose, **kargs)
             # save computed data
             if io_mode is True:
-                storage.save(dict(data.items()+save_arg.items()))
+                entry.save(data)
         elif verbose:
-            start_txt = '  output of "'+ fct_name + '" loaded from: '
+            start_txt = 'loading ' + func_name + ' output from: '
             start_len = len(start_txt)
-            if len(filename)>80-start_len:
-                end_txt = '...' + filename[-(77-start_len):]
+            url = entry.url
+            if len(url)>80-start_len:
+                end_txt = '...' + url[-(77-start_len):]
             else:
-                end_txt = filename
+                end_txt = url
             _print_state(verbose, start_txt + end_txt)
             
         return data
@@ -218,7 +220,7 @@ class node(object):
     @staticmethod
     def _run(function, verbose=False, **kargs):
         """
-        Call the node function, and return the function outputs in a dictionary
+        Call the node function, and return the function outputs as a dictionary
         
         The function's argument should be given as key-arguments:
         
@@ -230,7 +232,7 @@ class node(object):
         >>> print out
         >>> # {'out1':13,'out2':42}
         """
-        _print_state(verbose, '  running '+ function.get_node_attribute('name', '"unnamed function"'))
+        _print_state(verbose, 'running '+ function.get_node_attribute('name', '"unnamed function"'))
         param = function.get_node_attribute('inputs', [])
         param = dict([(p['name'],p['value']) for p in param])
         kargs_key = kargs.keys()
@@ -347,6 +349,9 @@ class Pipeline(object):
     def __init__(self, name, modules):
         """
         node in `modules` list are copied 
+        
+        ##todo: pipeline outputs? default: from last nodes or namespace ?
+                otherwise use an 'outputs' arguments ?
         """
         modules = [m.copy() for m in modules]
         
@@ -376,6 +381,13 @@ class Pipeline(object):
         node(name=name, outputs=pl_outputs, inputs=pl_inputs)(self)
     
     def __call__(self, *args, **kargs):
+        """
+        Call iteratively the pipeline nodes
+        
+        ##todo:
+            - call self.run(node='all',namespace=None, **kargs) after mergin args into kargs
+            - return output with name from self.get_node_attribute(...)
+        """
         inputs = self.get_node_attribute('inputs')
         in_names = [i['name'] for i in inputs]
         kargs.update(zip(in_names, args))
@@ -396,6 +408,72 @@ class Pipeline(object):
                 
         return nspace
     
-    ##def run(self, io_mode='default', force_update=[], verbose=False, **kargs):
-    ##    pass
+    def run(self, node='missing', update=True, namespace=None, stored_data=[], **kargs):
+        """
+        Run the pipeline nodes to fill `namespace` with te nodes outputs
+        
+        :Inputs:
+          - `node`:
+              - If 'all', compute all nodes and add their output to `namespace`
+              - If 'missing' (default) compute the nodes for which the outputs
+                are missing in `namespace`.
+              - If a list of node name: compute those nodes.
+          - `update`:
+              - If False, compute only the nodes given by the `node` argument.
+              - If True, compute also the nodes for which some of the inputs 
+              were computed/updated by previous nodes.
+          - `namespace`:
+              - If None, simply run the nodes iteratively
+              - Otherwise, it should be an object with a dictionary interface
+                (i.e. implements `keys`, `update` and `__getitem__`) and is used
+                to store/retrieve inputs and outputs of the pipeline nodes.
+          - `stored_data`:
+              List of data name that are to be stored by `namespace`. In this
+              case, `namespace` should implement `set(key,value,store)` method
+              (such as datastructure.Mapping) which will be called with 
+              `store=True` for the given data name.
+              
+          - **kargs:
+              data and parameters which are added to `namespace` before starting 
+              the computation and thus are passed to the nodes run method.
+              
+        :Output:
+          Return the updated `namespace`, or a dictionary if it is not given.
+        """
+        if namespace is None:
+            namespace = dict()
+            
+        namespace.update(kargs)
+        
+        for i in self.get_node_attribute('inputs'):
+            namespace.setdefault(i['name'],i['value']) 
+        
+        # find modules to compute
+        if node=='all':
+            compute = self.modules
+        else:
+            # check missing outputs names of pipeline modules
+            compute = []
+            names  = set(namespace.keys())
+            missing = node=='missing'
+            for mod in self.modules:
+                mod_output = [o['name'] for o in mod.get_node_attribute('outputs')]
+                
+                if (missing and not all([output in names for output in mod_output])) \
+                or (not missing and mod.get_node_attribute('name') in node):
+                    compute.append(mod)
+                    if update:
+                        names.difference_update(mod_output)
+                
+        # execute modules pipeline
+        for module in compute:
+            in_names = [i['name'] for i in module.get_node_attribute('inputs')]
+            outputs = module.run(**dict((name,namespace[name]) for name in in_names))
+            if len(stored_data)==0:
+                namespace.update(outputs)
+            else:
+                for name,value in outputs:
+                    namespace.set(name,value,store=name in stored_data)
+                
+        return namespace
 

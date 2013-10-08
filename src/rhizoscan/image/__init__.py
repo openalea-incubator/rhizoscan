@@ -16,13 +16,15 @@ from rhizoscan.ndarray import aslice  as _aslice
 from rhizoscan.workflow import node as _node # to declare workflow nodes
 
 from rhizoscan.datastructure import Data as _Data
-from rhizoscan.datastructure import Sequence as _Sequence     
+from rhizoscan.storage       import StorageEntry as _StorageEntry
+from rhizoscan.storage       import create_entry as _create_entry
+from rhizoscan.datastructure import Sequence as _Sequence   
 
 from rhizoscan.tool   import static_or_instance_method as _static_or_instance
 from rhizoscan.tool   import _property
 from rhizoscan.tool.path import assert_directory as _assert_directory
 
-class Image(_np.ndarray, _Data):
+class Image(_Data, _np.ndarray):
     """
     ndarray subclass designed to represent images
     
@@ -37,67 +39,46 @@ class Image(_np.ndarray, _Data):
         #   scale used by imconvert => keept !!
         
         # create Image instance
-        # ---------------------
-        if isinstance(array_or_file,basestring):
-            obj = _nd.imread(array_or_file).view(cls)
-            obj.set_storage_entry(array_or_file)
+        # ---------------------                                       
+        if isinstance(array_or_file,(basestring,_StorageEntry)):
+            obj = PILSerializer.load_image(array_or_file, 
+                        color=color, dtype=dtype, scale=scale, from_color=from_color)
             
-            # load image info and timestamp
-            from PIL import Image
-            from os.path import getmtime
-            obj.info = Image.open(array_or_file).info
-            obj.info['timestamp'] = getmtime(array_or_file)
-            obj.info.update(info)
+            ## how load file info in new storage entry system?
+            #obj = _nd.imread(array_or_file).view(cls)
+            #obj.set_storage_entry(array_or_file)
+            #
+            ## load image info and timestamp
+            #from PIL import Image
+            #from os.path import getmtime
+            #obj.info = Image.open(array_or_file).info
+            #obj.info['timestamp'] = getmtime(array_or_file)
+            #obj.info.update(info)
         else:
             obj = _np.asanyarray(array_or_file).view(cls)
             obj.set_storage_entry('')
-            obj.info = info
             
-        # conversion
-        # ----------
-        if obj.dtype.kind not in ('b','u','i','f'):
-            print "\033[31m*** Image is not numeric (and cannot be converted) ***\033[30m"
-            obj.color = 'unknown color space'
-        else:
-            obj = imconvert(obj,color=color,dtype=dtype, from_color=from_color, scale=scale)
-            
-        obj.scale = scale
-        obj.from_color = from_color
-        
+            # conversion
+            if obj.dtype.kind not in ('b','u','i','f'):
+                print "\033[31m*** Image is not numeric (and cannot be converted) ***\033[30m"
+                obj.color = 'unknown color space'
+            else:
+                obj = imconvert(obj,color=color,dtype=dtype, from_color=from_color, scale=scale)
+                
+        obj.info = info
         return obj
         
     def __array_finalize__(self, obj):
-        # see InfoArray.__array_finalize__ for comments
-        #if hasattr(obj,'color'): self.color = obj.color
-        #else:                    self.color = detect_color_space(self)
-        ##else: print 'no __dict__' 
-        ##self.color = detect_color_space(self)
-        ##if hasattr(obj,'scale'):      self.scale = obj.scale
-        ##else:                         self.scale = 'dtype'
-        ##if hasattr(obj,'from_color'): self.from_color = obj.from_color
-        ##else:                         self.from_color = None
-        ##
-        ##if hasattr(obj,'get_storage_entry'):
-        ##    self.set_storage_entry(obj.get_storage_entry())
-        
         if hasattr(obj,'__dict__'):
             self.__dict__.update(obj.__dict__)
             
         self.color = detect_color_space(self)
-        self.__dict__.setdefault('scale',      'dtype')
-        self.__dict__.setdefault('from_color',  None)
-        self.__dict__.setdefault('info',        {})
+        self.__dict__.setdefault('info',        {}) ## still there?
         
-        ## image.r/g/b must be done using weakreaf (?) 
-        #if self.color in ('rgb','rgba'):
-        #    self.r = self[...,0]
-        #    self.g = self[...,1]
-        #    self.b = self[...,2]
-        #if self.color == 'rgba':           
-        #    self.a = self[...,3]
-            
     def __init__(self, array_or_file, color=None, dtype=None, from_color=None, scale='dtype', info={}):
-        ## todo: doc
+        """ create an image objectr form numpy array or file name  """
+        ##todo: finish doc of Image
+        # required to use __new__ (?) 
         pass
 
     def normalize(self, min=0, max=1):
@@ -116,15 +97,35 @@ class Image(_np.ndarray, _Data):
         
         return self
         
-    # saving
-    def imsave(self, filename):
-        """ Simple call to scipy.misc.imsave: save the image as scaled uint8 """
-        from scipy.misc import imsave 
-        imsave(filename,self)
+    def set_serializer(self, pil_format, pil_mode=None, pil_param=None,
+                       ser_color=None, ser_dtype='auto', ser_scale='dtype',
+                       extension=None):
+        """
+        Define the serializer of this image.
+        
+        If can be call either as:
+          (1) img.set_serializer(serializer_object)
+          (2) img.set_serializer([PILSerializer parameters])
+        
+        For (1), `serializer` should implement `dump` and `load` functions
+        For (2), this method takes the same parameters as the PILSerializer 
+        constructor, but for `img_color` and `img_dtype` which are taken from
+        the Image object `img`.
+        
+        See also: `PILSerializer`
+        """
+        if all(map(hasattr,[pil_format]*2, ['dump','load'])):
+            s = pil_format 
+        else:
+            s = PILSerializer(img_color=self.color, img_dtype=self.dtype,
+                              pil_format=pil_format, pil_mode=pil_mode, pil_param=pil_param,
+                              ser_color=ser_color, ser_dtype=ser_dtype, ser_scale=ser_scale,
+                              extension=extension)
+        self.__serializer__ = s
         
     @_static_or_instance
     def save(image, filename=None, color=None, dtype='auto', scale='dtype',
-                    pil_format=None, pil_mode=None, **pil_params):
+                    pil_format=None, pil_mode=None, **pil_param):
         """
         Save the image to file 'filename' using PIL.Image
         
@@ -156,7 +157,7 @@ class Image(_np.ndarray, _Data):
           - pil_mode:
               can be passed to PIL.Image.fromarray to enforce conversion mode. 
               None means automatic selection (see below)
-          - **pil_params:
+          - **pil_param:
               Additional parameter to pass to PIL save function. Depends on 
               pil_format used. See PIL documentation.
               If it contains a `pnginfo` it should be a dictionary, for which 
@@ -179,7 +180,7 @@ class Image(_np.ndarray, _Data):
            To be saved, the image has to fit one of the PIL mode (see below), then
            it can save to different image file format depending on the mode and 
            installed library.
-           the pil_format, pil_mode and pil_params are directly passed to the save
+           the pil_format, pil_mode and pil_param are directly passed to the save
            method of PIL Image. But usually default (None) value are suitable.
            See the PIL Image save method documentation 
            
@@ -220,18 +221,19 @@ class Image(_np.ndarray, _Data):
         
         # manage input image
         # ------------------
-        if isinstance(image,Image):
+        if _Data.has_IO_API(image):
             if filename is not None:
                 image.set_storage_entry(filename)
             elif image.get_storage_entry() is None:
                 raise TypeError("filename shoud be provided: input Image object has unset Data file")
         elif filename is None:
             raise TypeError("filename should be provided")
-        else:
+            
+        if not isinstance(image,Image):
             image = Image(image)
             image.set_storage_entry(filename)
             
-        filename = image.get_storage_entry()
+        entry = image.get_storage_entry()
         
         # convert image
         # -------------
@@ -239,34 +241,34 @@ class Image(_np.ndarray, _Data):
             if image.color!='gray':             dtype = 'uint8'
             elif image.dtype in (bool,'uint8'): dtype = None
             elif pil_format=='TIFF' or \
-                 filename.lower().endswith(('.tif','.tiff')):
+                 entry.url.lower().endswith(('.tif','.tiff')):
                                                 dtype = 'float32'
             else:                               dtype = 'uint8'
             
         img = imconvert(image, color=color, dtype=dtype, scale=scale)
-        img.set_storage_entry(filename)
+        img.set_storage_entry(entry)
         
         # save image
         # ----------
         ## file/dir preparation to be transfered to Data (_open, _close ?)
-        _assert_directory(filename)
+        _assert_directory(entry.url) ## should be StorageEntry work? 
         
         # check for pnginfo in pil_param
-        if pil_params.has_key('pnginfo'):
+        if pil_param.has_key('pnginfo'):
             from PIL.PngImagePlugin import PngInfo
             astr = lambda x: x if isinstance(x,basestring) else str(x)
             info = PngInfo()
-            for key,value in pil_params['pnginfo'].iteritems():
+            for key,value in pil_param['pnginfo'].iteritems():
                 info.add_text(astr(key), astr(value)) 
-            pil_params['pnginfo'] = info
+            pil_param['pnginfo'] = info
             
         img = fromarray(img,mode=pil_mode)
-        img.save(filename, format=pil_format, **pil_params)
+        img.save(entry.url, format=pil_format, **pil_param)
         
         #loader = Image([])
         loader = image.loader()
         loader.from_color = color
-        loader.set_storage_entry(filename)
+        loader.set_storage_entry(entry)
         if scale=='normalize':                 loader.scale = 'dtype'
         elif not isinstance(scale,basestring): loader.scale = 1/float(scale)
         
@@ -301,21 +303,21 @@ class Image(_np.ndarray, _Data):
         loader.set_storage_entry(self.get_storage_entry())
         return loader
         
-    def __store__(self):
-        return self.loader()
-    def __restore__(self):
-        return self.load()
+    ## __store/restore__ : return serialized stream ?
+    #def __store__(self):
+    #def __restore__(self):
 
-    def __reduce__(self):
-        object_state = list(_np.ndarray.__reduce__(self))
-        #subclass_state = [self.__dict__.keys()] + self.__dict__.values()
-        object_state[2] = (object_state[2],self.__dict__)#subclass_state)
-        return tuple(object_state)
-    
+    # for pickling
     def __setstate__(self,state):
         _np.ndarray.__setstate__(self,state[0])
         self.__dict__.update(state[1])
-
+        
+    def __reduce__(self):
+        object_state = list(_np.ndarray.__reduce__(self))
+        object_state[2] = (object_state[2],self.__dict__)
+        return tuple(object_state)
+    
+    # for printing
     def __repr__(self):
         arr_txt = str(self)
         desc = 'Image(' + arr_txt.replace('\n', '\n' + ' '*6)
@@ -327,6 +329,220 @@ class Image(_np.ndarray, _Data):
         desc += ')'
         return desc
         
+
+class PILSerializer(object):
+    """
+    Serializer for Image objects using the Python Image Library (PIL)
+    
+    implements: 
+      - `dump(obj,stream)`: 
+            write (serialize) an image to a stream 
+      - `load(stream)`:
+            read (deserialize) an image from a stream
+      - load_image(url,color,dtype,scale,from_color)
+            Static method that create an Image object from `url` with storage
+            entry and seiralizer set.
+    
+    The purpose of `PILSerializer` is to provide a serializing/deserializing
+    interface for `Image` objects. In pratice, it is used through the image 
+    storage entry. See `get/set_storage_entry`, the `datastructure.Data` class
+    and the `storage` module for details on automatic serialization protocol.
+    
+    The (de)serialization is done using writing and reading functionalities of 
+    PIL, which usually require suitable data transformation to be defined.
+    """
+    def __init__(self, img_color, img_dtype,
+                       pil_format, pil_mode=None, pil_param=None,
+                       ser_color=None, ser_dtype='auto', ser_scale='dtype',
+                       extension=None):
+        """
+        To be serialized, the image data format (`img_color` & `img_dtype`) has
+        to fit one of the PIL mode (`pil_mode`) which it-self should be suitable
+        for required image format (`pil_format`, eg. 'PNG' or 'TIFF').
+        
+        If it is not the case, the serialization conversion arguments (`ser_*`)
+        can be used to apply automatic conversion (using `imconvert`) to the 
+        given image before PIL serialization: 
+         - the ser_* arguments values are used by the `dump` method
+         - the reverse is used by the `load` method at deserialization
+        
+        The default parameters for `ser_dtype` and `ser_scale` induce the 
+        selection of some "common" values (see "automatic conversion" below)
+            
+        :Inputs:
+          - `img_color`:
+              color of input Image object
+          - `img_dtype`: 
+              dtype of input Image object
+          
+          - `pil_format`:
+              serialization format used by pil (e.g. 'PNG', 'TIFF') (1)
+              (see http://effbot.org/imagingbook/formats.htm)
+          - `pil_mode`:
+              serialization mode used by pil (e.g. 'L', 'RGB', 'F') (1)
+              (see http://effbot.org/imagingbook/concepts.htm)
+          - `pil_param`:
+              additional paramaters used by pil save - depends on `pil_format` (1)
+              Should be a dictionary. If it contains a field 'pnginfo', which
+              should also be a dictionary, it is converted to the suitable
+              data structure for saving.
+              
+          - `ser_color`:
+              color conversion used before serialization (2)
+          - `ser_dtype`:
+              dtype conversion used before serialization (2)
+          - `ser_scale`:
+              pixels value scaling done before serialization (2)
+              
+          - `extension`:
+              File extension that indicate the content type.
+              By default use: '.' + pil_format.lower()
+          
+          (1) the pil_* arguments are directly passed to the save method of 
+              PIL.Image. See PIL.Image's save method documentation.
+              
+          (2) the ser_* arguments are passed to `imconvert` before serialization.
+              The opposite conversion is applied at deserialization.
+              See the `imconvert` documentation and "automatic conversion" below
+        
+         
+        :Automatic conversion:
+            pil_mode=None:
+            --------------
+            At serialization, the automatic conversion use the PIL `fromarray`
+            method. If None, pil_mode is selected w.r.t the image shape & dtype: 
+            
+            shape | color - dtype        => pil mode
+            ========================================
+            (.,.)   gray  - bool         => 1     1-bit pixels, black and white
+            (.,.)   gray  - uint8        => L     8-bit pixels, black and white
+            (.,.)   gray  - int8 to 32   => I     32-bit signed integer pixels
+            (.,.)   gray  - float32 & 64 => F     32-bit floating point pixels
+            (.,.,3) rgb   - uint8        => RGB   3x8-bit pixels, true colour
+            (.,.,4) rgba  - uint8        => RGBA  4x8-bit pixels, tc with transparency
+              
+            (see PIL.Image._fromarray_typemap)
+            
+            serialization conversion parameter:
+            -----------------------------------
+            The serialization conversion parameters (ser_*) provide some 
+            automatic behavior. They are passed to `imconvert` and provide this
+            function behavior. Eg:        
+              - `ser_dtype` and `ser_color` = None means no conversion
+              - `ser_scale=dtype` maps the value range of source and destination 
+            
+            On top, if ser_dtype='auto',the following value is selected:
+            
+              if image color is not gray:            ser_dtype = uint8
+              else if image dtype is bool or uint8:  ser_dtype = None
+              else if pil_format is 'TIFF':          ser_dtype = float32
+              else:                                  ser_dtype = uint8
+
+        :Warning:
+            Deserialized previously serialized image, i.e. load(dump(image)), 
+            should have the same data format (color and dtype) as the original. 
+            However, it is the serialization format (`ser_*`) that is saved. So 
+            if the image data format is not suitable w.r.t the pil mode and
+            format, the (de)serialization induces a lost of precision!
+            
+        :See also:
+            imconvert
+            PIL modes:   http://effbot.org/imagingbook/concepts.htm
+            PIL formats: http://effbot.org/imagingbook/formats.htm    
+        """
+        # manage automatic serialization conversion of dtype
+        if ser_dtype=='auto':
+            if img_color!='gray':             ser_dtype = 'uint8'
+            elif img_dtype in (bool,'uint8'): ser_dtype = None    # no conversion
+            elif pil_format=='TIFF':          ser_dtype = 'float32'
+            else:                             ser_dtype = 'uint8'
+            
+        # check for pnginfo in pil_param
+        if pil_param is None:
+            pil_param = dict()
+        elif pil_param.has_key('pnginfo'):
+            from PIL.PngImagePlugin import PngInfo
+            astr = lambda x: x if isinstance(x,basestring) else str(x)
+            info = PngInfo()
+            for key,value in pil_param['pnginfo'].iteritems():
+                info.add_text(astr(key), astr(value)) 
+            pil_param['pnginfo'] = info
+            
+        if extension is None:
+            extension = '.' + str(pil_format).lower()
+            
+        self.img_color  = img_color 
+        self.img_dtype  = img_dtype  
+        self.pil_format = pil_format 
+        self.pil_mode   = pil_mode   
+        self.pil_param  = pil_param  
+        self.ser_color  = ser_color  
+        self.ser_dtype  = ser_dtype  
+        self.ser_scale  = ser_scale
+        self.extension  = extension
+        
+        if ser_scale=='normalize':
+            self.img_scale = 'dtype'
+        elif isinstance(ser_scale,basestring):
+            self.img_scale = ser_scale
+        else:
+            self.img_scale = 1/float(ser_scale)
+        
+    def dump(self,image, stream):
+        from PIL.Image import fromarray
+        img = imconvert(image, color=self.ser_color,     dtype=self.ser_dtype,
+                              from_color=self.img_color, scale=self.ser_scale)
+        img = fromarray(img, mode=self.pil_mode)
+        img.save(stream, format=self.pil_format, **self.pil_param)
+        
+    def load(self,stream):
+        from PIL import Image
+        img = _np.array(Image.open(stream))
+        return imconvert(img, color=self.img_color,      dtype=self.img_dtype,
+                              from_color=self.ser_color, scale=self.img_scale)
+        
+    @staticmethod
+    def load_image(url, color=None, dtype=None, scale='dtype', from_color=None):
+        """
+        return an Image object created from `url`
+        
+        The image has the suitable PIL serializer and storage entry set
+        """
+        # create empty PILSerializer instance
+        class TMP(object): pass
+        s = TMP()
+        s.__class__ = PILSerializer
+        
+        # create the StorageEntry
+        e = _create_entry(url)
+        
+        # load image storage type
+        from PIL import Image
+        img = Image.open(e.url)
+        s.pil_format = img.format
+        s.pil_mode   = img.mode
+        s.pil_param  = dict()
+        
+        # make the Image instance
+        img = _np.array(img)
+        if from_color is None: from_color = detect_color_space(img)
+        img = imconvert(img, color=color, dtype=dtype,from_color=from_color, scale=scale)
+        
+        # fill serializer 
+        s.img_color  = color 
+        s.img_dtype  = dtype  
+        s.img_scale  = scale
+        s.ser_color  = from_color  
+        s.ser_dtype  = img.dtype  
+        s.ser_scale  = _scale_inverse(scale)
+        
+        # attach StorageEntry to image
+        img.__serializer__ = s
+        img.set_storage_entry(e)
+        
+        return img
+        
+
 class ImageSequence(_Sequence):
     """
     provide access to list of image file
@@ -448,6 +664,12 @@ def detect_color_space(image_array):
     elif image_array.shape[-1]==3: return 'rgb'
     elif image_array.shape[-1]==4: return 'rgba'
     else:                          return 'gray'
+
+def _scale_inverse(scale):
+    """ return the inverse of scale in imconvert """
+    if scale=='normalize':             return 'dtype'   # not bijective!
+    elif isinstance(scale,basestring): return scale
+    else:                              return 1./scale
     
 @_node('converted_image')
 def imconvert(image, color=None, dtype=None, scale='dtype', from_color=None):
@@ -495,7 +717,7 @@ def imconvert(image, color=None, dtype=None, scale='dtype', from_color=None):
         
         On top of that, underflow and overflow following scaling and type 
         conversion are clipped to the bound of the output dtype.
-        > This differ with the behavior of numpy astype method, which do wrapping
+        > This differ with the behavior of `numpy.astype`, which does wrapping
           
         In addition to all numeric numpy dtype, dtype argument can also be 'f*'
         which means to assert dtype is float, without enforcing a byte precision.
@@ -541,8 +763,8 @@ def imconvert(image, color=None, dtype=None, scale='dtype', from_color=None):
             image = _np.sum(_np.asanyarray(image,dtype=cvt_dtype) * coef, axis=-1)
         elif from_color=='gray' and color in ('rgb', 'rgba'):
             img = _np.ones(_np.asanyarray(image).shape + (len(color),))
-            img[...,0] = image 
-            img[...,1] = image 
+            img[...,0] = image
+            img[...,1] = image
             img[...,2] = image
             image = img
         elif from_color!='gray' or color!='gray':

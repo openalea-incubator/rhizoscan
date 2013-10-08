@@ -11,7 +11,17 @@ from rhizoscan.ndarray.graph import ArrayGraph as _ArrayGraph # used by SegmentG
 
 from rhizoscan.tool import _property    
 from rhizoscan.workflow import node as _node # to declare workflow nodes
-class GraphList(_Mapping): ## del dynamic property when saved (etc...) / no direct access (get_prop)?
+
+"""
+##TODO:
+  - Node/Segment/AxeList implement the required set_node/segment/axe_list setter
+  - RootGraph also, making sure node.segment, segment.node, axe.segment, 
+                    segment.axe link well
+"""
+
+
+class GraphList(_Mapping):
+    ## del dynamic property when saved (etc...) / no direct access (get_prop)?
     @_property
     def properties(self):
         """ list of list properties (use add_property to add one)"""
@@ -26,136 +36,6 @@ class GraphList(_Mapping): ## del dynamic property when saved (etc...) / no dire
         self.properties# assert existence
         self._property_names.add(name)
         self[name] = value
-
-class AxeList(GraphList):
-    def __init__(self, axes=None, order=None, plant=None, segment_list=None, segment_parent='parent'):
-        """
-        Create an AxeList instance.
-        
-        :Warning:
-            For backward compatibility, it is possible to make an empty AxeList
-            without argument, but this will most probably become deprecated
-            
-        :Inputs:
-          - axes:
-              A list or array, of the **sorted** list of segment id each 
-              root axe contains. The first list (i.e. the 1st axe) should be
-              empty: a *dummy* axe.
-              This value is stored in this AxeList `segment` attribute
-              The list should be in a decreasing priority order (see notes)
-          - order:
-              An array-like of the order of each axe. Same length as `axe`.
-          - plant:
-              An array-like of the plant id for each axe. Same length as `axe`.
-          - segment_list:
-              The SegmentList instance on which this AxeList is constructed.
-          - segment_parent:
-              The list of parent of all segment in `segment_list`. If a string 
-              is given, the respective attribute of `segment_list` is used.
-              See notes.
-              
-        :Notes:
-            The AxeList constructor compute the *main axe* of each segment from
-            `segment_list` base on the `order` argument then on the order of 
-            appearance in input `axe` list.
-            The array containing the id of the selected main axe for each 
-            segment is stored in the attribute `segment_axe`.
-
-            It is considered that the parent axe of an axe `a` is the main axe of
-            the parent segment of the 1st segment of axe `a`.
-        """
-        if axes is None: 
-            DeprecationWarning("AxeList constructor without argument is deprecated") ##
-            return
-        
-        self.segment = _np.asarray(axes)
-        self.order   = _np.asarray(order)
-        self.plant   = _np.asarray(plant)
-        self.set_segment_list(segment_list)
-        
-        if isinstance(segment_parent, basestring):
-            self._segment_parent = segment_list[segment_parent]
-        else:
-            self._segment_parent = segment_parent
-        
-        # find id of main axe for all segments
-        segment_axe  = _np.zeros(segment_list.size+1, dtype=int)
-        #for aid,slist in enumerate(self.segment[::-1]):
-        #    segment_axe[slist] = len(self.segment)-aid-1
-        axe_priority = _np.argsort(order[1:])+1
-        for o in axe_priority[::-1]:
-            slist = self.segment[o]
-            segment_axe[slist] = o
-        self.segment_axe = segment_axe
-        
-   
-    def set_segment_list(self,segment_list):
-        self._segment_list = segment_list
-        
-    @_property
-    def size(self):
-        return len(self.segment)-1 ## size-1...
-        
-    @_property
-    def segment_number(self):
-        if not hasattr(self,'_segment_number'):
-            sNum = _np.vectorize(len)(self.segment)
-            self._segment_number = sNum
-            self.temporary_attribute.add('_segment_number')
-        return self._segment_number
-        
-    @_property
-    def length(self):
-        if not hasattr(self,'_length'):
-            length = _np.vectorize(lambda slist: self._segment_list.length[slist].sum())(self.segment)
-            self._length = length
-            self.temporary_attribute.add('_length')
-        return self._length
-    @length.setter
-    def length(self, value):
-        self._length = value
-        self.clear_temporary_attribute('_length')
-        
-    @_property
-    def segment1(self):
-        """ first segment of axe """
-        if not hasattr(self,'_AxeList__segment1'):
-            segment1 = _np.array([sl[0] if len(sl) else 0 for sl in self.segment])
-            self.__segment1 = segment1
-            self.temporary_attribute.add('_AxeList__segment1')
-        return self.__segment1
-    @_property
-    def sparent(self):                    ## change this attrib name?
-        """ parent segment of axe """
-        if not hasattr(self,'_AxeList__sparent'):
-            sparent = self._segment_parent[self.segment1]
-            self.__sparent = sparent
-            self.temporary_attribute.add('_AxeList__sparent')
-        return self.__sparent
-    @_property
-    def insertion_angle(self):
-        """ insertion angle axe """
-        if not hasattr(self,'_AxeList__insertion_angle'):
-            insertion_angle = self._segment_list.direction_difference[self.segment1,self.sparent]
-            self.__insertion_angle = insertion_angle
-            self.temporary_attribute.add('_AxeList__insertion_angle')
-        return self.__insertion_angle
-    
-    def _compute_length_properties(self):
-        # compute the axe length and arc length of segment w.r.t their axe
-        arc_length = _np.array([[] for i in xrange(len(self.segment))])
-        axe_length = _np.zeros(len(self.segment))
-        segment_number = _np.zeros(len(self.segment),dtype=int)
-        for i,slist in enumerate(self.segment):
-            if len(slist)==0: continue
-            slist = _np.asarray(slist)
-            arcL  = _np.cumsum(self._segment_list.length[slist])
-            arc_length[i] = arcL
-            main_axe = self._segment_list.axe[slist]==i         # if axis are overloaping, update
-            arc_length[slist[main_axe]] = arcL[main_axe]        # arc length if axe i is the segment "main" axe 
-            axe_length[i] = arcL[-1]
-            segment_number[i] = len(arcL)
-        self.segment.add_property('axelength',arc_length)
 
 class NodeList(GraphList):
     def __init__(self,position=None, x=None, y=None):
@@ -337,6 +217,136 @@ class SegmentList(GraphList):
         nbor[switch] = 0
         
         return nbor
+
+class AxeList(GraphList):
+    def __init__(self, axes=None, order=None, plant=None, segment_list=None, segment_parent='parent'):
+        """
+        Create an AxeList instance.
+        
+        :Warning:
+            For backward compatibility, it is possible to make an empty AxeList
+            without argument, but this will most probably become deprecated
+            
+        :Inputs:
+          - axes:
+              A list or array, of the **sorted** list of segment id each 
+              root axe contains. The first list (i.e. the 1st axe) should be
+              empty: a *dummy* axe.
+              This value is stored in this AxeList `segment` attribute
+              The list should be in a decreasing priority order (see notes)
+          - order:
+              An array-like of the order of each axe. Same length as `axe`.
+          - plant:
+              An array-like of the plant id for each axe. Same length as `axe`.
+          - segment_list:
+              The SegmentList instance on which this AxeList is constructed.
+          - segment_parent:
+              The list of parent of all segment in `segment_list`. If a string 
+              is given, the respective attribute of `segment_list` is used.
+              See notes.
+              
+        :Notes:
+            The AxeList constructor compute the *main axe* of each segment from
+            `segment_list` base on the `order` argument then on the order of 
+            appearance in input `axe` list.
+            The array containing the id of the selected main axe for each 
+            segment is stored in the attribute `segment_axe`.
+
+            It is considered that the parent axe of an axe `a` is the main axe of
+            the parent segment of the 1st segment of axe `a`.
+        """
+        if axes is None: 
+            DeprecationWarning("AxeList constructor without argument is deprecated") ##
+            return
+        
+        self.segment = _np.asarray(axes)
+        self.order   = _np.asarray(order)
+        self.plant   = _np.asarray(plant)
+        self.set_segment_list(segment_list)
+        
+        if isinstance(segment_parent, basestring):
+            self._segment_parent = segment_list[segment_parent]
+        else:
+            self._segment_parent = segment_parent
+        
+        # find id of main axe for all segments
+        segment_axe  = _np.zeros(segment_list.size+1, dtype=int)
+        #for aid,slist in enumerate(self.segment[::-1]):
+        #    segment_axe[slist] = len(self.segment)-aid-1
+        axe_priority = _np.argsort(order[1:])+1
+        for o in axe_priority[::-1]:
+            slist = self.segment[o]
+            segment_axe[slist] = o
+        self.segment_axe = segment_axe
+        
+   
+    def set_segment_list(self,segment_list):
+        self._segment_list = segment_list
+        
+    @_property
+    def size(self):
+        return len(self.segment)-1 ## size-1...
+        
+    @_property
+    def segment_number(self):
+        if not hasattr(self,'_segment_number'):
+            sNum = _np.vectorize(len)(self.segment)
+            self._segment_number = sNum
+            self.temporary_attribute.add('_segment_number')
+        return self._segment_number
+        
+    @_property
+    def length(self):
+        if not hasattr(self,'_length'):
+            length = _np.vectorize(lambda slist: self._segment_list.length[slist].sum())(self.segment)
+            self._length = length
+            self.temporary_attribute.add('_length')
+        return self._length
+    @length.setter
+    def length(self, value):
+        self._length = value
+        self.clear_temporary_attribute('_length')
+        
+    @_property
+    def segment1(self):
+        """ first segment of axe """
+        if not hasattr(self,'_AxeList__segment1'):
+            segment1 = _np.array([sl[0] if len(sl) else 0 for sl in self.segment])
+            self.__segment1 = segment1
+            self.temporary_attribute.add('_AxeList__segment1')
+        return self.__segment1
+    @_property
+    def sparent(self):                    ## change this attrib name?
+        """ parent segment of axe """
+        if not hasattr(self,'_AxeList__sparent'):
+            sparent = self._segment_parent[self.segment1]
+            self.__sparent = sparent
+            self.temporary_attribute.add('_AxeList__sparent')
+        return self.__sparent
+    @_property
+    def insertion_angle(self):
+        """ insertion angle axe """
+        if not hasattr(self,'_AxeList__insertion_angle'):
+            insertion_angle = self._segment_list.direction_difference[self.segment1,self.sparent]
+            self.__insertion_angle = insertion_angle
+            self.temporary_attribute.add('_AxeList__insertion_angle')
+        return self.__insertion_angle
+    
+    def _compute_length_properties(self):
+        # compute the axe length and arc length of segment w.r.t their axe
+        arc_length = _np.array([[] for i in xrange(len(self.segment))])
+        axe_length = _np.zeros(len(self.segment))
+        segment_number = _np.zeros(len(self.segment),dtype=int)
+        for i,slist in enumerate(self.segment):
+            if len(slist)==0: continue
+            slist = _np.asarray(slist)
+            arcL  = _np.cumsum(self._segment_list.length[slist])
+            arc_length[i] = arcL
+            main_axe = self._segment_list.axe[slist]==i         # if axis are overloaping, update
+            arc_length[slist[main_axe]] = arcL[main_axe]        # arc length if axe i is the segment "main" axe 
+            axe_length[i] = arcL[-1]
+            segment_number[i] = len(arcL)
+        self.segment.add_property('axelength',arc_length)
 
 def neighbor_array(node_segment, segment_node, seed):
     """

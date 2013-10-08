@@ -97,8 +97,8 @@ class TreeCompare(_Mapping):
             
     def __store__(self):
         s = self.__copy__()
-        s.auto = [a.__store__() for a in s.auto]
-        s.ref  = [r.__store__() for r in s.ref]
+        s.auto = [a.__parent_store__() for a in s.auto]
+        s.ref  = [r.__parent_store__() for r in s.ref]
         
         return _Mapping.__store__(s)
                 

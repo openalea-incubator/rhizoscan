@@ -115,7 +115,7 @@ class TreeCompareSequence(_Mapping):
             
     def __store__(self):
         s = self.__copy__()
-        s.tc_list = [tc.__store__() for tc in s.tc_list]
+        s.tc_list = [tc.__parent_store__() for tc in s.tc_list]
         return _Mapping.__store__(s)
 
 def plot(self, stat='axe1_length', title=None, prefilter=None, split=None, legend=True, merge_unique=False, scale=1, cla=True):

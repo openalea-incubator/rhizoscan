@@ -19,7 +19,7 @@ TODO:
     - look into the __del__ deconstructor and the ability to automate saving
         * call to del is not garantied by carbage collector
 """
-__icon__    = 'datastructure.png'   # icon of openalea package
+__icon__    = 'datastructure.png'   # icon of openalea package    
                                              
 #from openalea import * ## should be optional
 from pprint import pprint
@@ -27,8 +27,8 @@ from copy   import copy as _copy
 
 from .tool     import static_or_instance_method, _property 
 from .workflow import node as _node # to declare workflow nodes
-from .storage  import StorageEntry as _StorageEntry
-from .storage  import FileStorage  as _FileStorage
+from .storage  import create_entry as _create_entry
+from .storage  import MapStorage  as _MapStorage
 
 class Data(object):
     """ 
@@ -119,7 +119,7 @@ class Data(object):
         """
         ## check if entry already set or taken: what to do?  
         if storage_entry is not None:
-            storage_entry = _StorageEntry.create_entry(storage_entry) 
+            storage_entry = _create_entry(storage_entry) 
         self.__entry = storage_entry
     def get_storage_entry(self):
         """
@@ -142,15 +142,30 @@ class Data(object):
         if it has the attributes `__store__` and `__restore__`
         """
         return all(map(hasattr,[obj]*2, ['__store__','__restore__']))
-    @staticmethod
-    def has_serializer_API(obj):
-        """
-        Test if given `obj` has a "serializer" API, i.e. if it has either:
         
-         - a '__serializer__' attribute (which should implement `dump` and `load`)
-         - or both `__serialize__` and `__deserialize__` attributes 
+    @static_or_instance_method                           
+    def set_serializer(obj_or_self, serializer):
         """
-        return hasattr(obj, '__serializer__') or all(map(hasattr,[obj]*2, ['__serialize__','__deserialize__']))
+        Set the `obj_or_self` serializer
+        
+        `serializer` should implement `dump` and `load` functions
+        
+        This method can be called either
+          - statically:     Data.set_serializer(obj, serializer)
+          - or on instance: data_obj.set_serializer(serializer)
+        """
+        return setattr(obj_or_self,'__serializer__',None)
+        
+    @static_or_instance_method                           
+    def get_serializer(obj_or_self):
+        """
+        return the `obj_or_self` serializer if it has it, or None otherwise
+        
+        This method can be called either
+          - statically:     Data.get_serializer(obj)
+          - or on instance: data_obj.get_serializer()
+        """
+        return getattr(obj_or_self,'__serializer__',None)
         
     @static_or_instance_method                           
     def dump(data, entry=None):
@@ -169,7 +184,7 @@ class Data(object):
           - `entry`
             Can be either a `StorageEntry` object, a `url` or a path to a file.
             If it is not a StorageEntry, the value of `entry` is passed to 
-            `storage.StorageEntry.create_entry()` (see create_entry doc)
+            `storage.create_entry()` (see create_entry doc)
             
             In the case (1), `entry` argument is mandatory. 
             In the case (2) and (3),  if `entry` is not given (None) the 
@@ -191,13 +206,16 @@ class Data(object):
 
         if io_api:
             data.set_storage_entry(entry)
+            entry = data.get_storage_entry()
         else:
-            entry = _StorageEntry.create_entry(entry)
+            entry = _create_entry(entry)
             
+        serializer = Data.get_serializer(data)
+        
         if Data.has_store_API(data):
             data = data.__store__()
             
-        entry.save(data)
+        entry.save(data, serializer=serializer)
         
         return Data(entry)  ## if lookup in 'Data'base => equiv to return self
         
@@ -238,14 +256,16 @@ class Data(object):
         if Data.has_IO_API(data):
             entry = data.get_storage_entry()
         else:
-            entry = _StorageEntry.create_entry(entry)
+            entry = _create_entry(data)
+            
+        serializer = Data.get_serializer(data)
         
-        d = entry.load() # use open(..., 'rb')
+        d = entry.load(serializer=serializer)
         
         if Data.has_store_API(d):
             d = d.__restore__()
             
-        if merge is not False and hasattr(data,'__dict__'):
+        if merge is not False and isinstance(data,Data):##'__dict__'):
             data.__dict__.update(d.__dict__)
             if merge==True and isinstance(d,Data) and isinstance(data,Data): 
                 data.__class__ = d.__class__
@@ -290,6 +310,16 @@ class Data(object):
         """
         return self
         
+    def __parent_store__(self):
+        """
+        Return what should be stored by (parent) container:
+          - self.__restore__ if it has no storage entry set
+          - it's loader if it does
+        """
+        if self.get_storage_entry() is None:
+            return self.__store__()
+        else:
+            return self.loader()
         
     def loader(self, attribute=None):
         """
@@ -353,9 +383,9 @@ class Mapping(Data):
         print repr(m1)            # q1:6  q2:9  ans:54
         
         m2 = Mapping(the_question='6x9', ans=42)
-        m1.merge(m2,False)
+        m1.update(m2,False)
         print m1.ans              # 54
-        m1.merge(m2)
+        m1.update(m2)
         print m1.ans              # 42
 
     Mapping object can be treated as dictionaries:
@@ -402,24 +432,29 @@ class Mapping(Data):
         """
         Attach a storage for automatized I/O of contained attributs objects.
         
-        `storage` can be either a FileStorage object of a format-type string
-        which is used to create one.
+        :Inputs:
+          - `storage`: 
+                Either a MapStorage object, a valid input of its constructor
+                (e.g. format-type string), or `None` to not use a storage
         
-        :See also: FileStorage
+        :See also: storage.MapStorage
         """
-        if isinstance(storage, basestring):
-            storage = _FileStorage(storage)
+        if not isinstance(storage, _MapStorage) and storage is not None:
+            storage = _MapStorage(storage)
         self.__storage__ = storage
-
-    def set(self,key, value=None):
+        
+    def set(self,key, value=None, store=False):
         """ 
         Set the `key`,`value` pairs (use `value=None` if not provided)
-        Call the method __setitem__
+        If this object has a `storage` set and store is True: store value to it 
+        
+        Note: this method simply calls `__setitem__`
         """
-        return self.__setitem__(key,value)
+        return self.__setitem__(key,value,store=store)
     def get(self,key,default=None):
         """ return the value related to `key`, or `default` if `key` doesn't exist
-        Call the method __getitem__
+        
+        Note: this method simply calls `__getitem__`
         """
         return self.__getitem__(key,default)
     def pop(self,key,default=None):
@@ -442,8 +477,13 @@ class Mapping(Data):
         return self.__dict__.has_key(key)
 
 
-    def merge(self, other, overwrite=True):
-        """ ## todo: doc """
+    def update(self, other, overwrite=True):
+        """ add `other` content into this Mapping object
+        ## todo:
+            - other a dict-like object (use update(**other) ?)
+            - add **kargs arguments
+            - remove the overwrite argument, and add a setdefault/union method
+        """
         if isinstance(other,Mapping):   ## if other hasattr '__dict__' ??
             other = other.__dict__
         if overwrite:
@@ -489,11 +529,8 @@ class Mapping(Data):
         
         d = s.__dict__
         for key,value in d.iteritems():
-            if hasattr(value,'__store__') and hasattr(value.__store__,'__call__'):
-                #print key,   
-                #try: print value.get_storage_entry()  ## debug
-                #except: print 'no data file'  
-                d[key] = value.__store__()
+            if hasattr(value,'__parent_store__'):
+                d[key] = value.__parent_store__()
             
         return s
 
@@ -519,17 +556,17 @@ class Mapping(Data):
               If None, load file given by this object Data file attribute.
               The loaded file should be a Mapping object saved using the save 
               method, or anything that can be loaded by the Data save method 
-              (i.e. pickle files) and can be passed as input of the merge method
+              (i.e. pickle files) and can be used as the `update` method input
               
           - overwrite: 
               If True, loaded item overwrite existing one with same key. 
-              Otherwise, it don't. (same as for the merge method)
+              Otherwise, it don't. (same as for the `update` method)
                       
         :Output:
             return it-self
         """
         loaded = Data.load(self if filename is None else filename)
-        self.merge(loaded, overwrite=overwrite)
+        self.update(loaded, overwrite=overwrite)
             
         return self
             
@@ -540,16 +577,19 @@ class Mapping(Data):
         """ allow access using [] as for python dictionaries """
         if len(args): return self.__dict__.get(item,*args)
         else:         return self.__dict__[item]
-    def __setitem__(self,item,value):
+    def __setitem__(self,item,value, store=False):
         """ allow setting item using [] as for python dictionaries """
-        return self.__dict__.setdefault(item,value)
+        self.__dict__[item] = value
+        if store:
+            self.__storage__.set_data(item, value)
+        return self
     def __len__(self):
         return self.__dict__.__len__()
         
     # gives string representation of structure content (used by the print function)
     # ------------------------------------------------
     def __repr__(self):
-        return self.multilines_str()##self.__dict__.__repr__()
+        return self.multilines_str()[:-1]##self.__dict__.__repr__()
     # nice printing
     def __str__(self):
         #from pprint import pformat
@@ -582,7 +622,10 @@ class Mapping(Data):
         string = ''
         keys = sorted([f for f in self.keys() if not f.startswith('_')])
         for key,value in self.iteritems():
-            name  = '    '*tab + str(key) + ': '
+            key = str(key)
+            if key.startswith('_'): continue
+            
+            name  = '    '*tab + key + ': '
             shift = ' '*len(name)
             
             if id(value) in avoid_obj_id:

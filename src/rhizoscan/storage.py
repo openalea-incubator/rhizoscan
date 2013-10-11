@@ -14,9 +14,10 @@ map-storage:
               
 """
 
-import cPickle as cPickle
+import cPickle as _cPickle
 import os as _os
 import urlparse as _urlparse
+from tempfile import SpooledTemporaryFile as _TempFile
 
 from rhizoscan.tool import _property
 from rhizoscan.tool.path import assert_directory as _assert_directory
@@ -36,22 +37,29 @@ class PickleSerializer(object):
     
     @staticmethod
     def dump(obj,stream):
-        return cPickle.dump(obj, stream, protocol=_PICKLE_PROTOCOL_)
+        return _cPickle.dump(obj, stream, protocol=_PICKLE_PROTOCOL_)
     @staticmethod
     def load(stream):
-        return cPickle.load(stream)
+        return _cPickle.load(stream)
         
 
 class _txt_stream(object):
     """ virtual writable text stream """
     def __init__(self):              
         self.txt = ''
+        self.pos = 0
     def write(self, txt):
+        print type(txt), '|' + txt + '|'
         self.txt += txt
     def get_text(self):
         return self.txt
     def close(self):
         self.txt = ''
+    def tell(self):
+        print 'tell:', len(self.txt)
+        return len(self.txt)
+    def seek(self, pos, whence=0):
+        print 'seek', pos, whence, len(self.txt)
 
 class RegisteredEntry(type):
     """
@@ -159,7 +167,8 @@ class FileEntry(StorageEntry):
         
         See also: `PickleSerializer`, `StorageEntry`
     """
-    __scheme__ = ('file', '')
+    __scheme__ = ('file', '')  # url scheme managed by the FileEntry class
+    __meta_file__ = '__storage__.meta'  # name of file storing metadata 
     
     def __init__(self, filename):
         """
@@ -167,48 +176,16 @@ class FileEntry(StorageEntry):
         """
         ## `read`, `write`, `save` and `load` to have serializer arg?
         
-        if len(filename):
-            self.url = _os.path.abspath(_urlparse.urlsplit(filename).path)
-        else:
-            self.url = filename
+        if len(filename): self.url = _os.path.abspath(_urlparse.urlsplit(filename).path)
+        else:             self.url = filename
         self._stream = None
         
-    def open(self,mode='r'):
-        """
-        mode='w' means write operation is done in a buffered, then saving is 
-        done by the `close` method.
-        """
-        if self._stream is not None:
-            raise IOError('File stream already open')
-        if mode=='w':
-            self._stream = _txt_stream()
-        else:
-            if 'a' in mode or 'w' in mode: _assert_directory(self.url)
-            self._stream = open(self.url, mode=mode)
-        return self
-    def read(self, serializer=None):
-        if serializer is None: serializer = PickleSerializer
-        return serializer.load(self._stream)
-    def write(self, data, serializer=None):
-        if serializer is None: serializer = PickleSerializer
-        serializer.dump(data, self._stream)
-    def close(self):
-        if isinstance(self._stream, _txt_stream):
-            _assert_directory(self.url)
-            with open(self.url, mode='w') as f:
-                f.write(self._stream.get_text())
-        if self._stream is not None:
-            self._stream.close()
-            self._stream = None
-            
+    # StorageEntry API
+    # ----------------
     def exist(self):
         return _os.path.exists(self.url)
         
-    # to allow use of "with"
-    def __enter__(self): return self
-    def __exit__(self, *args): self.close()
-        
-    def load(self, submode='b', serializer=None):
+    def _load(self, submode='b', serializer=None):
         """
         open, read and return the object entry
         
@@ -218,16 +195,157 @@ class FileEntry(StorageEntry):
          """
         with self.open(mode='r'+submode):
             return self.read(serializer=serializer)
-            
-    def save(self,data, serializer=None):
+    def _save(self,data, serializer=None):
         with self.open(mode='w'):
             return self.write(data, serializer=serializer)
             
+    def load(self):
+        """
+        open, read and return the object entry
+         """
+        stream = open(self.url, mode='r')
+        serializer = self.get_metadata().get('serializer',PickleSerializer)
+        data = serializer.load(stream)
+        stream.close()
+        
+        #if self.get_metadata().get('serializer', None) is not None:
+        #    print serializer.img_scale, serializer.ser_scale
+        #    data.__serializer__ = serializer
+            
+        return data
+            
+    def save(self,data, serializer=None):
+        stream = _TempFile()
+        save_meta = True
+        if serializer is None:
+            serializer = PickleSerializer
+            save_meta = False
+        serializer.dump(data, stream)
+        _assert_directory(self.url)
+        with open(self.url, mode='w') as f:
+            stream.seek(0)
+            f.write(stream.read())
+        
+        if save_meta:
+            self.set_metadata(dict(serializer=serializer)) ## what if write fails?
+            
+    def remove(self):
+        """
+        Remove the entry file (and metadata) from the file system
+        """
+        if _os.path.exists(self.url):
+            _os.remove(self.url)
+        self.rem_metadata()
 
-def _get_extension(obj):
-    return reduce(getattr,['__serializer__','extension'],obj)
-    
-    
+    # private IO methods on file
+    # --------------------------
+    def open(self,mode):
+        """
+        mode='w' means write operation is done in a buffered, then saving is 
+        done by the `close` method.
+        """
+        if self._stream is not None:
+            raise IOError('File stream already open')
+        if mode=='w':
+            self._stream = _TempFile()
+        else:
+            _assert_directory(self.url)
+            self._stream = open(self.url, mode=mode)
+            
+        return self
+    def read(self):
+        serializer = self.get_metadata().get('serializer',PickleSerializer)
+        return serializer.load(self._stream)
+    def write(self, data, serializer=None):
+        if serializer is None:
+            serializer = PickleSerializer
+        else:
+            self.set_metadata(dict(serializer=serializer))
+        serializer.dump(data, self._stream)
+    def close(self):
+        if isinstance(self._stream, _TempFile):
+            _assert_directory(self.url)
+            with open(self.url, mode='w') as f:
+                self._stream.seek(0)
+                f.write(self._stream.read())
+        if self._stream is not None:
+            self._stream.close()
+            self._stream = None
+            
+    # allow use of "with"
+    def __enter__(self): return self
+    def __exit__(self, *args): self.close()
+
+    # manage file entry IO on metadata file
+    def _metadata(self):
+        """ return metadata file and the key for this entry """
+        dirname, filename = _os.path.split(self.url)
+        meta_file = _os.path.join(dirname,FileEntry.__meta_file__)
+        return meta_file, filename
+    @staticmethod
+    def _read_metadata_file(meta_file):
+        if _os.path.exists(meta_file):
+            try:
+                f = open(meta_file, 'r')
+                meta_head = _cPickle.load(f)
+                f.close()
+            except EOFError:
+                print '\033]31mFileEntry: invalid content in metadata file ' + meta_file + '\033]30m'
+                meta_head = dict()
+        else:
+            meta_head = dict()
+        return meta_head
+    @staticmethod
+    def _write_metadata_file(meta_file, meta_data):
+        f = open(meta_file, 'w')
+        _cPickle.dump(meta_data, f)
+        f.close()
+        
+    def set_metadata(self, metadata, update=True):
+        """
+        Save the all (key,value) of `content` in this entry metadata
+        
+        If update, update metadata with `content`.
+        otherwise, replace the whole metadata set.
+        
+        FileEntry metadata are stored in a unique file in the same directory
+        with name given in `FileEntry.__meta_file__`
+        """
+        meta_file, entry_key = self._metadata()
+        meta_head = self._read_metadata_file(meta_file)
+        
+        if update:
+            update = metadata
+            metadata = meta_head.get(entry_key,dict())
+            metadata.update(update)
+        meta_head[entry_key] = metadata
+        
+        self._write_metadata_file(meta_file, meta_head)
+            
+    def get_metadata(self):
+        """
+        return this entry metadata (as a dict)
+        """
+        meta_file, entry_key = self._metadata()
+        meta_head = self._read_metadata_file(meta_file)
+        return meta_head.get(entry_key, dict())
+        
+            
+    def rem_metadata(self):
+        meta_file, entry_key = self._metadata()
+        if _os.path.exists(meta_file):
+            f = open(meta_file, 'r')
+            meta_head = _cPickle.load(f)
+            meta_head.pop(entry_key)
+            f.close()
+            if len(meta_head)==0:
+                _os.remove(meta_file)
+            else:
+                f = open(meta_file, 'w')
+                meta_head = _cPickle.load(f)
+                f.close()
+        
+
 class MapStorage(object):
     """
     A MapStorage allows automated IO to storage entries related to a unique id
@@ -256,8 +374,10 @@ class MapStorage(object):
         
     def set_data(self, name, data):
         """ stores `data` to the storage entry related to key = `name` """
-        entry = self.get_entry(name, extension=_get_extension(data))
-        entry.write(data)
+        serializer = getattr(data,'__serializer__', None)
+        extension  = getattr(serializer,'extension', '')
+        entry = self.make_entry(name, extension=extension)
+        entry.save(data, serializer=serializer)
         
     def get_data(self,name):
         """ retrieve data from the MapStorage object (i.e. load it) """
@@ -268,17 +388,26 @@ class MapStorage(object):
     def has_entry(self, key):
         return self.__dict__.has_key(key)
         
-    def get_entry(self, key, extension=''):
+    def make_entry(self, key, extension=''):
         """
-        Return the entry related to `key`
+        Create the storage entry related to `key`
         
-        If it does not exist, its entry is automatically generated by this
-        MapStorage url_generator, to which `extension` is appended.
+        The returned entry is generated with this MapStorage `url_generator`, 
+        to which `extension` is appended.
         """
-        if not self.has_entry(key):
-            url = url_generator(key)+extension
-            entry = create_entry(url)
-            self.__dict__[key] = entry
+        url = self.url_generator(key)+extension
+        entry = create_entry(url)
+        self.__dict__[key] = entry
+        return entry
+        
+    def get_entry(self, key):
+        """
+        Return the entry related to `key` if it exist
+        """
         return self.__dict__[key]
         
+    def __str__(self):
+        return 'MapStorage(' + self.url_generator('{}') + ')'
+    def __repr__(self):
+        return self.__str__()
 

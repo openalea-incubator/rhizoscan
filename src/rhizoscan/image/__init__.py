@@ -24,7 +24,7 @@ from rhizoscan.tool   import static_or_instance_method as _static_or_instance
 from rhizoscan.tool   import _property
 from rhizoscan.tool.path import assert_directory as _assert_directory
 
-class Image(_Data, _np.ndarray):
+class Image(_np.ndarray, _Data):
     """
     ndarray subclass designed to represent images
     
@@ -274,32 +274,14 @@ class Image(_Data, _np.ndarray):
         
         return loader
         
-    @_static_or_instance
-    def load(self):
-        """
-        Method to load image using the empty image returned by Image.loader()
-        
-        - Use Image constructor to load an image file -
-        
-        The loaded  image  is *returned*
-        the calling object is *unchanged*
-        
-        :Note:
-            This method load the image from file given by the loader Data file 
-            attribute and apply conversion to the same color and dtype.
-        """
-        return Image(self.get_storage_entry(),color=self.color, dtype=self.dtype, scale=self.scale)
-        
     def loader(self):
         """
         Return an empty Image which allow to load the image using load()
         
         *** if this Image has no associated file, it won't be able to load ***
         """
-        loader = Image([])
-        loader.dtype  = self.dtype
+        loader = _np.array([],dtype=self.dtype).view(Image)
         loader.color  = self.color
-        loader.from_color = self.from_color
         loader.set_storage_entry(self.get_storage_entry())
         return loader
         
@@ -319,16 +301,18 @@ class Image(_Data, _np.ndarray):
     
     # for printing
     def __repr__(self):
-        arr_txt = str(self)
-        desc = 'Image(' + arr_txt.replace('\n', '\n' + ' '*6)
+        desc = _np.ndarray.__repr__(self).replace('\n', '\n' + ' '*6)
         for k,v in self.__dict__.iteritems():
             if k[0]<>'_':
-                v = str(v)
+                v = repr(v)
                 if k=='info' and len(v)>10: v = v[:6] + '...' 
                 desc += ', ' + k + '=' + v
         desc += ')'
         return desc
-        
+
+# Image first parent is numpy.ndarray, but dump (&load) should be taken from Data
+Image.dump = _Data.dump
+Image.load = _Data.load
 
 class PILSerializer(object):
     """
@@ -498,8 +482,10 @@ class PILSerializer(object):
     def load(self,stream):
         from PIL import Image
         img = _np.array(Image.open(stream))
-        return imconvert(img, color=self.img_color,      dtype=self.img_dtype,
+        img = imconvert(img, color=self.img_color,      dtype=self.img_dtype,
                               from_color=self.ser_color, scale=self.img_scale)
+        _Data.set_serializer(img,self)
+        return img
         
     @staticmethod
     def load_image(url, color=None, dtype=None, scale='dtype', from_color=None):
@@ -871,8 +857,8 @@ def imconvert(image, color=None, dtype=None, scale='dtype', from_color=None):
     # ---------------------
     image  = image.view(type=Image)
     image.color = color if color is not None else from_color
-    image.scale = scale
-    image.from_color = from_color
+    ##image.scale = scale
+    ##image.from_color = from_color
     
     return image
 

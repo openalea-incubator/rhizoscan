@@ -101,9 +101,9 @@ class Data(object):
     ## - make a static method / function isValidData(...) that check if the 
     ##   right attribute exist 
     
-    def __init__(self, storage_entry=None):
+    def __init__(self, storage_entry=None, serializer=None):
         """                      
-        Create an empty Data object that can be realted to `storage_entry`
+        Create an empty Data object that can be related to `storage_entry`
         
         `storage_entry` can be a filename, a valid url string or a 
         `datastructure.StorageEntry` object.
@@ -111,21 +111,39 @@ class Data(object):
         See `datastructure.storage` documentation. 
         """
         self.set_storage_entry(storage_entry)
+        self.set_serializer(serializer)
         
+    @static_or_instance_method
     def set_storage_entry(self, storage_entry):
         """
-        set the storage entry can be a filename or url string or a StorageEntry.
+        set the storage entry of thei object
+        
+        `storage_entry` can be either:
+          - a filename, url string or a StorageEntry
+          - None, to remove storage link
+          - -1 for (attempted) removale of the storage entry (i.e file)
+          
         See `datastructure.storage` documentation. 
         """
         ## check if entry already set or taken: what to do?  
+        if storage_entry is None:
+            pass
+        elif storage_entry==-1:
+            old_entry = self.get_storage_entry()
+            if old_entry:
+                old_entry.remove()
+            storage_entry = None
         if storage_entry is not None:
             storage_entry = _create_entry(storage_entry) 
-        self.__entry = storage_entry
+            
+        self.__storage_entry__ = storage_entry
+        
+    @static_or_instance_method
     def get_storage_entry(self):
         """
         return the file of this data for saving and loading
         """
-        return getattr(self,'_Data__entry',None)
+        return getattr(self,'__storage_entry__',None)
     
     @staticmethod
     def has_IO_API(obj):
@@ -143,7 +161,7 @@ class Data(object):
         """
         return all(map(hasattr,[obj]*2, ['__store__','__restore__']))
         
-    @static_or_instance_method                           
+    @static_or_instance_method
     def set_serializer(obj_or_self, serializer):
         """
         Set the `obj_or_self` serializer
@@ -154,7 +172,7 @@ class Data(object):
           - statically:     Data.set_serializer(obj, serializer)
           - or on instance: data_obj.set_serializer(serializer)
         """
-        return setattr(obj_or_self,'__serializer__',None)
+        return setattr(obj_or_self,'__serializer__',serializer)
         
     @static_or_instance_method                           
     def get_serializer(obj_or_self):
@@ -194,8 +212,8 @@ class Data(object):
         :Outputs:
             Return an empty Data object that can be use to load the stored data
         """
-        if getattr(data,'_mode','w')=='r':
-            raise IOError("This Data object is read only")
+        if 'w' not in getattr(data,'_mode','w'):
+            raise IOError("This Data object is not writable")
         
         io_api = Data.has_IO_API(data)
         if entry is None:
@@ -210,17 +228,19 @@ class Data(object):
         else:
             entry = _create_entry(entry)
             
+        if Data.has_store_API(data): to_store = data.__store__()
+        else:                        to_store = data
+        
         serializer = Data.get_serializer(data)
+        entry.save(to_store, serializer=serializer)
         
-        if Data.has_store_API(data):
-            data = data.__store__()
-            
-        entry.save(data, serializer=serializer)
-        
-        return Data(entry)  ## if lookup in 'Data'base => equiv to return self
+        if io_api and hasattr(data,'loader'): 
+            return data.loader()
+        else:
+            return Data(entry).loader()  ## if lookup in 'Data'base => equiv to return self
         
     @static_or_instance_method
-    def load(url_or_data, merge=True):
+    def load(url_or_data, merge=False):
         """ 
         Load the data serialized at `url_or_data` 
 
@@ -258,21 +278,21 @@ class Data(object):
         else:
             entry = _create_entry(data)
             
-        serializer = Data.get_serializer(data)
+        ##serializer = Data.get_serializer(data)
         
-        d = entry.load(serializer=serializer)
+        d = entry.load()##serializer=serializer)
         
         if Data.has_store_API(d):
             d = d.__restore__()
             
-        if merge is not False and isinstance(data,Data):##'__dict__'):
+        if merge is not False and hasattr(data,'__dict__'):
             data.__dict__.update(d.__dict__)
             if merge==True and isinstance(d,Data) and isinstance(data,Data): 
                 data.__class__ = d.__class__
         else:
             data = d
             
-        if Data.has_IO_API(data):
+        if Data.has_IO_API(data):  ## if hasattr(data,'__dict__'): ??
             data.set_storage_entry(entry)
         
         return data
@@ -323,15 +343,16 @@ class Data(object):
         
     def loader(self, attribute=None):
         """
-        Return an empty Data object which can be used to load the stored object
+        Return an empty object which can be used to load the stored object
         
         `attribute` can be a name (string) or a list of names of attributs that
         the loader will keep.
         
         *** if the object has no associated entry, it won't be able to load ***
         """
-        loader = Data(storage_entry=self.get_storage_entry())
-        loader._mode = 'r'
+        loader = Data(storage_entry=self.get_storage_entry(),serializer=self.get_serializer())
+        loader._mode = 'r:loader'
+        loader.__class__ = self.__class__
         if attribute:
             if isinstance(attribute,basestring):
                 attribute = [attribute]
@@ -451,6 +472,12 @@ class Mapping(Data):
         Note: this method simply calls `__setitem__`
         """
         return self.__setitem__(key,value,store=store)
+    def setdefault(self,key, value=None):
+        """ 
+        M.setdefault(key,value) = M.get(key,value), with M[key]=value if key not in M
+        """
+        return self.__dict__.setdefault(key,value)
+        
     def get(self,key,default=None):
         """ return the value related to `key`, or `default` if `key` doesn't exist
         
@@ -685,7 +712,7 @@ def get_key(data={}, key='metadata', default=None):
 # Data that manages sequence
 class Sequence(Data):
     """
-    Simple read-write interface for sequence of data
+    Simple read-write interface for a sequence of Data objects
     
     :TODO: 
       - make it a Data Container

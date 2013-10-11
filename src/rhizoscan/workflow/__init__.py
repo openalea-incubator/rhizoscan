@@ -129,24 +129,27 @@ class node(object):
                 if isinstance(v,basestring): args[i] = {'name':v}
             kwargs['outputs'] = args
         
-        # for output storage functionality
-        if kwargs.has_key('dump') and kwargs.has_key('load'):
-            kwargs['serializer'] = (kwargs['dump'],kwargs['load'])
-        else:
-            kwargs['serializer'] = None
+        ### for output storage functionality
+        ##if kwargs.has_key('dump') and kwargs.has_key('load'):
+        ##    kwargs['serializer'] = (kwargs['dump'],kwargs['load'])
+        ##else:
+        ##    kwargs['serializer'] = None
         
         self.kwargs = kwargs
         
     # call creates a pointer to the functions and attached (key)arguments to it
     def __call__(self,f):
         # attache alea parameter to decorated function
-        setattr(f,'__node__', self.kwargs)
+        setattr(f,'__node__', dict())   
         f.run                = _MethodType(self.run,  f)
         f.copy               = _MethodType(self.copy, f)
-        f.node_attributes    = _MethodType(self.node_attributes, f)
+        ##f.node_attributes    = _MethodType(self.node_attributes, f)
         f.set_node_attribute = _MethodType(self.set_node_attribute, f)
         f.get_node_attribute = _MethodType(self.get_node_attribute, f)
         
+        for key,value in self.kwargs.iteritems():
+            f.set_node_attribute(key,value)
+            
         for declare_node in _workflows:
             declare_node(f)
             
@@ -234,41 +237,110 @@ class node(object):
         """
         _print_state(verbose, 'running '+ function.get_node_attribute('name', '"unnamed function"'))
         param = function.get_node_attribute('inputs', [])
-        param = dict([(p['name'],p['value']) for p in param])
         kargs_key = kargs.keys()
+        
+        required = [p['name'] for p in param if p.get('required',False)]
+        missing = [req_input for req_input in required if req_input not in kargs_key]
+        if len(missing):
+            raise TypeError("Required argmument '" + "','".join(missing) + "' not found")
+        
+        param = dict([(p['name'],p['value']) for p in param])
         param.update((name,kargs[name]) for name in param.keys() if name in kargs_key)
         
         return node.format_outputs(function,function(**param))
         
     @staticmethod
-    def format_outputs(function, outputs):
+    def format_outputs(node, outputs):
         """
-        Make a dictionary from `outputs` and the function's node outputs name
+        Make a dictionary from `outputs` and the name of the node outputs
         
         if outputs is a dictionary-like object, return it
         """
-        if hasattr(outputs, '__getitem__'):
-            return outputs
+        ##if all(map(hasattr,[outputs]*4, ['keys','values','update','__getitem__'])):
+        ##    return outputs
             
         ##todo: raise error if outputs length != node outputs length ?
-        out_name = [o['name'] for o in function.get_node_attribute('outputs')]
+        out_name = [o['name'] for o in node.get_node_attribute('outputs')]
         if len(out_name)==1 or not hasattr(outputs,'__iter__'):
             return {out_name[0]:outputs}
         else:
             return dict(zip(out_name, outputs))
     
     @staticmethod
-    def set_node_attribute(function, name, value):
-        function.__node__[name] = value
+    def set_node_attribute(node, attribute, value):
+        if attribute=='inputs':
+            # assert inputs value format:
+            #  - should contains 'name', 'value'
+            #  - if no values is given, a 'required' flag is set
+            val = value
+            value = []
+            for i,d in enumerate(val):
+                if isinstance(d,basestring):
+                    d = dict(name=d, value=None, required=True)
+                else:
+                    d.setdefault('name', 'in'+str(i+1)) # just in case...
+                    if not d.has_key('value'):
+                        d['value']    = True
+                        d['required'] = True
+                    d.setdefault('value',None)
+                value.append(d)
+        node.__node__[attribute] = value
+        
     @staticmethod
-    def get_node_attribute(function, name, default=None):
-        if not function.__node__.has_key(name):
-            node = function.node_attributes()
-        else:
-            node = function.__node__
-        return node.get(name, default)
+    def get_node_attribute(node, attribute=None, default=None):
+        """
+        Return the required `attribute` from `node`
+        Or the whole attribute dictionary of the node if `attribute` is None
+        """
+        if attribute is None:
+            node.get_node_attribute('name')
+            node.get_node_attribute('inputs')
+            node.get_node_attribute('outputs')
+            node.get_node_attribute('doc')
+            return node.__node__
+            
+        if not node.__node__.has_key(attribute):
+            if not hasattr(node,'__code__') and hasattr(node,'__call__'):
+                function = node.__call__
+            else:
+                function = node
+                
+            if attribute=='name': 
+                node.set_node_attribute(attribute,getattr(node,'__name__',default))
+            elif attribute=='inputs':
+                from inspect import getargspec, ismethod
+                argspec = getargspec(function)
+                names = argspec.args
+                value = argspec.defaults if argspec.defaults is not None else ()
+                noval = len(names)-len(value)
+                value = [None]*noval + list(value)
+                                                                  
+                if ismethod(function):
+                    names = names[1:]
+                    value = value[1:]
+                
+                value = [dict(name=n, value=v) for n,v in zip(names,value)]
+                for i in range(noval):
+                    value[i]['required'] = True
+                node.set_node_attribute('inputs',value)
+                
+            elif attribute=='outputs':
+                # if not outputs, set it to one name 'None'
+                node.set_node_attribute('outputs',dict(name='None'))
+                
+            elif attribute=='doc':
+                # if node doesn't have 'doc', take the function's doc
+                from inspect import getdoc
+                doc = getdoc(function)
+                node.set_node_attribute('doc',doc if doc else '')
+                
+        ##for parser in _node_parser:
+        ##    parser(function)
+                
+        return node.__node__.get(attribute,default)
+        
     @staticmethod
-    def node_attributes(function):
+    def OLD_node_attributes(function): ##
         """
         Update and return `function.__node__` (filling missing entries)
         
@@ -320,20 +392,35 @@ class node(object):
         return node
         
     @staticmethod
-    def copy(fct_node):
+    def copy(fct_node, **kargs):
+        """
+        Make a copy of the node `fct_node`, with optional change of node param.
+        
+        If the `fct_node` is a function, it makes a new function object (which
+        links to the same function content) that has an independant set of node
+        parameters.
+        
+        Use `**kargs` to give replacement values for the node parameters
+        """
         f = fct_node
         
-        # copy function object
-        g = _FunctionType(f.func_code, f.func_globals, name=f.func_name, argdefs=f.func_defaults, closure=f.func_closure)
-        g.__dict__.update(f.__dict__)
+        # copy function instance
+        if isinstance(fct_node,_FunctionType):
+            g = _FunctionType(f.func_code, f.func_globals, name=f.func_name, argdefs=f.func_defaults, closure=f.func_closure)
+            g.__dict__.update(f.__dict__)
+        else:
+            from copy import copy
+            g = copy(fct_node)
         
-        # copy methods
+        # copy function's methods
         from inspect import ismethod
-        for name in [name for name in g.__dict__ if ismethod(getattr(g,name))]:
+        for name in [name for name,attrib in g.__dict__.iteritems() if ismethod(attrib) and attrib.im_self is fct_node]:
             setattr(g,name, _MethodType(getattr(g,name).im_func, g))
             
-        # copy node attribute dictionary
+        # copy/replace node attribute
         g.__node__ = g.__node__.copy()
+        for key,value in kargs.iteritems():
+            g.set_node_attribute(key,value)
         
         return g
 
@@ -355,7 +442,8 @@ class Pipeline(object):
         """
         modules = [m.copy() for m in modules]
         
-        self.__name__ = name
+        pl_name = name
+        self.__name__ = pl_name
         self.modules = modules ## change to some private name or in __node__ / __pipeline__
         node_inputs = []
         #node_inputs.append(dict(name='image',interface='IStr'))
@@ -378,7 +466,8 @@ class Pipeline(object):
             
         pl_outputs = dict(name='pipeline_namespace', value=dict())
         
-        node(name=name, outputs=pl_outputs, inputs=pl_inputs)(self)
+        node(name=pl_name, outputs=pl_outputs, inputs=pl_inputs)(self)
+        del self.run #! remove node's run to have Pipeline.run again... 
     
     def __call__(self, *args, **kargs):
         """
@@ -416,7 +505,7 @@ class Pipeline(object):
           - `node`:
               - If 'all', compute all nodes and add their output to `namespace`
               - If 'missing' (default) compute the nodes for which the outputs
-                are missing in `namespace`.
+                are missing in `namespace`. -Those are always computed-
               - If a list of node name: compute those nodes.
           - `update`:
               - If False, compute only the nodes given by the `node` argument.
@@ -446,8 +535,31 @@ class Pipeline(object):
         namespace.update(kargs)
         
         for i in self.get_node_attribute('inputs'):
-            namespace.setdefault(i['name'],i['value']) 
+            if not i.get('required',False):
+                namespace.setdefault(i['name'],i['value']) 
         
+        # execute modules pipeline
+        for module in self._nodes_to_compute(node, update, namespace):
+            in_names = set(i['name'] for i in module.get_node_attribute('inputs'))
+            in_names.add('verbose')
+            outputs = module.run(**dict((name,namespace[name]) for name in in_names if name in namespace))
+            if len(stored_data)==0:
+                namespace.update(outputs)
+            else:
+                for name,value in outputs.iteritems():
+                    namespace.set(name,value,store=name in stored_data)
+                
+        return namespace
+        
+    def _nodes_to_compute(self,node, update, namespace):
+        """
+        Find the list of nodes to compute w.r.t run method arguments
+        
+        node:      same values as the run method `node` argument
+        udpate:    same values as the run method `update` argument
+        namespace: initial namespace the pipeline will run with. Same as the
+                   run method `namespace` argument to which kargs has been added
+        """
         # find modules to compute
         if node=='all':
             compute = self.modules
@@ -455,25 +567,14 @@ class Pipeline(object):
             # check missing outputs names of pipeline modules
             compute = []
             names  = set(namespace.keys())
-            missing = node=='missing'
+            if node=='missing': node = []
             for mod in self.modules:
                 mod_output = [o['name'] for o in mod.get_node_attribute('outputs')]
                 
-                if (missing and not all([output in names for output in mod_output])) \
-                or (not missing and mod.get_node_attribute('name') in node):
+                if not all([output in names for output in mod_output]) \
+                or mod.get_node_attribute('name') in node:
                     compute.append(mod)
                     if update:
                         names.difference_update(mod_output)
-                
-        # execute modules pipeline
-        for module in compute:
-            in_names = [i['name'] for i in module.get_node_attribute('inputs')]
-            outputs = module.run(**dict((name,namespace[name]) for name in in_names))
-            if len(stored_data)==0:
-                namespace.update(outputs)
-            else:
-                for name,value in outputs:
-                    namespace.set(name,value,store=name in stored_data)
-                
-        return namespace
-
+        
+        return compute

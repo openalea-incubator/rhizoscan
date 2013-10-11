@@ -13,23 +13,52 @@ from . import _print_state, _print_error, _param_eval
 
 #@_node('image_list', 'invalid_file', 'output_directory')
 @_node('image_list', 'invalid_file', 'output_directory', hidden=['verbose'])
-def make_dataset(ini_file, output='output', verbose=False):
+def make_dataset(ini_file, output='output', out_suffix='_', verbose=False):
     """
-    Return an iterator over all images following parsing format
+    Return a list of dataset entry following parsing rules found in `ini_file`
+    
+    :Inputs:
+      - `ini_file`: 
+          file with ini-formated content indicating the dataset to be loaded ##some doc?
+      - `output`:
+          String used to define the storage associated to each loaded entry.
+          If None, does not set storage for dataset entry
+      - `out_suffix':
+          String to append to the storage string associated to loaded entry
+      - `verbose`:
+          If >0, print some message on loaded dataset
     
     :Outputs:
-        a list of objects containing the following attributes:
-            - filename: the file name of input image
-            - output:   base name for output related to this image
-            - metadata: metadata related to this image
-                
-        the list of **invalid files**: file found but could not be parsed
+      - a list of Mapping containing the following attributes:
+          - `filename`: the file name of input image
+          - `metadata`: metadata related to this image
+          - if `output` is given, each has a storage configured (details below)
+            
+      - the list of **invalid files**: files found but that could not be parsed
         
-        the global **output directory**: ini_file dir/output
+      - The base directory to all entry storage. If `storage` is an absolute 
+        path, then this is the returned value. Otherwise, it is the `output` 
+        string preceded by directory in which `ini_file` is.
     
+    
+    :Output:
+        A `Sequence` of `Mapping` object, one for each found entry.
+         - Its StorageEntry is set to:    
+              [base_output_dir]
+         - Loaded entries StorageEntry are:
+              [base_output_dir]/[entry-base].entry
+         - Loaded entries have their storage configure to store content in:
+              [base_output_dir]/[entry-base][out-suffix][content-key]
+          
+        where:
+          base_output_dir is the 3rd value returned by this function
+          entry-base is the filename of the loaded entry with the directory of
+            ini_file and the file extension removed
+          out_suffix is the value given as argument
+          content-key is the key of the content to be stored
+          
     :todo:
-        - finish doc - input
-        - check missing images (1 of each type for all time steps)
+        - finish doc on ini_file structure
     """
     import ConfigParser as cfg
     import os
@@ -96,7 +125,7 @@ def make_dataset(ini_file, output='output', verbose=False):
         default_meta[k] = _param_eval(v)
         
     # if grouping
-    if ini['PARSING'].has_field('group'):
+    if ini['PARSING'].has_key('group'):
         g = ini['PARSING']['group'] ## eval... value is a dict
         dlist = [dirname(fi) for fi in file_list]
         fenum = [int(di==dlist[i]) for i,di in enumerate(dlist[1:])]          # diff of dlist
@@ -125,7 +154,7 @@ def make_dataset(ini_file, output='output', verbose=False):
             if rm_len>0: subf = f[rm_len+1:]
             else:        subf = f 
             subf = subf.replace('\\','/')   # for windows
-            out  = pjoin(base_out, splitext(subf)[0])
+            out  = pjoin(base_out, splitext(subf)[0]) + out_suffix
             meta_value = meta_parser.match(subf).groups()
             if verbose>1:
                 print '   ' + str(meta_value) + ' from ' + subf + str(rm_len)
@@ -138,11 +167,14 @@ def make_dataset(ini_file, output='output', verbose=False):
                 if field=='$': meta.update(value)
                 else:          meta[field] = value
                 
-            img_list.append(_Mapping(filename=f, metadata=meta, output=out))
+            ds_entry = _Mapping(filename=f, metadata=meta)##, output=out)
+            ds_entry.set_storage(out)
+            img_list.append(ds_entry)
         except Exception as e:
             invalid.append((type(e).__name__,e.message, f))
             
     return img_list, invalid, base_out
+    
     
 @_node('filename', 'metadata', 'output')
 def split_item(db_item):

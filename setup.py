@@ -54,18 +54,19 @@ dependency_links = ['http://openalea.gforge.inria.fr/pi']
 
 # generate openalea wrapper and entry points
 #  ------------------------------------------
-sys.path.insert(0,os.path.abspath('src'))
+src_abs_path = os.path.abspath('src')
+sys.path.insert(0,src_abs_path)
 import rhizoscan
-from rhizoscan.workflow.openalea import wrap_package, clean_wralea_package
+from rhizoscan.workflow.openalea import wrap_package, clean_wralea_directory
 
 # clear previously generated wralea folder
-left = clean_wralea_package('rhizoscan_wralea')
+clean_wralea_directory(os.path.join(src_abs_path,'rhizoscan_wralea'))
 
-if left:
-    print '\n There are not-generated content in the folloing wralea files:'
-    print '\n'.join(left)
-else:
-    print '\n wralea folder is empty'
+##if left:
+##    print '\n There are not-generated content in the folloing wralea files:'
+##    print '\n'.join(left)
+##else:
+##    print '\n wralea folder is empty'
     
 # generate wralea packages
 entry =  wrap_package(rhizoscan,entry_name='rhizoscan',verbose=0)

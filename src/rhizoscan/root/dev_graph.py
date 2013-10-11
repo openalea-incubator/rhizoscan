@@ -45,7 +45,7 @@ def segment_digraph(segment, cost='direction_difference', callback=None):
     # ----------
     # edge with seed segment have zero cost
     if isinstance(cost, basestring):
-        cost = segment[cost][edge[:,0], edge[:,1]]
+        cost = getattr(segment,cost)[edge[:,0], edge[:,1]]
     seed = segment.seed>0
     seed[segment.seed>=254] = 0  ## bug that makes fake seeds=254
     cost[seed[edge[:,0]] | seed[edge[:,1]]] = 0

@@ -53,20 +53,6 @@ def declare_node(node):
         
     node.__OA_call__ = MethodType(__OA_call__,node) ## not useful?
 
-def node_attributes(node):
-    """ Add node attributes for openalea """
-    ##from . import node_attributes
-    node = node.node_attributes().copy()
-    hidden = node.get('hidden', [])
-    for node_input in node['inputs']:
-        node_input['interface'] = find_interface(node_input['value'])
-        if node_input['name'] in hidden:
-            node_input['hide'] = True
-        
-    node['description'] = node['doc']
-
-    return node
-    
 def __OA_call__(node, *args):
     """
     call function from openalea dataflow 
@@ -74,6 +60,31 @@ def __OA_call__(node, *args):
     in_names = [i['name'] for i in node.get_node_attribute('inputs')]
     karg = dict(zip(in_names, args))
     return node(**karg)
+    
+def node_attributes(node):
+    """ Return the node attributes dictionary for openalea wrapper 
+    
+    ##todo: use get/set_node_attributes instead of node_attributes()
+    change function name, and purpose? eg. return added/updated attributes only
+    """
+    ##from . import node_attributes
+    attrib = node.get_node_attribute()
+    
+    hidden = attrib.get('hidden', [])
+    for node_input in attrib['inputs']:
+        try:
+            node_input['interface'] = find_interface(node_input['value'])
+        except Exception as e:
+            print '\n\n'
+            print attrib
+            print '\n\n'
+            raise e
+        if node_input['name'] in hidden:
+            node_input['hide'] = True
+    
+    attrib['description'] = attrib['doc']
+    
+    return attrib
     
 
     
@@ -739,7 +750,60 @@ def wrap_package(pkg, pkg_attrib={}, wrap_name=None, wrap_path=None, entry_point
 
     return entry_points
 
-def clean_wralea_package(wrap_pkg):
+
+def clean_wralea_directory(root_dir, rm_ext=['.pyc','.py~']):
+    import os
+    
+    dir_files = []
+    
+    # get all directory in tree order, avoiding private ones
+    for root, dirs, files in os.walk(root_dir):
+        hidden = []
+        for i,d in enumerate(dirs):
+            if d.startswith('.'): hidden.append(i)
+        for i in hidden[::-1]:
+            print "don't process", os.path.join(root,dirs.pop(i))
+        
+        dir_files.append((root,files))
+
+    # parse all directory in reverse order
+    #   delete unecessary files, and empty directory
+    for d,files in dir_files[::-1]:
+        # find temporary files
+        to_del = [f for f in files if f=='.DS_Store' or f=='Thumbs.db']
+        for ext in rm_ext:
+            to_del.extend(filter(lambda f: os.path.splitext(f)[-1]==ext, files))
+        files = list(set(files).difference(to_del))
+        
+        # clean __wralea__.py and empty *.py files
+        for f in (f for f in files if f.endswith('.py')):
+            abs_f = os.path.join(d,f)
+            if f=='__wralea__.py':
+                wralea = read_wralea(abs_f)#'\n\n'.join(read_wralea(abs_f))
+                if sum(map(len,wralea))==0:
+                    to_del.append(f)
+                else:
+                    # save cleaned __wralea__.py content
+                    wralea = wralea[0]+['\n\n']+wralea[1]
+                    wralea = ''.join(wralea)
+                    s = open(abs_f, 'w')
+                    s.write(wralea)
+                    s.close()
+            else:
+                s = open(abs_f)
+                if len(s.read())==0:
+                    to_del.append(f)
+                s.close()
+
+        # delete selected files
+        for f in to_del:
+            os.remove(os.path.join(d,f))
+                
+        # delete directory if empty
+        if len(os.listdir(d))==0:
+            os.rmdir(d)
+        
+def DEPRECATED_clean_wralea_package(wrap_pkg):
     """
     Remove all wralea created by wrap_package and wrap_module
 

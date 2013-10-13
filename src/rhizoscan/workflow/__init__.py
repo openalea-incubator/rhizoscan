@@ -424,45 +424,55 @@ class node(object):
         
         return g
 
+class pipeline(object):
+    """
+    Decorator to make a Pipeline from a function::
+    
+      @pipeline(--kargs--)
+      def some_pipeline(): pass
+ 
+    is the same as::
+
+      def some_pipeline(): pass
+      some_pipeline = Pipeline(some_pipeline, --kargs--)
+      
+    Note that (for now) the function is not use
+    
+    See `Pipeline` documentation
+    """
+    def __init__(self, nodes):
+        self.nodes = nodes
+    def __call__(self, function):
+        return Pipeline(function=function, nodes=self.nodes)
         
 class Pipeline(object):
     """
     Simple pipeline workflow: execute a sequence of `workflow.node` 
-    
-    (for now) all nodes inputs are map to previous nodes outputs by their name.
-    The list of input names that are not outputs of previous nodes defines the 
-    inputs of the pipeline.
+                                        
+    A `Pipeline` is made to execute a sequence of `node` in a common namespace
+    The nodes inputs and outputs are thus map with each other w.r.t their name. 
+    If this is not suitable with original node IO names, node copies can be 
+    passed with alternative name using the nodes `copy(...)` method.
     """
-    def __init__(self, name, modules):
+    def __init__(self, function, nodes):
         """
-        node in `modules` list are copied 
-        
-        ##todo: pipeline outputs? default: from last nodes or namespace ?
-                otherwise use an 'outputs' arguments ?
+        function: the decorated function
         """
-        modules = [m.copy() for m in modules]
-        
-        pl_name = name
+        pl_name = function.func_name
         self.__name__ = pl_name
-        self.modules = modules ## change to some private name or in __node__ / __pipeline__
-        node_inputs = []
-        #node_inputs.append(dict(name='image',interface='IStr'))
-        #node_inputs.append(dict(name='output',interface='IFileStr'))
-        #node_inputs.append(dict(name='metadata',interface='IDict'))
-        #node_inputs.append(dict(name='update', interface='ISequence', value=[]))
-        #input_names = [n['name'] for n in node_inputs]  # list to keep the order
+        self.__module__ = function.__module__
+        self.__pipeline__ = nodes
         
-        # create inputs for the inputs of first module
         pl_inputs = []
-        pl_names  = set()
-        for m in modules:
-            m_inputs = m.get_node_attribute('inputs')
-            m_output = m.get_node_attribute('outputs')
-            m_inputs = dict((mi['name'],mi) for mi in m_inputs)
-            missing  = [name for name in m_inputs.keys() if name not in pl_names]       
-            pl_inputs.extend([m_inputs[name] for name in missing])
-            pl_names.update(missing)
-            pl_names.update(mo['name'] for mo in m_output)
+        ns_names  = set()
+        for n in nodes:
+            n_inputs = n.get_node_attribute('inputs')
+            n_output = n.get_node_attribute('outputs')
+            n_inputs = dict((ni['name'],ni) for ni in n_inputs)
+            missing  = [name for name in n_inputs.keys() if name not in ns_names]       
+            pl_inputs.extend([n_inputs[name] for name in missing])
+            ns_names.update(missing)
+            ns_names.update(no['name'] for no in n_output)
             
         pl_outputs = dict(name='pipeline_namespace', value=dict())
         
@@ -486,33 +496,31 @@ class Pipeline(object):
         
         verbose = nspace.get('verbose', False)
         
-        # execute modules pipeline
-        for module in self.modules:
-            #update_module = module.name in update or 'all' in update
-            mod_inputs = module.get_node_attribute('inputs')
-            #mod_output = module.get_node_attribute('outputs')
-            mod_inames = [i['name'] for i in mod_inputs]
-            outputs = module.run(**nspace) #dict((name,nspace[name]) for name in mod_inames))
+        # execute nodes pipeline
+        for node in self.__pipeline__:
+            node_inputs = node.get_node_attribute('inputs')
+            node_inames = [i['name'] for i in node_inputs]
+            outputs = node.run(**nspace)
             nspace.update(outputs)
                 
         return nspace
     
-    def run(self, node='missing', update=True, namespace=None, stored_data=[], **kargs):
+    def run(self, compute='missing', update=True, namespace=None, stored_data=[], **kargs):
         """
         Run the pipeline nodes to fill `namespace` with te nodes outputs
         
         :Inputs:
-          - `node`:
-              - If 'all', compute all nodes and add their output to `namespace`
+          - `compute`:
+              - If 'all', compute all pipeline nodes
               - If 'missing' (default) compute the nodes for which the outputs
                 are missing in `namespace`. -Those are always computed-
               - If a list of node name: compute those nodes.
           - `update`:
-              - If False, compute only the nodes given by the `node` argument.
+              - If False, compute only the nodes given by the `compute` argument
               - If True, compute also the nodes for which some of the inputs 
-              were computed/updated by previous nodes.
+                were updated by previous nodes.
           - `namespace`:
-              - If None, simply run the nodes iteratively
+              - If None, initiate run with an empty namespace dictionary
               - Otherwise, it should be an object with a dictionary interface
                 (i.e. implements `keys`, `update` and `__getitem__`) and is used
                 to store/retrieve inputs and outputs of the pipeline nodes.
@@ -527,7 +535,7 @@ class Pipeline(object):
               the computation and thus are passed to the nodes run method.
               
         :Output:
-          Return the updated `namespace`, or a dictionary if it is not given.
+          Return the updated `namespace`
         """
         if namespace is None:
             namespace = dict()
@@ -538,11 +546,11 @@ class Pipeline(object):
             if not i.get('required',False):
                 namespace.setdefault(i['name'],i['value']) 
         
-        # execute modules pipeline
-        for module in self._nodes_to_compute(node, update, namespace):
-            in_names = set(i['name'] for i in module.get_node_attribute('inputs'))
+        # execute nodes in pipeline
+        for node in self._nodes_to_compute(compute, update, namespace):
+            in_names = set(i['name'] for i in node.get_node_attribute('inputs'))
             in_names.add('verbose')
-            outputs = module.run(**dict((name,namespace[name]) for name in in_names if name in namespace))
+            outputs = node.run(**dict((name,namespace[name]) for name in in_names if name in namespace))
             if len(stored_data)==0:
                 namespace.update(outputs)
             else:
@@ -551,30 +559,29 @@ class Pipeline(object):
                 
         return namespace
         
-    def _nodes_to_compute(self,node, update, namespace):
+    def _nodes_to_compute(self,compute, update, namespace):
         """
         Find the list of nodes to compute w.r.t run method arguments
         
-        node:      same values as the run method `node` argument
+        compute:   same values as the run method `compute` argument
         udpate:    same values as the run method `update` argument
         namespace: initial namespace the pipeline will run with. Same as the
                    run method `namespace` argument to which kargs has been added
         """
-        # find modules to compute
-        if node=='all':
-            compute = self.modules
+        if compute=='all':     
+            nodes = self.__pipeline__
         else:
-            # check missing outputs names of pipeline modules
-            compute = []
+            # check missing outputs names of pipeline nodes
+            nodes = []
             names  = set(namespace.keys())
-            if node=='missing': node = []
-            for mod in self.modules:
-                mod_output = [o['name'] for o in mod.get_node_attribute('outputs')]
-                
-                if not all([output in names for output in mod_output]) \
-                or mod.get_node_attribute('name') in node:
-                    compute.append(mod)
+            if compute=='missing': compute=[]
+            for node in self.__pipeline__:             
+                node_output = [o['name'] for o in node.get_node_attribute('outputs')]
+                                                         
+                if not all([output in names for output in node_output]) \
+                or node.get_node_attribute('name') in compute:
+                    nodes.append(node)
                     if update:
-                        names.difference_update(mod_output)
+                        names.difference_update(node_output)
         
-        return compute
+        return nodes

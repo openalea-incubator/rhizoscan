@@ -676,6 +676,14 @@ _4734629520 = CompositeNodeFactory(name='arabidopsis plot RSA',
 
 
 
+
+
+
+
+
+
+
+
 ## ***** automatically generated code **** ##
 from rhizoscan.workflow.openalea import Factory
 if '__all__' not in locals(): __all__ = []

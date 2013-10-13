@@ -3,7 +3,7 @@ import scipy as _sp
 from scipy import ndimage as _nd
 
 from rhizoscan.workflow import node as _node         # declare workflow nodes
-from rhizoscan.workflow import Pipeline as _Pipeline # declare workflow pipeline
+from rhizoscan.workflow import pipeline as _pipeline # declare workflow pipeline
 
 from rhizoscan.ndarray.measurements import clean_label as _clean_label
 from rhizoscan.image                import Image       as _Image
@@ -115,10 +115,10 @@ def detect_leaves(rmask, image, bbox, plant_number=1, root_min_radius=3, leaf_he
     return seed_map
         
 
-pipeline = _Pipeline(name='arabidopsis', 
-                     modules=[load_image,    detect_petri_plate.copy(name='detect_frame'), 
-                              segment_image, detect_leaves,
-                              compute_graph, compute_tree])
+@_pipeline([load_image,    detect_petri_plate.copy(name='detect_frame'), 
+            segment_image, detect_leaves,
+            compute_graph, compute_tree])
+def pipeline(): pass
 # pipeline of all root image analysis modules
 #@_pipeline_node([frame_detection, image_segmentation, leaves_detection, root_graph, root_tree])
 #def pipeline(): pass                             

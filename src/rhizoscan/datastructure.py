@@ -699,7 +699,7 @@ class Mapping(Data):
     def __contains__(self, key):
         return key in self.__dict__
 
-@_node(auto_caption=1)
+@_node("key-value", auto_caption=1)
 def get_key(data={}, key='metadata', default=None):
     """
     Return `data[key]`, or `default` if it does not exist.

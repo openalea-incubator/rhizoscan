@@ -1,5 +1,30 @@
 """ 
-For now, only contains the subpackage openalea
+Some stuff to add annotation to functions and allow
+
+todo? 
+change the general node system to follow the func_annotation as in PEP3107
+  - node renamed to annotate
+  - rename outputs by 'return'
+  - set input directly as entry
+        => what about conflict with other annotated name!!!
+  - annotate decorator only add `func_annotation`to functions (to method.im_func!)
+  - add annotate_class: 
+        => annotate __init__ but with class name
+        => (&find annotated methods?)
+  - and annotate_method (or use annotated class parsing?)
+  - ...
+  
+OR
+
+change node to simply annotate function(...) and use get/set _functions_
+  - don't attach get/set/copy to annotated function
+  - keep get/set/... as static
+      => rename get/set as g/set_attribute - in use: node.get_attribute(....)
+  - add class_node decorator:
+      => annotate class __init__ but with class `name`
+      => look for annotated method (which would only be their im_func)
+           rename [class_name].--- => what about oa finding it?
+           what about declaration which is called by node? => make a method_node decorator without?
 """
 
 _workflows = []
@@ -33,9 +58,8 @@ class node(object):
     
     A node is a function decorated with the following methods:
     
-      - `get_node_attribute(attribute_name, default=None)`
-      - `set_node_attribute(attribute_name, value)`
-      - `node_attribute()`  to get the full node dictionary 
+      - `get_node_attribute(name, default=None)`
+      - `set_node_attribute(name, value)`
       - `run(...)` by default, simply call the function (see `run` doc)
       - `copy()` make an independant copy of the node (see doc)
 
@@ -129,21 +153,15 @@ class node(object):
                 if isinstance(v,basestring): args[i] = {'name':v}
             kwargs['outputs'] = args
         
-        ### for output storage functionality
-        ##if kwargs.has_key('dump') and kwargs.has_key('load'):
-        ##    kwargs['serializer'] = (kwargs['dump'],kwargs['load'])
-        ##else:
-        ##    kwargs['serializer'] = None
-        
         self.kwargs = kwargs
         
     # call creates a pointer to the functions and attached (key)arguments to it
     def __call__(self,f):
         # attache alea parameter to decorated function
+        print f, type(f)
         setattr(f,'__node__', dict())   
         f.run                = _MethodType(self.run,  f)
         f.copy               = _MethodType(self.copy, f)
-        ##f.node_attributes    = _MethodType(self.node_attributes, f)
         f.set_node_attribute = _MethodType(self.set_node_attribute, f)
         f.get_node_attribute = _MethodType(self.get_node_attribute, f)
         
@@ -270,7 +288,7 @@ class node(object):
     def set_node_attribute(node, attribute, value):
         if attribute=='inputs':
             # assert inputs value format:
-            #  - should contains 'name', 'value'
+            #  - a dictionary which contain at least 'name' & 'value'
             #  - if no values is given, a 'required' flag is set
             val = value
             value = []
@@ -287,6 +305,15 @@ class node(object):
         node.__node__[attribute] = value
         
     @staticmethod
+    def _get_node_function(node, ntype=None):
+        """ return type of `node`, and the function to call """
+        if ntype is None: ntype = node.get_node_attribute('type')
+        if   ntype=='function': return node
+        elif ntype=='method':   return node.im_func
+        elif ntype=='class':    return node.__init__
+        elif ntype=='object':   return node.__call__
+        
+    @staticmethod
     def get_node_attribute(node, attribute=None, default=None):
         """
         Return the required `attribute` from `node`
@@ -300,29 +327,22 @@ class node(object):
             return node.__node__
             
         if not node.__node__.has_key(attribute):
-            if not hasattr(node,'__code__') and hasattr(node,'__call__'):
-                function = node.__call__
-            else:
-                function = node
+            if attribute=='type':
+                import types
+                print node, type(node)
+                if isinstance(node,types.ClassType):
+                    node.set_node_attribute(attribute,'class') 
+                elif isinstance(node,types.FunctionType):
+                    node.set_node_attribute(attribute,'function')
+                elif isinstance(node,types.MethodType):
+                    node.set_node_attribute(attribute,'method')
+                elif hasattr(node,'__call__'):
+                    node.set_node_attribute(attribute,'object') # i.e. callable obj
+                else:
+                    raise TypeError('Unrecognized type of node ' + str(node))
                 
-            if attribute=='name': 
+            elif attribute=='name': 
                 node.set_node_attribute(attribute,getattr(node,'__name__',default))
-            elif attribute=='inputs':
-                from inspect import getargspec, ismethod
-                argspec = getargspec(function)
-                names = argspec.args
-                value = argspec.defaults if argspec.defaults is not None else ()
-                noval = len(names)-len(value)
-                value = [None]*noval + list(value)
-                                                                  
-                if ismethod(function):
-                    names = names[1:]
-                    value = value[1:]
-                
-                value = [dict(name=n, value=v) for n,v in zip(names,value)]
-                for i in range(noval):
-                    value[i]['required'] = True
-                node.set_node_attribute('inputs',value)
                 
             elif attribute=='outputs':
                 # if not outputs, set it to one name 'None'
@@ -332,65 +352,31 @@ class node(object):
                 # if node doesn't have 'doc', take the function's doc
                 from inspect import getdoc
                 doc = getdoc(function)
+                if node_type=='class' and node.__doc__ is not None:
+                    doc = node.__doc__ + '\nConstructor:\n' + doc
                 node.set_node_attribute('doc',doc if doc else '')
                 
-        ##for parser in _node_parser:
-        ##    parser(function)
+                
+            elif attribute=='inputs':
+                from inspect import getargspec, ismethod
+                argspec = getargspec(function)
+                names = argspec.args
+                value = argspec.defaults if argspec.defaults is not None else ()
+                noval = len(names)-len(value)
+                value = [None]*noval + list(value)
+                                                                  
+                if node_type in ['class', '__call__']:
+                    names = names[1:]
+                    value = value[1:]
+                    noval -= 1
+                
+                value = [dict(name=n, value=v) for n,v in zip(names,value)]
+                for i in range(noval):
+                    value[i]['required'] = True
+                node.set_node_attribute('inputs',value)
                 
         return node.__node__.get(attribute,default)
-        
-    @staticmethod
-    def OLD_node_attributes(function): ##
-        """
-        Update and return `function.__node__` (filling missing entries)
-        
-        function can be ether a function or an instance of a callable class
-        """
-        import inspect
-        if not hasattr(function,'__node__'):
-            function.__node__ = dict()
-        node = function.__node__
-        
-        # set suitable reference to the function the node is refering to
-        if not node.has_key('name'):
-            node['name'] = function.__name__
-        
-        if not hasattr(function,'__code__') and hasattr(function,'__call__'):
-            function = function.__call__
-            
-        # if node doesn't have 'inputs', infer it from function
-        if not node.has_key('inputs'):
-            argspec = inspect.getargspec(function)
-            names = argspec.args
-            value = argspec.defaults if argspec.defaults is not None else ()
-            value = [None]*(len(names)-len(value)) + list(value)
-            
-            if inspect.ismethod(function):
-                names = names[1:]
-                value = value[1:]
-            
-            node['inputs'] = [dict(name=n, value=v) for n,v in zip(names,value)]
-        else:
-            for i,d in enumerate(node['inputs']):
-                if isinstance(d,basestring):
-                    d = dict(name=d, value=None)
-                    node['inputs'][i] = d
-                else:
-                    d.setdefault('name', 'in'+str(i+1))
-                    d.setdefault('value',None)
-        
-        if not node.has_key('outputs'):
-            node['outputs'] = [dict(name='None')]
-    
-        # if node doesn't have 'doc', take the function's doc
-        if not node.has_key('doc'):
-            node['doc'] = inspect.getdoc(function)
-                
-        for parser in _node_parser:
-            parser(function)
-        
-        return node
-        
+
     @staticmethod
     def copy(fct_node, **kargs):
         """
@@ -423,6 +409,12 @@ class node(object):
             g.set_node_attribute(key,value)
         
         return g
+
+class class_node(node):
+    def __call__(self, cls):
+        node.__call__(self,cls)
+        ##...
+
 
 class pipeline(object):
     """
@@ -474,7 +466,7 @@ class Pipeline(object):
             ns_names.update(missing)
             ns_names.update(no['name'] for no in n_output)
             
-        pl_outputs = dict(name='pipeline_namespace', value=dict())
+        pl_outputs = [dict(name='pipeline_namespace', value=dict())]
         
         node(name=pl_name, outputs=pl_outputs, inputs=pl_inputs)(self)
         del self.run #! remove node's run to have Pipeline.run again... 

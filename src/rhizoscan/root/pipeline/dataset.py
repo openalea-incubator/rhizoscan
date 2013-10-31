@@ -154,7 +154,8 @@ def make_dataset(ini_file, output='output', out_suffix='_', verbose=False):
             if rm_len>0: subf = f[rm_len+1:]
             else:        subf = f 
             subf = subf.replace('\\','/')   # for windows
-            out  = pjoin(base_out, splitext(subf)[0]) + out_suffix
+            out_store = pjoin(base_out, splitext(subf)[0]) + out_suffix
+            out_entry = pjoin(base_out, splitext(subf)[0]) + '.namespace'
             meta_value = meta_parser.match(subf).groups()
             if verbose>1:
                 print '   ' + str(meta_value) + ' from ' + subf + str(rm_len)
@@ -167,8 +168,10 @@ def make_dataset(ini_file, output='output', out_suffix='_', verbose=False):
                 if field=='$': meta.update(value)
                 else:          meta[field] = value
                 
-            ds_entry = _Mapping(filename=f, metadata=meta)##, output=out)
-            ds_entry.set_storage(out)
+            ds_entry = _Mapping(filename=f, metadata=meta)
+            ds_entry.__loader_attributes__ = ['filename','metadata']
+            ds_entry.set_map_storage(out_store)
+            ds_entry.set_storage_entry(out_entry)
             img_list.append(ds_entry)
         except Exception as e:
             invalid.append((type(e).__name__,e.message, f))

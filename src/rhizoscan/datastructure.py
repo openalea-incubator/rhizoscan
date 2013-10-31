@@ -9,20 +9,13 @@ Data classes
  
 TODO:
 -----
-    - automatically set Data.__entry attribute to loaded Data 
-        * same for subclasses 
-        * same for contained data
-        * what about contained data with already set data file ?
-            + look into the 'Data mode' idea ('r','w','u') ?
-    - replace Data.__entry by a storage_entry property, replacing the get&set methods
+    - look into the '__io_mode__' idea ('r','w','u') ?
     - replace the _(un)serialize_ by the set/get_state protocol
-    - look into the __del__ deconstructor and the ability to automate saving
-        * call to del is not garantied by carbage collector
+       - multi-file serialization (pickle or not)
+    - remove Sequence, replace by (buffered) external storage in Mapping
 """
-__icon__    = 'datastructure.png'   # icon of openalea package    
-                                             
-#from openalea import * ## should be optional
-from pprint import pprint
+__icon__    = 'datastructure.png'   # package icon (for openalea)    
+
 from copy   import copy as _copy
 
 from .tool     import static_or_instance_method, _property 
@@ -212,8 +205,8 @@ class Data(object):
         :Outputs:
             Return an empty Data object that can be use to load the stored data
         """
-        if 'w' not in getattr(data,'_mode','w'):
-            raise IOError("This Data object is not writable")
+        if 'w' not in getattr(data,'__io_mode__','w'):
+            raise IOError("This Data object is not writable. mode is {}".format(getattr(data,'__io_mode__')))
         
         io_api = Data.has_IO_API(data)
         if entry is None:
@@ -240,7 +233,7 @@ class Data(object):
             return Data(entry).loader()  ## if lookup in 'Data'base => equiv to return self
         
     @static_or_instance_method
-    def load(url_or_data, merge=False):
+    def load(url_or_data, merge=False): ## remove merge option
         """ 
         Load the data serialized at `url_or_data` 
 
@@ -278,9 +271,7 @@ class Data(object):
         else:
             entry = _create_entry(data)
             
-        ##serializer = Data.get_serializer(data)
-        
-        d = entry.load()##serializer=serializer)
+        d = entry.load(serializer=Data.get_serializer(data))
         
         if Data.has_store_API(d):
             d = d.__restore__()
@@ -294,6 +285,11 @@ class Data(object):
             
         if Data.has_IO_API(data):  ## if hasattr(data,'__dict__'): ??
             data.set_storage_entry(entry)
+           
+        if Data.is_loader(data):
+            io_mode = getattr(data,'__io_mode__','').split(':')[-1]
+            if len(io_mode): data.__io_mode__ = io_mode
+            else:            del data.__io_mode__
         
         return data
        
@@ -341,28 +337,32 @@ class Data(object):
         else:
             return self.loader()
         
-    def loader(self, attribute=None):
+    def loader(self):
         """
         Return an empty object which can be used to load the stored object
         
-        `attribute` can be a name (string) or a list of names of attributs that
-        the loader will keep.
+        If this object has a `__loader_attributes__`, it should contain a list 
+        of attribute names that are added the the loader attributes
         
         *** if the object has no associated entry, it won't be able to load ***
         """
         loader = Data(storage_entry=self.get_storage_entry(),serializer=self.get_serializer())
-        loader._mode = 'r:loader'
-        loader.__class__ = self.__class__
-        if attribute:
-            if isinstance(attribute,basestring):
-                attribute = [attribute]
-            for attr in attribute:
-                setattr(loader,attr,getattr(self,attr))
+        loader.__io_mode__ = 'loader:' + getattr(self,'__io_mode__','')
+        loader.__load_class__ = self.__class__
+        for attr in getattr(self,'__loader_attributes__',[]):
+            setattr(loader,attr,getattr(self,attr,None))
         return loader
+    @staticmethod
+    def is_loader(obj):
+        return getattr(obj,'__io_mode__',"").startswith('loader:')
         
     def __str__(self):
-        cls = self.__class__
-        return cls.__module__ +'.'+ cls.__name__ + ' with file: ' + str(self.get_storage_entry())
+        if Data.is_loader(self):
+            cls = 'Data loader'
+        else:
+            cls = self.__class__
+            cls = cls.__module__ +'.'+ cls.__name__
+        return  cls + ' with file: ' + str(self.get_storage_entry())
             
 
             
@@ -373,24 +373,10 @@ def save_data(data, filename):
     """
     return Data.dump(data=data,filename=filename)
 
-##class DataWrapper(Data):
-##    """ Class that wrap anything inside a Data """
-##    def __init__(self, data, filename):
-##        """
-##        Create a DataWrapper object that bind file filename to the input data
-##        Use save and (later) load to save and reload the data
-##        """
-##        Data.__init__(self,filename)
-##        self.__data = data
-##        
-##    def __restore__(self):
-##        """ Postprocessing of load. return the wrapped data """
-##        return self.__data
-
         
 
-# a simple structure data
-# -----------------------
+# Data subclass with dictionary interface
+# ---------------------------------------
 class Mapping(Data):
     """
     Class Mapping provide a Data class with a dictionary-like interface
@@ -427,7 +413,7 @@ class Mapping(Data):
     """
     ##TODO Mapping:
     ##  - dump doc (for now it's the Data.dump doc)
-    ##  - saving using pyyaml (by default, keeping pickle saving in option)
+    ##  - saving using pyyaml/json (by default, keeping pickle saving in option)
     ##  - what about saving to intermediate file when in a container ?
     #      > useful ?
     #      > then needs some 'update' flag ?
@@ -441,6 +427,23 @@ class Mapping(Data):
         if load_file is not None: self.load(load_file)
         self.__dict__.update(kwds)
         
+    # accessors
+    # ---------
+    def __getattribute__(self, attribute):
+        value = Data.__getattribute__(self,attribute)
+        if Data.is_loader(value):
+            value = value.load()
+            setattr(self,attribute,value)
+        return value
+    __getitem__ = __getattribute__
+    __setitem__ = Data.__setattr__
+   
+    def __len__(self):
+        return self.__dict__.__len__()
+        
+    def has_key(self, key):
+        """ return True if `key` exists, False otherwise """
+        return self.__dict__.has_key(key)
     def keys(self):
         """ Return the list of this Mapping keys (same as dict) """
         return self.__dict__.keys()
@@ -448,22 +451,6 @@ class Mapping(Data):
         """ return the list of this Mapping values (same as dict) """
         return self.__dict__.values()
 
-
-    def set_storage(self, storage):
-        """
-        Attach a storage for automatized I/O of contained attributs objects.
-        
-        :Inputs:
-          - `storage`: 
-                Either a MapStorage object, a valid input of its constructor
-                (e.g. format-type string), or `None` to not use a storage
-        
-        :See also: storage.MapStorage
-        """
-        if not isinstance(storage, _MapStorage) and storage is not None:
-            storage = _MapStorage(storage)
-        self.__storage__ = storage
-        
     def set(self,key, value=None, store=False):
         """ 
         Set the `key`,`value` pairs (use `value=None` if not provided)
@@ -471,7 +458,12 @@ class Mapping(Data):
         
         Note: this method simply calls `__setitem__`
         """
-        return self.__setitem__(key,value,store=store)
+        self.__dict__[key] = value
+        if store:
+            self.__map_storage__.set_data(key, value)
+            self.__map_keys__.append(key)
+            Data.set_storage_entry(value,self.__map_storage__.get_entry(key)) ## wrong method!
+        return self
     def setdefault(self,key, value=None):
         """ 
         M.setdefault(key,value) = M.get(key,value), with M[key]=value if key not in M
@@ -483,12 +475,29 @@ class Mapping(Data):
         
         Note: this method simply calls `__getitem__`
         """
-        return self.__getitem__(key,default)
+        return self.__dict__.get(key,default)
     def pop(self,key,default=None):
         """ remove `key` and return its value or default if it doesn't exist' """ 
         return self.__dict__.pop(key,default)
 
+    def update(self, other, overwrite=True):
+        """ add `other` content into this Mapping object
+        ## todo:
+            - other a dict-like object (use update(**other) ?)
+            - add **kargs arguments
+            - remove the overwrite argument, and add a setdefault/union method
+        """
+        if isinstance(other,Mapping):   ## if hasattr(other,'__dict__') ?
+            other = other.__dict__
+        if overwrite:
+            self.__dict__.update(other)
+        else:
+            for k,v in other.items():
+                if k not in self.__dict__:
+                    self.__dict__[k] = v
 
+    # iterators
+    # ---------
     def iteritems(self):
         """ return an iterator over the (key, value) items of Mapping object """
         return self.__dict__.iteritems()
@@ -498,28 +507,16 @@ class Mapping(Data):
     def iterkeys(self):
         """ return an iterator over the keys of this Mapping object """
         return self.__dict__.iterkeys()
+        
+    # make Mapping a valid iterator
+    def __iter__(self):
+        return self.iteritems()#__dict__.__iter__() ##?
+    def __contains__(self, key):
+        return key in self.__dict__
 
-    def has_key(self, key):
-        """ return True if `key` exists, False otherwise """
-        return self.__dict__.has_key(key)
 
-
-    def update(self, other, overwrite=True):
-        """ add `other` content into this Mapping object
-        ## todo:
-            - other a dict-like object (use update(**other) ?)
-            - add **kargs arguments
-            - remove the overwrite argument, and add a setdefault/union method
-        """
-        if isinstance(other,Mapping):   ## if other hasattr '__dict__' ??
-            other = other.__dict__
-        if overwrite:
-            self.__dict__.update(other)
-        else:
-            for k,v in other.items():
-                if k not in self.__dict__:
-                    self.__dict__[k] = v
-
+    # temporary attributes
+    # --------------------
     @_property
     def temporary_attribute(self):
         """ set of temporary attribute which are not to be saved """
@@ -537,13 +534,8 @@ class Mapping(Data):
                 raise KeyError('Warning: missing temporary attribute %s' % attr)
             self.temporary_attribute.discard(attr)
     
-    def __copy__(self):
-        cls = self.__class__
-        new = cls.__new__(cls)
-        new.__dict__.update(self.__dict__)
-        new._tmp_attr = self.temporary_attribute.copy()
-        return new
-        
+    # manage storage for (de)serializer
+    # ---------------------------------
     def __store__(self):
         """
         Return a copy of it-self and call recursively __store__ on all 
@@ -574,6 +566,25 @@ class Mapping(Data):
             
         return self
     
+    def set_map_storage(self, storage, keys=[]):
+        """
+        Attach MapStorage for automatized I/O of contained attributs objects.
+        
+        :Inputs:
+          - `storage`: 
+                Either a MapStorage object, a valid input of its constructor
+                (ie. format-type string), or `None` to remove current MapStorage
+          - `keys`:
+                Either a list of keys which are to be stored in this storage
+                or 'all', to use this storage for all keys
+        
+        :See also: storage.MapStorage
+        """
+        if not isinstance(storage, _MapStorage) and storage is not None:
+            storage = _MapStorage(storage)
+        self.__map_storage__ = storage
+        self.__map_keys__ = keys
+        
     def load(self, filename=None, overwrite=True):
         """
         Load data found in file 'filename' and merge it into the structure
@@ -597,24 +608,19 @@ class Mapping(Data):
             
         return self
             
-            
-    # accessors
-    # ---------
-    def __getitem__(self,item, *args):
-        """ allow access using [] as for python dictionaries """
-        if len(args): return self.__dict__.get(item,*args)
-        else:         return self.__dict__[item]
-    def __setitem__(self,item,value, store=False):
-        """ allow setting item using [] as for python dictionaries """
-        self.__dict__[item] = value
-        if store:
-            self.__storage__.set_data(item, value)
-        return self
-    def __len__(self):
-        return self.__dict__.__len__()
+    # copy Mapping objects
+    # --------------------
+    def __copy__(self):
+        cls = self.__class__
+        new = cls.__new__(cls)
+        new.__dict__.update(self.__dict__)
+        new._tmp_attr = self.temporary_attribute.copy()
+        return new
+    copy = __copy__
         
-    # gives string representation of structure content (used by the print function)
-    # ------------------------------------------------
+            
+    # string representation of Mapping content
+    # ----------------------------------------
     def __repr__(self):
         return self.multilines_str()[:-1]##self.__dict__.__repr__()
     # nice printing
@@ -668,10 +674,14 @@ class Mapping(Data):
                 value[0] = name + value[0][len(name):]
                 value = [v if len(v)<=max_width else v[:max_width-4]+' ...' for v in value]
                 string += '\n'.join(value) + '\n'
-        return string
+                
+        if len(string):
+            return string
+        else:
+            return "Empty " + Data.__str__(self)
 
-    # allow numerical comparison
-    # --------------------------
+    # numerical comparison
+    # --------------------
     def __cmp__(s1,s2):
         """ x.__cmp__(y) <==> cmp(x,y) """ 
         return s1.__dict__.__cmp__(getattr(s2,'__dict__',s2))
@@ -691,14 +701,6 @@ class Mapping(Data):
         """ x.__ge__(y) <==> x>=y """
         return s1.__dict__.__ge__(getattr(s2,'__dict__',s2))
         
-    # make Mapping a valid iterator
-    # -----------------------------
-    def __iter__(self):
-        return self.iteritems()#__dict__.__iter__() ##?
-        
-    def __contains__(self, key):
-        return key in self.__dict__
-
 @_node("key-value", auto_caption=1)
 def get_key(data={}, key='metadata', default=None):
     """

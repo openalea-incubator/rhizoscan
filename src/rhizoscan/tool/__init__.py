@@ -38,7 +38,7 @@ class class_or_instance_method(object):
         inst_cls = owner if instance is None else instance
         ##return functools.partial(self.func, inst_cls)
         ##return new.instancemethod(self.func,inst_cls,owner)
-        return types.MethodType(self.func,isnt_cls)
+        return types.MethodType(self.func,inst_cls)
         
 class static_or_instance_method(object):
     """

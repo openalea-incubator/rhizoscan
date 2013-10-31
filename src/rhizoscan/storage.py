@@ -20,9 +20,9 @@ import urlparse as _urlparse
 from tempfile import SpooledTemporaryFile as _TempFile
 
 from rhizoscan.tool import _property
+from rhizoscan.tool import class_or_instance_method as _cls_inst_method
 from rhizoscan.tool.path import assert_directory as _assert_directory
 
-_PICKLE_PROTOCOL_ = -1 
 
 class PickleSerializer(object):
     """
@@ -31,35 +31,15 @@ class PickleSerializer(object):
     It has static `dump` and `load` functions, using protocol=-1 and 
     extension='.pickle'
     """
-    _PICKLE_PROTOCOL_ = -1 # pickle saving (dump) are done with the latest protocol
-    
+    protocol  = -1 # pickle saving (dump) are done with the latest protocol
     extension = '.pickle'  # file extension that indicate the file content type
     
-    @staticmethod
-    def dump(obj,stream):
-        return _cPickle.dump(obj, stream, protocol=_PICKLE_PROTOCOL_)
+    @_cls_inst_method
+    def dump(self, obj,stream):
+        return _cPickle.dump(obj, stream, protocol=self.protocol)
     @staticmethod
     def load(stream):
         return _cPickle.load(stream)
-        
-
-class _txt_stream(object):
-    """ virtual writable text stream """
-    def __init__(self):              
-        self.txt = ''
-        self.pos = 0
-    def write(self, txt):
-        print type(txt), '|' + txt + '|'
-        self.txt += txt
-    def get_text(self):
-        return self.txt
-    def close(self):
-        self.txt = ''
-    def tell(self):
-        print 'tell:', len(self.txt)
-        return len(self.txt)
-    def seek(self, pos, whence=0):
-        print 'seek', pos, whence, len(self.txt)
 
 class RegisteredEntry(type):
     """
@@ -102,9 +82,9 @@ class RegisteredEntry(type):
 class StorageEntry(object):
     """
     Abstract class that define the API of a storage entry:
-      - load: retrieve the data stored in the entry
-      - save: store the data in the entry
-      - exist: return True if the entry exist, or False otherwise
+      - load:   retrieve the data stored in the entry
+      - save:   store the data in the entry
+      - exists: return True if the entry exists, or False otherwise
       
     StorageEntry has a `url` properties that store the url string of the entry
     
@@ -114,7 +94,7 @@ class StorageEntry(object):
     
     def load(self,):      raise NotImplementedError('StorageEntry is an abstract class')
     def save(self,data):  raise NotImplementedError('StorageEntry is an abstract class')
-    def exist(self):      raise NotImplementedError('StorageEntry is an abstract class')
+    def exists(self):     raise NotImplementedError('StorageEntry is an abstract class')
         
     def __str__(self):
         return self.__class__.__name__ + '(' + self.url + ')'
@@ -148,17 +128,14 @@ def create_entry(url):
 
 class FileEntry(StorageEntry):
     """
-    One-file storage with implicit serialization
+    Serialization to a file storage
     
-    A FileEntry object has the following methods:
+    A FileEntry object has the following public methods:
     
-      - open(mode):  open the file (file name is given to constructor)
-      - read():      read and deserialize the content of the file
-      - write(data): write (replace) serialized `data` in the file
-      - close():     close the file
-      
-      - load(): same as open('r')-read-close
-      - save(): same as open('w')-write-close
+      - load():   read and return content of file
+      - save():   save data into the file
+      - exists():  return True if the file exist
+      - remove(): delete the file
       
     :Serializer:
         By default, FileEntry use `PickleSerializer` (which use `cPickle`) to 
@@ -182,36 +159,19 @@ class FileEntry(StorageEntry):
         
     # StorageEntry API
     # ----------------
-    def exist(self):
+    def exists(self):
         return _os.path.exists(self.url)
         
-    def _load(self, submode='b', serializer=None):
-        """
-        open, read and return the object entry
-        
-        `submode` can be 
-          - 'b' for binary file (or not for text content),
-          - 'U' to assimilate all newline characters as '\n'
-         """
-        with self.open(mode='r'+submode):
-            return self.read(serializer=serializer)
-    def _save(self,data, serializer=None):
-        with self.open(mode='w'):
-            return self.write(data, serializer=serializer)
-            
-    def load(self):
+    def load(self, serializer=None):
         """
         open, read and return the object entry
          """
         stream = open(self.url, mode='r')
-        serializer = self.get_metadata().get('serializer',PickleSerializer)
+        if serializer is None:
+            serializer = self.get_metadata().get('serializer',PickleSerializer)
         data = serializer.load(stream)
         stream.close()
         
-        #if self.get_metadata().get('serializer', None) is not None:
-        #    print serializer.img_scale, serializer.ser_scale
-        #    data.__serializer__ = serializer
-            
         return data
             
     def save(self,data, serializer=None):
@@ -236,45 +196,6 @@ class FileEntry(StorageEntry):
         if _os.path.exists(self.url):
             _os.remove(self.url)
         self.rem_metadata()
-
-    # private IO methods on file
-    # --------------------------
-    def open(self,mode):
-        """
-        mode='w' means write operation is done in a buffered, then saving is 
-        done by the `close` method.
-        """
-        if self._stream is not None:
-            raise IOError('File stream already open')
-        if mode=='w':
-            self._stream = _TempFile()
-        else:
-            _assert_directory(self.url)
-            self._stream = open(self.url, mode=mode)
-            
-        return self
-    def read(self):
-        serializer = self.get_metadata().get('serializer',PickleSerializer)
-        return serializer.load(self._stream)
-    def write(self, data, serializer=None):
-        if serializer is None:
-            serializer = PickleSerializer
-        else:
-            self.set_metadata(dict(serializer=serializer))
-        serializer.dump(data, self._stream)
-    def close(self):
-        if isinstance(self._stream, _TempFile):
-            _assert_directory(self.url)
-            with open(self.url, mode='w') as f:
-                self._stream.seek(0)
-                f.write(self._stream.read())
-        if self._stream is not None:
-            self._stream.close()
-            self._stream = None
-            
-    # allow use of "with"
-    def __enter__(self): return self
-    def __exit__(self, *args): self.close()
 
     # manage file entry IO on metadata file
     def _metadata(self):
@@ -349,7 +270,7 @@ class FileEntry(StorageEntry):
 class MapStorage(object):
     """
     A MapStorage allows automated IO to storage entries related to a unique id
-    The iterface is done using `set_data(name,data)` and `load_data(name)`
+    The interface is done using `set_data(name,data)` and `load_data(name)`
     
     MapStorage use a url generator function to relate identifiers to entry url  
     """
@@ -357,20 +278,16 @@ class MapStorage(object):
         """
         Create a MapStorage based `url_generator`
         
-        `url_generator` should either be:
-          - A string that can be used with the python format functionality 
+        `url_generator` should be a string that can be used with the python 
+        format functionality to get the url: 
+        
             Eg. "file://some/directory/data_{}"
-          - A string to which is append the name of data to be saved.
-            i.e. same as url_generator + "{}"
-          - a function that returns the url with a key as input
-            i.e. entry_url = url_generator(key)
+        
+        If '{} are missing, it is added to the end of the string.
         """
-        if isinstance(url_generator, basestring):
-            if not '{' in url_generator or not '}' in url_generator:
-                url_generator += "{}"
-            self.url_generator = url_generator.format
-        else:
-            self.url_generator = url_generator
+        if not '{' in url_generator or not '}' in url_generator:
+            url_generator += "{}"
+        self.url_generator = url_generator
         
     def set_data(self, name, data):
         """ stores `data` to the storage entry related to key = `name` """
@@ -385,9 +302,6 @@ class MapStorage(object):
         entry.load(data)
 
 
-    def has_entry(self, key):
-        return self.__dict__.has_key(key)
-        
     def make_entry(self, key, extension=''):
         """
         Create the storage entry related to `key`
@@ -395,7 +309,7 @@ class MapStorage(object):
         The returned entry is generated with this MapStorage `url_generator`, 
         to which `extension` is appended.
         """
-        url = self.url_generator(key)+extension
+        url = self.url_generator.format(key)+extension
         entry = create_entry(url)
         self.__dict__[key] = entry
         return entry
@@ -406,8 +320,14 @@ class MapStorage(object):
         """
         return self.__dict__[key]
         
-    def __str__(self):
-        return 'MapStorage(' + self.url_generator('{}') + ')'
+    def has_entry(self, key):
+        return self.__dict__.has_key(key)
+
+
     def __repr__(self):
-        return self.__str__()
+        cls = self.__class__
+        cls = cls.__module__ + '.' + cls.__name__
+        return cls + "('" + self.url_generator.format('{}') + "')"
+    def __str__(self):
+        return self.__repr__()
 

@@ -115,7 +115,7 @@ def detect_leaves(rmask, image, bbox, plant_number=1, root_min_radius=3, leaf_he
     return seed_map
         
 
-@_pipeline([load_image,    detect_petri_plate.copy(name='detect_frame'), 
+@_pipeline([load_image,    _node.copy(detect_petri_plate,name='detect_frame'), 
             segment_image, detect_leaves,
             compute_graph, compute_tree])
 def pipeline(): pass

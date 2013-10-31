@@ -21,8 +21,8 @@ class TreeCompare(_Mapping):
           - image:     optional related image - or image filename
           - filename:  optional file to save this TreeCompare object 
         """
-        self.ref = reference.loader(attribute='metadata')
-        self.cmp = compared .loader(attribute='metadata')
+        self.ref = reference.loader(attribute='metadata')  ## should be in reference.__loader_attributes__
+        self.cmp = compared .loader(attribute='metadata')  ## same for compared
         self.img = image
         
         # match_tree
@@ -69,7 +69,7 @@ class TreeCompare(_Mapping):
         c = self.cmp.load(merge=False)
         compute_tree_stat(r, stat_names=stat_names, mask=mask)
         compute_tree_stat(c, stat_names=stat_names, mask=mask)
-        self.ref = r.loader(attribute=['metadata','stat'])
+        self.ref = r.loader(attribute=['metadata','stat'])  ## should be in r.__loader_attributes__??
         self.cmp = c.loader(attribute=['metadata','stat'])
         
         if save:

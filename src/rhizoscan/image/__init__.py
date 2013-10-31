@@ -274,16 +274,18 @@ class Image(_np.ndarray, _Data):
         
         return loader
         
-    def loader(self):
-        """
-        Return an empty Image which allow to load the image using load()
-        
-        *** if this Image has no associated file, it won't be able to load ***
-        """
-        loader = _np.array([],dtype=self.dtype).view(Image)
-        loader.color  = self.color
-        loader.set_storage_entry(self.get_storage_entry())
-        return loader
+    ##def loader(self):
+    ##    """
+    ##    Return an empty Image which allow to load the image using load()
+    ##    
+    ##    *** if this Image has no associated file, it won't be able to load ***
+    ##    """
+    ##    loader = Data.loader(self)
+    ##    #loader.color  = self.color
+    ##    #loader = _np.array([],dtype=self.dtype).view(Image)
+    ##    #loader.set_storage_entry(self.get_storage_entry())
+    ##    #loader.__io_mode__ = 'r:loader'
+    ##    return loader
         
     ## __store/restore__ : return serialized stream ?
     #def __store__(self):
@@ -310,7 +312,7 @@ class Image(_np.ndarray, _Data):
         desc += ')'
         return desc
 
-# Image first parent is numpy.ndarray, but dump (&load) should be taken from Data
+# Image first parent is numpy.ndarray but it should inherite dump&load from Data
 Image.dump = _Data.dump
 Image.load = _Data.load
 

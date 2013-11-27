@@ -74,6 +74,15 @@ class Image(_np.ndarray, _Data):
             
         self.color = detect_color_space(self)
         self.__dict__.setdefault('info',        {}) ## still there?
+    def __array_wrap__(self, obj):
+        """
+        ufunc output wrapping that return scalar dtype when they actually are
+        see http://stackoverflow.com/questions/19223926
+        """
+        if obj.shape == ():
+            return obj[()]
+        else:
+            return _np.ndarray.__array_wrap__(self, obj)
         
     def __init__(self, array_or_file, color=None, dtype=None, from_color=None, scale='dtype', info={}):
         """ create an image objectr form numpy array or file name  """

@@ -461,7 +461,7 @@ class Mapping(Data):
         self.__dict__[key] = value
         if store:
             self.__map_storage__.set_data(key, value)
-            self.__map_keys__.append(key)
+            self.__map_keys__.add(key)
             Data.set_storage_entry(value,self.__map_storage__.get_entry(key)) ## wrong method!
         return self
     def setdefault(self,key, value=None):
@@ -475,7 +475,10 @@ class Mapping(Data):
         
         Note: this method simply calls `__getitem__`
         """
-        return self.__dict__.get(key,default)
+        if not self.__dict__.has_key(key):
+            return default
+        else:
+            return self.__getattribute__(key)
     def pop(self,key,default=None):
         """ remove `key` and return its value or default if it doesn't exist' """ 
         return self.__dict__.pop(key,default)
@@ -583,7 +586,7 @@ class Mapping(Data):
         if not isinstance(storage, _MapStorage) and storage is not None:
             storage = _MapStorage(storage)
         self.__map_storage__ = storage
-        self.__map_keys__ = keys
+        self.__map_keys__ = set(keys)
         
     def load(self, filename=None, overwrite=True):
         """
@@ -682,24 +685,24 @@ class Mapping(Data):
 
     # numerical comparison
     # --------------------
-    def __cmp__(s1,s2):
+    def __cmp__(self,other):
         """ x.__cmp__(y) <==> cmp(x,y) """ 
-        return s1.__dict__.__cmp__(getattr(s2,'__dict__',s2))
-    def __eq__(s1,s2):
+        return self.__dict__.__cmp__(getattr(other,'__dict__',other))
+    def __eq__(self,other):
         """ x.__eq__(y) <==> x==y """
-        return s1.__dict__.__eq__(getattr(s2,'__dict__',s2))
-    def __lt__(s1,s2):
+        return self.__dict__.__eq__(getattr(other,'__dict__',other))
+    def __lt__(self,other):
         """ x.__lt__(y) <==> x<y """
-        return s1.__dict__.__lt__(getattr(s2,'__dict__',s2))
-    def __le__(s1,s2):
+        return self.__dict__.__lt__(getattr(other,'__dict__',other))
+    def __le__(self,other):
         """ x.__le__(y) <==> x<=y """
-        return s1.__dict__.__le__(getattr(s2,'__dict__',s2))
-    def __gt__(s1,s2):
+        return self.__dict__.__le__(getattr(other,'__dict__',other))
+    def __gt__(self,other):
         """ x.__gt__(y) <==> x>y """
-        return s1.__dict__.__gt__(getattr(s2,'__dict__',s2))
-    def __ge__(s1,s2):
+        return self.__dict__.__gt__(getattr(other,'__dict__',other))
+    def __ge__(self,other):
         """ x.__ge__(y) <==> x>=y """
-        return s1.__dict__.__ge__(getattr(s2,'__dict__',s2))
+        return self.__dict__.__ge__(getattr(other,'__dict__',other))
         
 @_node("key-value", auto_caption=1)
 def get_key(data={}, key='metadata', default=None):

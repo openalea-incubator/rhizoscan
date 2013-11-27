@@ -42,23 +42,6 @@ from rhizoscan.root.image.seed import detect_leaves  as _detect_leaves
        
 # image segmentation
 # ------------------
-##def _save_segment_image(filename, rmask, bbox):
-##    # save the mask, and bbox
-##    bb = [(bbox[0].start,bbox[0].stop),(bbox[1].start,bbox[1].stop)]
-##    _Image(rmask).save(filename, dtype='uint8', scale=255, pnginfo=dict(bbox=bb))
-##    
-##def _load_segment_image(filename):
-##    rmask = _Image(filename, dtype=bool)
-##    bbox  = rmask.info.pop('bbox')
-##    bbox = literal_eval(bbox)
-##    bbox = map(lambda x: slice(*x),bbox)
-##    return rmask, bbox
-##    
-##@_savable_node('rmask', 'bbox',
-##    save_fct=_save_segment_image,
-##    load_fct=_load_segment_image,
-##    suffix='_mask.png',
-##    hidden=['min_dimension','smooth', 'verbose'])
 @_node('rmask','bbox', hidden=['min_dimension','smooth', 'verbose'])
 def segment_image(image, pmask, root_max_radius=15, min_dimension=50, smooth=1, verbose=False):
     #pmask = _nd.binary_erosion(pmask==pmask.max(), iterations=
@@ -97,16 +80,6 @@ def segment_image(image, pmask, root_max_radius=15, min_dimension=50, smooth=1, 
     
 # detect leaves:
 # --------------
-##def _save_detect_leaves(filename, seed_map):
-##    _Image(seed_map).save(filename, dtype='uint8', scale=25)  ## max 10 plants!
-##def _load_detect_leaves(filename):
-##    return _Image(filename, dtype='uint8', scale = 1./25), 
-##    
-##@_savable_node('rmask', 'bbox',
-##    save_fct=_save_detect_leaves,          
-##    load_fct=_load_detect_leaves,
-##    suffix='_seed.png',
-##    hidden=['sort'])
 @_node('seed_map', hidden=['sort'])
 def detect_leaves(rmask, image, bbox, plant_number=1, root_min_radius=3, leaf_height=[0,.2], sort=True):
     seed_map = _detect_leaves(mask=rmask, image=image[bbox], leaf_number=plant_number, root_radius=root_min_radius, leaf_height=leaf_height, sort=sort) ##
@@ -119,11 +92,4 @@ def detect_leaves(rmask, image, bbox, plant_number=1, root_min_radius=3, leaf_he
             segment_image, detect_leaves,
             compute_graph, compute_tree])
 def pipeline(): pass
-# pipeline of all root image analysis modules
-#@_pipeline_node([frame_detection, image_segmentation, leaves_detection, root_graph, root_tree])
-#def pipeline(): pass                             
-
-
-#@_pipeline_node([frame_detection2, image_segmentation, leaves_detection, root_graph, root_tree])
-#def pipeline2(): pass
 

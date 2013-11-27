@@ -73,16 +73,6 @@ from rhizoscan.root.image.to_graph import linear_label as _linear_label
 from rhizoscan.root.image.to_graph import image_graph  as _image_graph
 from rhizoscan.root.image.to_graph import line_graph   as _line_graph
 
-##def load_graph(filename, tree=False):
-##    graph = _Data.load(filename)
-##    if tree and not hasattr(graph, 'axe'):
-##        return None # induce computing but no error message
-##    return graph
-##    
-##@_savable_node('graph',
-##    load_fct=load_graph,  load_kargs=dict(tree=False),
-##    suffix='.tree',
-##    hidden=['verbose'])
 @_node('graph',hidden=['verbose'])
 def compute_graph(rmask, seed_map, bbox=None, verbose=False):
     _print_state(verbose,'compute mask linear decomposition')
@@ -107,12 +97,7 @@ def compute_graph(rmask, seed_map, bbox=None, verbose=False):
     
 # axial tree extraction from root graph
 # -------------------------------------
-##@_savable_node('tree',
-##    load_fct=load_graph,  load_kargs=dict(tree=True),
-##    suffix='.tree',
-##    hidden=['to_tree','to_axe','metadata','px_scale', 'verbose'])
-@_node('tree', hidden=['axe_selection','metadata','px_scale', 'verbose'])
-#@_node('tree', hidden=['to_tree','to_axe','metadata','px_scale', 'verbose'])
+@_node('tree')
 def compute_tree(graph, px_scale=1, axe_selection=[('length',1),('min_tip_length',10)], metadata={}):
     #def compute_tree(graph, px_scale=1, to_tree=2, to_axe=2, metadata={}):
     #tree = _RootAxialTree(node=graph.node, segment=graph.segment, to_tree=to_tree, to_axe=to_axe)

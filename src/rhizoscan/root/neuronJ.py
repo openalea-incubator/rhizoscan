@@ -223,37 +223,33 @@ def load_ref_trees(p):
         
 # ------ pipeline stuff ------ 
 # ----------------------------
-def parse_refdata_db(ini_file, output='tree', overwrite=False, verbose=True):
+def make_ref_dataset(ini_file, output='tree', overwrite=False, verbose=1):
     from os.path import splitext, join, exists
     from .pipeline.dataset import make_dataset 
     
-    flist, invalid, out_dir = make_dataset(ini_file=ini_file, output=output)
+    rds, invalid, out_dir = make_dataset(ini_file=ini_file, output=output)
     
-    if verbose:
+    if verbose>1:
         print '\033[31m ---- invalid files: ----'
         for i in invalid: print ':'.join(i[:2]), '\n    '+ i[2]
         print ' ------------------------\033[30m'
+     
+    for i,ref in enumerate(rds):
+        if not overwrite and ref.get_storage_entry().exists() and ref.load().has_key('tree'): continue
         
-    T = []
-    for f in flist:
-        njFile = splitext(f.filename)[0]+'.ndf'
-        trFile = f.output+'.tree'
-        if overwrite or not exists(trFile):
-            if verbose:
-                print 'converting file', njFile
-            meta = f.metadata
+        ref.ref_file = splitext(ref.filename)[0]+'.ndf'
+        if verbose:
+            print 'converting file', ref.ref_file
+            meta = ref.metadata
             if hasattr(meta,'scale'): scale = meta.scale
             else:                     scale = 1 
-            tree   = NJ_loader(njFile).to_tree(scale)[-1]
+            tree = NJ_loader(ref.ref_file).to_tree(scale)[-1]
             tree.metadata = meta
-            tree.dump(trFile)
-        T.append(trFile)
+            ref.set('tree',tree,store=True)
+            ref.__loader_attributes__ = ['metadata','filename']
+            rds[i] = ref.dump()
         
-    T = Sequence(files=T)
-    T.set_storage_entry(join(out_dir,output+'.db'))
-    T.dump()
-        
-    return flist, invalid, out_dir, T
+    return rds, invalid, out_dir
     
 def load_db_with_ref(auto, ref, auto_out='tree', ref_out='tree'):
     """
@@ -272,7 +268,7 @@ def load_db_with_ref(auto, ref, auto_out='tree', ref_out='tree'):
             return x
 
     auto, inv, auto_dir = make_dataset(auto,output=auto_out)
-    ref,  inv, ref_dir  = parse_refdata_db(ref,output=ref_out, verbose=False)[:3]
+    ref,  inv, ref_dir  = make_ref_dataset(ref,output=ref_out, verbose=False)
     auto = dict([(to_key(a.metadata),a) for a in auto])
     auto = [auto[to_key(r.metadata)] for r in ref]
     

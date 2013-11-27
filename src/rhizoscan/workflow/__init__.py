@@ -231,6 +231,8 @@ class node(object):
         if len(stored_data):   ## ... this should be done another way ... 
             for oname, ovalue in outputs.iteritems():
                 namespace.set(oname,ovalue,store=oname in stored_data)
+            if hasattr(namespace,'dump') and getattr(namespace,'__storage_entry__',None):
+                namespace.dump()
         else:
             namespace.update(outputs)
         return namespace
@@ -561,26 +563,6 @@ class Pipeline(object):
             node.run(n, namespace=namespace, stored_data=stored_data)
                 
         return namespace
-
-        ##func_name  = node.get_attribute(function, 'name')
-        ##
-        ##if namespace is None: namespace = dict()
-        ##namespace.update(kargs) 
-        ##if update    is None: update = node.update_required(function, namespace)
-        ##                                 
-        ### compute the data
-        ##if update:
-        ##    _print_state(verbose, 'Running function '+func_name)
-        ##    fct = node.get_function(function) # for special node types
-        ##    inputs,missing = node.get_input_arg(function, namespace)
-        ##    if len(missing):
-        ##        raise TypeError(func_name + ": Required argmument '" + "','".join(missing) + "' not found")
-        ##    outputs = fct(**inputs)
-        ##    outputs = node.format_outputs(function, outputs)
-        ##else:
-        ##    outputs = dict((o['name'],namespace.get(o['name'])) for o in node.get_attribute(function, 'outputs'))
-        ##
-        ##return outputs
 
     def _nodes_to_compute(self,compute, update, namespace):
         """

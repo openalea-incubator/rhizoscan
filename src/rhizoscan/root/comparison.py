@@ -2,6 +2,7 @@ import numpy as np
 import scipy.ndimage as nd
 
 from rhizoscan.workflow import node as _node # to declare workflow nodes
+from rhizoscan.ndarray  import unravel_indices as _unravel
 from rhizoscan.datastructure  import Mapping as _Mapping
 
 from rhizoscan.root.measurements import compute_tree_stat
@@ -13,19 +14,41 @@ class TreeCompare(_Mapping):
         """
         Allow to compare a reference tree with the compared one.
         
-        
-        
         :Input:
-          - reference: a reference tree
-          - compared:  a compared tree
+          - reference: loader object to a reference tree
+          - compared:  loader object to a compared tree
           - image:     optional related image - or image filename
-          - filename:  optional file to save this TreeCompare object 
+          - filename:  optional file to save this TreeCompare object
+                       If given, automatically saves constructed object
         """
-        self.ref = reference.loader(attribute='metadata')  ## should be in reference.__loader_attributes__
-        self.cmp = compared .loader(attribute='metadata')  ## same for compared
+        self.ref = reference
+        self.cmp = compared 
         self.img = image
         
-        # match_tree
+        # set save filename
+        if filename:
+            self.set_storage_entry(filename)
+            self.dump()
+        
+    def match_plants(self, max_distance=None):
+        """
+        Find a 1-to-1 matching between ref & cmp trees from geometric distance of the seeds.
+        
+        It adds the following attributes to this  object:
+         - plant_map: a dictionary of (ref-plant-id:cmp-plant-id) pairs
+         - plant_missed: the number of unmatched plants
+        
+        This method loads the ref&cmp trees - call `clear()` to unload them.
+        """
+        def distance_matrix(x1,y1,x2,y2):
+            x1 = x1.reshape(-1,1)
+            y1 = y1.reshape(-1,1)
+            x2 = x2.reshape(1,-1)
+            y2 = y2.reshape(1,-1)
+            return ((x1-x2)**2 + (y1-y2)**2)**.5
+
+        # match root plant w.r.t seed position 
+        # ------------------------------------
         def seed_position(t):
             """
             output: plant-id, x, y
@@ -43,37 +66,42 @@ class TreeCompare(_Mapping):
             
             return pid,x,y
             
-        def distance_matrix(x1,y1,x2,y2):
-            x1 = x1.reshape(1,-1)
-            y1 = y1.reshape(1,-1)
-            x2 = x2.reshape(-1,1)
-            y2 = y2.reshape(-1,1)
-            return ((x1-x2)**2 + (y1-y2)**2)**.5
-
-        rpid, rx, ry = seed_position(reference)
-        cpid, cx, cy = seed_position(compared)
+        rpid, rx, ry = seed_position(self.ref)
+        cpid, cx, cy = seed_position(self.cmp)
         
-        #max_d = np.max(distance_matrix(rx,ry,rx,ry))
         d = distance_matrix(rx,ry,cx,cy)
-        s1 = set(zip(range(d.shape[0]),np.argmin(d,axis=1)))
-        s2 = set(zip(np.argmin(d,axis=0),range(d.shape[0])))
+        ##s1 = set(zip(range(d.shape[0]),np.argmin(d,axis=1)))
+        ##s2 = set(zip(np.argmin(d,axis=0),range(d.shape[1])))
+        ##match = s1.intersection(s2)
+        match,r_unmatch,c_unmatch = direct_matching(d,max_d=max_distance)
         
-        self.plant_map = dict((rpid[p1],cpid[p2]) for p1,p2 in s1.intersection(s2))
-        self.plant_missed = rpid.size - len(self.plant_map)
+        self.mapping = _Mapping()
+        self.mapping.plant = dict((rpid[p1],cpid[p2]) for p1,p2 in match)
+        self.mapping.plant_missed_ref = [rpid[i] for i in r_unmatch]
+        self.mapping.plant_missed_cmp = [cpid[i] for i in c_unmatch]
         
-        # set save filename
-        self.set_storage_entry(filename)
+        # match root axes w.r.t to axe first node
+        # ---------------------------------------
+        ##todo
+        
         
     def compute_stat(self, stat_names='all', mask=None, save=True):
-        r = self.ref.load(merge=False)
-        c = self.cmp.load(merge=False)
-        compute_tree_stat(r, stat_names=stat_names, mask=mask)
-        compute_tree_stat(c, stat_names=stat_names, mask=mask)
-        self.ref = r.loader(attribute=['metadata','stat'])  ## should be in r.__loader_attributes__??
-        self.cmp = c.loader(attribute=['metadata','stat'])
+        """
+        Compute trees statistices listed in `stat_names`
+        save (dump) it-self if `save`is True.
+        ## forgot what `mask` is. check root.measurements
         
+        This method loads the ref&cmp trees - call `clear()` to unload them.
+        """
+        compute_tree_stat(self.ref, stat_names=stat_names, mask=mask)
+        compute_tree_stat(self.cmp, stat_names=stat_names, mask=mask)
         if save:
             self.dump()
+           
+    def clear(self):
+        """ replace trees by their loader """
+        if not _Mapping.is_loader(self.__dict__['ref']): self.ref = self.ref.loader()
+        if not _Mapping.is_loader(self.__dict__['cmp']): self.cmp = self.cmp.loader()
 
 
 # statistical root tree comparison
@@ -95,18 +123,28 @@ class TreeCompareSequence(_Mapping):
         # create list of TreeCompare objects
         from itertools import izip
         if image:
-            self.tc_list = [TreeCompare(r,c,i) for r,c,i in izip(reference,compared,image)] 
+            self.tc_list = [TreeCompare(r,c,i) for r,c,i in izip(reference,compared,image)]
         else:
             self.tc_list = [TreeCompare(r,c)   for r,c   in izip(reference,compared)]
             
-        # compute number of matched tree and unmatched ones
-        self.matched_number   = sum(len(tc.plant_map) for tc in self.tc_list)
-        self.unmatched_number = sum(tc.plant_missed   for tc in self.tc_list)
-        
         if filename:
             self.set_storage_entry(filename)
             self.dump()
 
+    def match_plants(self, max_distance=None, save=True):
+        """ ##consider doing the match directly through compute_stat """
+        for tc in self.tc_list:
+            tc.match_plants(max_distance=max_distance)
+            tc.clear()
+        # compute number of matched tree and unmatched ones
+        self.matched_number   = sum(len(tc.mapping.plant) for tc in self.tc_list)
+        self.matched_ref_miss = sum(len(tc.mapping.plant_missed_ref) for tc in self.tc_list)
+        self.matched_cmp_miss = sum(len(tc.mapping.plant_missed_cmp) for tc in self.tc_list)
+        #self.unmatched_number = sum(tc.plant_missed   for tc in self.tc_list)
+        
+        if save:
+            self.dump()
+        
     def compute_stat(self, stat_names='all', mask=None, save=True):
         for tc in self.tc_list: 
             tc.compute_stat(stat_names=stat_names, mask=mask, save=tc.get_storage_entry() is not None)
@@ -193,22 +231,93 @@ def plot(self, stat='axe1_length', title=None, prefilter=None, split=None, legen
         
         ax.tree_data = _Mapping(stat=stat, trees=meta, x=refs, y=cmps) ##tree=>meta?
 
-def tree_compare_from_db(reference, compared, tree_suffix='.tree', filename=None):
+def make_tree_compare(reference, compared, keys=None, storage_entry=None, verbose=False):
+    """
+    `reference` and `compared` are 2 list of dataset. They should
+     - contain a 'metadata' attribute
+     - be loader object (see datastructure.Data)
+     - (once loaded) have the 'tree' attribute
+     
+    `keys` is a list of the metadata attributes used to match dataset elements
+    if None, use all metadata
+    """
     from .pipeline.dataset import get_column
     # remove extra element of 'compared'
-    def to_key(x):
-        return x.multilines_str(max_width=2**60)#repr(to_tuple(x))
+    if keys:
+        def multiget(x,multiattr): 
+            return reduce(lambda a,b: getattr(a,b,None), multiattr.split('.'), x)
+        def to_key(x):
+            return tuple(map(lambda attr: repr(multiget(x,attr)), keys))
+    else:
+        def to_key(x):
+            return repr(x)##x.multilines_str(max_width=2**60)#repr(to_tuple(x))
+    
+    ##for r in reference:
+    ##    print to_key(r.metadata)
+    ##raise Exception()
     compared = dict([(to_key(c.metadata),c) for c in compared])
-    compared = [compared[to_key(r.metadata)] for r in reference]
+    compared = [compared.get(to_key(r.metadata),None) for r in reference]
 
-    # create tree list
-    reference = get_column(reference, suffix=tree_suffix)
-    compared  = get_column(compared,  suffix=tree_suffix)
+    # find tree that are not found
+    missing = []
+    image = []
+    ref = []
+    cpr = []
+    for r,c in zip(reference,compared):
+        rt = r.load().__dict__.get('tree', None)
+        ct = c.load().__dict__.get('tree', None)
+        if rt and ct:
+            if verbose: print 'adding trees for', c.filename
+            image.append(c.filename)
+            ref.append(rt)
+            cpr.append(ct)
+        else:
+            if verbose: print 'unavailable trees for', c.filename
+            missing.append(c.filename)
+    #return ref,cpr,missing
+            
+    return TreeCompareSequence(reference=ref, compared=cpr, image=image, filename=storage_entry), missing
 
-    return TreeCompareSequence(reference=reference, compared=compared, filename=filename)
 
-
-
+# simple matching from distance matrix
+# ------------------------------------
+def direct_matching(d, max_d=None):
+    """
+    compute a simple 1-to-1 match from distance matrix `d`
+    
+    Iteratively select the match `(i,j)` with minimum distance in `d` but only 
+    if `i` (from 1st dim) and `j`(from 2nd dim) are not already matched.
+    
+    If `max_d` is not None, don't match pairs with distance > `max_d`
+    
+    Return:
+    
+      - the list match pairs [(i0,j0),(i1,j1),...]
+      - the list of unmatch i
+      - the list of unmatch j
+      
+    example::
+      
+      d = np.ranom.randint(0,10,5,4)
+      m,i,j = direct_match(d)
+      print '\n'.join(str(ij)+' matched with d='+str(di) for ij,di in zip(m,d[zip(*m)]))
+    """
+    ni,nj = d.shape
+    ij = _unravel(d.ravel().argsort().tolist(),d.shape)
+    d  = np.sort(d.ravel()).tolist()
+    
+    if max_d is None: max_d=d[-1]
+    
+    match = []
+    mi = set()
+    mj = set()
+    for (i,j),dij in zip(ij,d):
+        if dij>max_d or i in mi or j in mj: continue
+        match.append((i,j))
+        mi.add(i)
+        mj.add(j)
+        
+    return match, mi.symmetric_difference(range(ni)), mj.symmetric_difference(range(nj))
 
 
 # topological and geometrical tree comparison

@@ -41,7 +41,7 @@ def remove_background(input_seq, output, distance, smooth=1):
     
     print_start = '  filtering image% '+str(int(_np.ceil(_np.log(len(input_seq)/_np.log(10)))))+ 'd: [...]'
     for i,img in enumerate(input_seq):
-        print print_start % i + sep.join(img.get_storage_entry().rsplit(sep)[-2:])
+        print print_start % i + sep.join(img.get_file().rsplit(sep)[-2:])
         img = remove_background(img,distance=distance,smooth=smooth)
         #img -= img.min()
         img /= img.max()
@@ -79,7 +79,7 @@ def segment_root_image(seq, output, mask=None, scale=1, min_dimension=5):
     
     print_start = '  segmenting image% '+str(int(_np.ceil(_np.log(len(seq)/_np.log(10)))))+ 'd:'
     for i,img in enumerate(seq):
-        print print_start % i + sep.join(img.get_storage_entry().rsplit(sep)[-2:])
+        print print_start % i + sep.join(img.get_file().rsplit(sep)[-2:])
         mask[i] = segment(img,mask=mask[i])
         
     mask.set_input()
@@ -122,7 +122,7 @@ def segment_root_in_petri_frame(seq, output, plate_border=0.06, plate_width=1, m
     
     print_start = '  segmenting image% '+str(int(_np.ceil(_np.log(len(seq)/_np.log(10)))))+ 'd:'
     for i,img in enumerate(seq):
-        print print_start % i + sep.join(img.get_storage_entry().rsplit(sep)[-3:])
+        print print_start % i + sep.join(img.get_file().rsplit(sep)[-3:])
         c,T,bbx = segment(img,plate_border=plate_border, plate_width=plate_width, min_dimension=min_dimension)
         cluster[i] = c
         transform[i] = T
@@ -164,7 +164,7 @@ def segment_root_in_circle_frame(seq, output, n=4, pixel_size=1, min_dimension=5
     
     print_start = '  segmenting image% '+str(int(_np.ceil(_np.log(len(seq)/_np.log(10)))))+ 'd:'
     for i,img in enumerate(seq):
-        print print_start % i + sep.join(img.get_storage_entry().rsplit(sep)[-3:])
+        print print_start % i + sep.join(img.get_file().rsplit(sep)[-3:])
         c,T,bbx = segment(img, n=n, pixel_size=pixel_size, min_dimension=min_dimension)
         cluster[i] = c
         transform[i] = T
@@ -198,7 +198,7 @@ def mask_to_rootgraph(mask, image, mapgraph_out, plgraph_out):
        
     print_start = '  making graph from image % '+str(int(_np.ceil(_np.log(len(mask)/_np.log(10)))))+ 'd:'
     for i,m in enumerate(mask):
-        print print_start % i + sep.join(m.get_storage_entry().rsplit(sep)[-3:])
+        print print_start % i + sep.join(m.get_file().rsplit(sep)[-3:])
         smap,sskl,nskl,seed = linear_label(m!=0)  ## seed added
         g = RootGraph.init_from_maps(smap=smap, nmap=nskl, sskl=sskl, image=image[i], compute=compute)
         mpgraph_seq[i] = g
@@ -239,7 +239,7 @@ class RootSequence(_Mapping):
         if not os.path.exists(directory):
             os.mkdir(directory)
         self.__outdir = os.path.abspath(directory)
-        self.set_storage_entry(os.path.join(directory,'root_sequence.data'))
+        self.set_file(os.path.join(directory,'root_sequence.data'))
         
     @_append_doc(remove_background)
     def remove_background(self, root_max_width, input='input', output='image'):

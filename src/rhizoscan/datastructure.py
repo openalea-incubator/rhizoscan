@@ -20,15 +20,15 @@ from copy   import copy as _copy
 
 from .tool     import static_or_instance_method, _property 
 from .workflow import node as _node # to declare workflow nodes
-from .storage  import create_entry as _create_entry
-from .storage  import MapStorage  as _MapStorage
+from .storage  import FileObject as _FileObject
+from .storage  import MapStorage as _MapStorage
 
 class Data(object):
     """ 
     Basic Data class: provide automated storage IO operation
     
     The Data class has two aims:
-      1) It can be used to relate some data to a storage entry (eg. file), and 
+      1) It can be used to relate some data to a FileObject (eg. a file), and 
          use the Data saving and loading interface (pickle based).
          See the constructor documentation for details.
       2) It can be used as a superclass in order to get the IO functionalities
@@ -94,58 +94,58 @@ class Data(object):
     ## - make a static method / function isValidData(...) that check if the 
     ##   right attribute exist 
     
-    def __init__(self, storage_entry=None, serializer=None):
+    def __init__(self, file_url=None, serializer=None):
         """                      
-        Create an empty Data object that can be related to `storage_entry`
+        Create an empty Data object that can be related to `file_url`
         
-        `storage_entry` can be a filename, a valid url string or a 
-        `datastructure.StorageEntry` object.
+        `file_url` can be a filename, a valid url string or a 
+        `storage.FileObject` object.
         
         See `datastructure.storage` documentation. 
         """
-        self.set_storage_entry(storage_entry)
+        self.set_file(file_url)
         self.set_serializer(serializer)
         
     @static_or_instance_method
-    def set_storage_entry(self, storage_entry):
+    def set_file(self, file_url):
         """
-        set the storage entry of thei object
+        set the FileObject of this Data object
         
-        `storage_entry` can be either:
-          - a filename, url string or a StorageEntry
+        `file_url` can be either:
+          - a filename, url string or a FileObject
           - None, to remove storage link
-          - -1 for (attempted) removale of the storage entry (i.e file)
+          - -1 for (attempted) removale of the file
           
-        See `datastructure.storage` documentation. 
+        See `storage` documentation. 
         """
-        ## check if entry already set or taken: what to do?  
-        if storage_entry is None:
+        ## if file obj is already used: what to do?  
+        if file_url is None:
             pass
-        elif storage_entry==-1:
-            old_entry = self.get_storage_entry()
-            if old_entry:
-                old_entry.remove()
-            storage_entry = None
-        if storage_entry is not None:
-            storage_entry = _create_entry(storage_entry) 
+        elif file_url==-1:
+            old_file = self.get_file()
+            if old_file:
+                old_file.remove()
+            file_url = None
+        if file_url is not None and not isinstance(file_url,_FileObject):
+            file_url = _FileObject(file_url) 
             
-        self.__storage_entry__ = storage_entry
+        self.__file_object__ = file_url
         
     @static_or_instance_method
-    def get_storage_entry(self):
+    def get_file(self):
         """
         return the file of this data for saving and loading
         """
-        return getattr(self,'__storage_entry__',None)
+        return getattr(self,'__file_object__',None)
     
     @staticmethod
     def has_IO_API(obj):
         """
         Test if given `obj` has the Data I/O API:
-        if it has the attributes `set_storage_entry`, `get_storage_entry`,
+        if it has the attributes `set_file`, `get_file`,
         `dump` and `load`.
         """
-        return all(map(hasattr,[obj]*4, ['set_storage_entry','get_storage_entry','dump','load']))
+        return all(map(hasattr,[obj]*4, ['set_file','get_file','dump','load']))
     @staticmethod
     def has_store_API(obj):
         """
@@ -179,28 +179,28 @@ class Data(object):
         return getattr(obj_or_self,'__serializer__',None)
         
     @static_or_instance_method                           
-    def dump(data, entry=None):
+    def dump(data, file_object=None):
         """ 
-        Save input `data` to `entry` (which can be a file name) 
+        Save input `data` to `file_object` (which can be a file name) 
 
         This method can either be called as a:
-          1. static   method:  Data.dump(non_Data, entry,      protocol=None)
-          2. static   method:  Data.dump(Data_Obj, entry,      protocol=None)
-          3. instance method:  someDataObject.dump(entry=None, protocol=None)
+          1. static   method:  Data.dump(non_Data, file_object,   protocol=None)
+          2. static   method:  Data.dump(Data_Obj, file_object,   protocol=None)
+          3. instance method:  someDataObj.dump(file_object=None, protocol=None)
         
         If the 1st argument has the "store" API, this function saves the value
         returned by its `__store__` method.
        
         :Inputs:
-          - `entry`
-            Can be either a `StorageEntry` object, a `url` or a path to a file.
-            If it is not a StorageEntry, the value of `entry` is passed to 
-            `storage.create_entry()` (see create_entry doc)
+          - `file_object`
+            Can be either a `FileObject` instance or the url of a file.
+            If it is not a FileObject, the value of `file_object` is passed to 
+            `storage.FileObject()` (see FileObject doc)
             
-            In the case (1), `entry` argument is mandatory. 
-            In the case (2) and (3),  if `entry` is not given (None) the 
-            instance Data `storage_entry` attribute is used. In this case, 
-            `entry` becomes the `storage_entry` attribute of `data`.
+            In the case (1), `file_object` argument is mandatory. 
+            In the case (2) and (3),  if `file_object` is not given (None) the 
+            instance Data `__file_object__` attribute is used. In this case, 
+            `file_object` becomes the `__file_object__` attribute of `data`.
         
         :Outputs:
             Return an empty Data object that can be use to load the stored data
@@ -209,28 +209,28 @@ class Data(object):
             raise IOError("This Data object is not writable. mode is {}".format(getattr(data,'__io_mode__')))
         
         io_api = Data.has_IO_API(data)
-        if entry is None:
+        if file_object is None:
             if io_api:
-                entry = data.get_storage_entry()
+                file_object = data.get_file()
             else:
-                raise TypeError("argument 'entry' should be given when 'data' does not have an associated storage entry")
+                raise TypeError("argument 'file_object' should be given when 'data' does not have the __file_object__ attribute")
 
         if io_api:
-            data.set_storage_entry(entry)
-            entry = data.get_storage_entry()
-        else:
-            entry = _create_entry(entry)
+            data.set_file(file_object)
+            file_object = data.get_file()
+        elif not isinstance(file_object, _FileObject):
+            file_object = _FileObject(file_object)
             
         if Data.has_store_API(data): to_store = data.__store__()
         else:                        to_store = data
         
         serializer = Data.get_serializer(data)
-        entry.save(to_store, serializer=serializer)
+        file_object.save(to_store, serializer=serializer)
         
         if io_api and hasattr(data,'loader'): 
             return data.loader()
         else:
-            return Data(entry).loader()  ## if lookup in 'Data'base => equiv to return self
+            return Data(file_object).loader()  ## if lookup in 'Data'base => equiv to return self
         
     @static_or_instance_method
     def load(url_or_data, merge=False): ## remove merge option
@@ -255,8 +255,8 @@ class Data(object):
           - if the caller and loaded data are Data objects and if `merge` = True
             it changes  the instance `__class__` attribute with the loaded one.
           
-        If the output is a Data object, then its storage entry attribute is set
-        to the loaded url
+        If the output is a Data object, then its __file_object__ attribute is
+        set with the loaded url
           
         :Subclassing:
         
@@ -267,11 +267,11 @@ class Data(object):
         data = url_or_data  # for readibility
         
         if Data.has_IO_API(data):
-            entry = data.get_storage_entry()
+            file_object = data.get_file()
         else:
-            entry = _create_entry(data)
+            file_object = _FileObject(data)
             
-        d = entry.load(serializer=Data.get_serializer(data))
+        d = file_object.load(serializer=Data.get_serializer(data))
         
         if Data.has_store_API(d):
             d = d.__restore__()
@@ -284,7 +284,7 @@ class Data(object):
             data = d
             
         if Data.has_IO_API(data):  ## if hasattr(data,'__dict__'): ??
-            data.set_storage_entry(entry)
+            data.set_file(file_object)
            
         if Data.is_loader(data):
             io_mode = getattr(data,'__io_mode__','').split(':')[-1]
@@ -329,10 +329,10 @@ class Data(object):
     def __parent_store__(self):
         """
         Return what should be stored by (parent) container:
-          - self.__restore__ if it has no storage entry set
-          - it's loader if it does
+          - self.__store__() if it has no __file_object__ set
+          - its loader if it does
         """
-        if self.get_storage_entry() is None:
+        if self.get_file() is None:
             return self.__store__()
         else:
             return self.loader()
@@ -344,9 +344,9 @@ class Data(object):
         If this object has a `__loader_attributes__`, it should contain a list 
         of attribute names that are added the the loader attributes
         
-        *** if the object has no associated entry, it won't be able to load ***
+        *** if the object has no __file_object__ set, the loader won't load ***
         """
-        loader = Data(storage_entry=self.get_storage_entry(),serializer=self.get_serializer())
+        loader = Data(file_url=self.get_file(),serializer=self.get_serializer())
         loader.__io_mode__ = 'loader:' + getattr(self,'__io_mode__','')
         loader.__load_class__ = self.__class__
         for attr in getattr(self,'__loader_attributes__',[]):
@@ -362,7 +362,7 @@ class Data(object):
         else:
             cls = self.__class__
             cls = cls.__module__ +'.'+ cls.__name__
-        return  cls + ' with file: ' + str(self.get_storage_entry())
+        return  cls + ' with file: ' + str(self.get_file())
             
 
             
@@ -406,7 +406,7 @@ class Mapping(Data):
          
     Storage:
     --------
-     1. Mapping are Data objects and have the attribut `_Data__entry` 
+     1. Mapping are Data objects and have the attribut `__file_object__` 
         reserved. Overwriting it will induce failure of IO functionalities.
      2. Mapping can be use as a container through the `set_container` method,
         then using the function `set` and  `get` (see docs for details)
@@ -462,7 +462,7 @@ class Mapping(Data):
         if store:
             self.__map_storage__.set_data(key, value)
             self.__map_keys__.add(key)
-            Data.set_storage_entry(value,self.__map_storage__.get_entry(key)) ## wrong method!
+            Data.set_file(value,self.__map_storage__.get_file(key)) ## wrong method!
         return self
     def setdefault(self,key, value=None):
         """ 
@@ -630,7 +630,7 @@ class Mapping(Data):
     def __str__(self):
         #from pprint import pformat
         #return pformat(self.__dict__)
-        #return "length %d %s object with associated file: %s" % (len(self), self.__class__.__name__, self.get_storage_entry()) # self.multilines_str()
+        #return "length %d %s object with associated file: %s" % (len(self), self.__class__.__name__, self.get_file()) # self.multilines_str()
         cls_name = self.__class__.__module__ + '.' + self.__class__.__name__
         return cls_name+":"+str(self.__dict__)
     def display(self, tab=0, max_width=80, avoid_obj_id=None):
@@ -918,7 +918,7 @@ class Sequence(Data):
             
         # save data and buffer it
         if self.auto_save: self._save_item_(filename,data)
-        if isinstance(data,Data): data.set_storage_entry(filename)
+        if isinstance(data,Data): data.set_file(filename)
         self._set_buffer_item_(data,index)
         
         # add this file to the file list

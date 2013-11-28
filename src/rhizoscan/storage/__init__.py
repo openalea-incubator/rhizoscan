@@ -1,16 +1,17 @@
 """
 Implement I/O functionalities, mostly for Data class and subclass
 
-StorageEntry (abstact) and subclasses: 
-    classes that make the interface to some storage entry
-        implement __init__(url), open('r'|'w'), read, write and close()
+FileObject: 
+    classes that make the interface to some FileEntry instance (w.r.t url)
+    implements __init__(url), dump() and load()
         
-    FileEntry: default storage-entry
-    
-...
-map-storage:
-    class that manageS a set of entries each related to an id (name)
-    implement __init__(entry-class, entry-class param)
+FileEntry:
+    Manages IO for file for given communication protocol (eg. local file, sftp) 
+    implements __init__(url), dump() and load()
+
+MapStorage:
+    Manages a set of FileObject related to an id (name)
+    implements ...
               
 """
 
@@ -43,240 +44,116 @@ class PickleSerializer(object):
 
 class RegisteredEntry(type):
     """
-    Metaclass used to register StorageEntry w.r.t url scheme
+    Metaclass used to register FileEntry w.r.t url scheme
     
-    To register a class, it must have the following attributes:
+    Registered FileEntry class must have the following attributes/constructor:
     
-        `__metaclass__ = RegisteredEntry`
-        `__scheme__`   a tuple of scheme name. e.g. 'file', 'http'
+        `__metaclass__ = RegisteredEntry` (by default on FileEntry subclasses)
+        `__scheme__`   a tuple of scheme name. e.g. ('file', '') 
+        `__init__(url)` constructor that takes one url
         
-        (Note `__metaclass__` is set by default to StorageEntry subclasses)
-        
-    To get the StorageEntry subclass registered for a scheme, use 
-      `RegisteredEntry.get(scheme_name)`
+    To get the FileEntry subclass registered for a scheme, use 
+      `RegisteredEntry.get('scheme_name')`
       
-    
-    If the constructor does not have the required API, i.e. `__init__(url)`), 
-    then it can have an `__entry_constructor__` attribute that point to a static
-    method which implement it.
+    Note: It return the last registered FileEntry for the given scheme_name
     
     
-    Note: Only the last registered StorageEntry for a specific scheme is kept.
+    Base on the url, FileObject constructor automatically select the suitable 
+    FileEntry using this register. Only the last registered FileEntry for a 
+    given scheme is kept.
     
-    
-    See also: `create_entry(url)`
+    See also: `FileEntry`, `FileObject`
     """
     register = {}
     def __init__(cls, name, *args, **kargs):
         schemes = getattr(cls, '__scheme__',[])
-        constructor = getattr(cls, '__entry_constructor__', cls)
         for scheme in schemes:
-            RegisteredEntry.register[scheme] = constructor
+            RegisteredEntry.register[scheme] = cls
             
     @staticmethod
     def get(scheme):
         if scheme not in RegisteredEntry.register:
              raise LookupError('no entry class has been registered for {} scheme'.format(scheme))
         return RegisteredEntry.register.get(scheme)
+        
+    @staticmethod
+    def scheme():
+        """ return the list of registered scheme """
+        return RegisteredEntry.register.keys()
+        
+    @staticmethod
+    def create_entry(url):
+        """
+        Create the suitable FileEntry for the given `url`
+        
+        If `url` is a FileEntry instance, return it
+        If `url` does not contain a scheme (eg. file://'), file type is used.
+        """
+        if isinstance(url, FileEntry):
+            entry = url
+        else:
+            scheme = _urlparse.urlsplit(url).scheme
+            cls    = RegisteredEntry.get(scheme)
+            entry  = cls(url)
+        
+        return entry
 
-class StorageEntry(object):
+class FileEntry(object):
     """
-    Abstract class that define the API of a storage entry:
-      - load:   retrieve the data stored in the entry
-      - save:   store the data in the entry
-      - exists: return True if the entry exists, or False otherwise
-      
-    StorageEntry has a `url` properties that store the url string of the entry
+    Class to manage I/O for FileObject - implements IO in local HD
     
-    See also `create_entry()`
+    It provides the following API:
+     - __init__(url): create an I/O interface for the local file at `url`
+     - open(mode):    open and return the file in read 'r' or write 'w' mode
+     - exists():      return True if the file exist
+     - remove():      delete the file
+     - url:           attribute that stores the url
+     
+     - sibling(filename): create an other FileEntry in the same directory
+     
+    open with mode='w' should create the file directory if necessary
     """
     __metaclass__ = RegisteredEntry
+    __scheme__ = ('file', '')  # manages local file & undefined scheme
     
-    def load(self,):      raise NotImplementedError('StorageEntry is an abstract class')
-    def save(self,data):  raise NotImplementedError('StorageEntry is an abstract class')
-    def exists(self):     raise NotImplementedError('StorageEntry is an abstract class')
+    def __init__(self, url):
+        if len(url): 
+            self.url = _os.path.abspath(_urlparse.urlsplit(url).path)
+        else:
+            print '*** invalid url for FileEntry ***' ## remove undefined url?
+            self.url = url
         
-    def __str__(self):
-        return self.__class__.__name__ + '(' + self.url + ')'
-    def __repr__(self):
-        return self.__str__()
-        
-    @_property
-    def url(self):
-        return self.__url__
-    @url.setter
-    def url(self, url):
-        self.__url__ = url
-        
-def create_entry(url):
-    """
-    Create the suitable Storage entry for `url`
-    
-    If `url`is a StorageEntry instance, return it
-    If `url` does not contain a scheme (eg. file://'), file type is used.
-    
-    Note: currently, only `file:` scheme is recognized.
-    """
-    if isinstance(url, StorageEntry):
-        entry = url
-    else:
-        scheme = _urlparse.urlsplit(url).scheme
-        cls    = RegisteredEntry.get(scheme)
-        entry  = cls(url)
-    
-    return entry
-
-class FileEntry(StorageEntry):
-    """
-    Serialization to a file storage
-    
-    A FileEntry object has the following public methods:
-    
-      - load():   read and return content of file
-      - save():   save data into the file
-      - exists():  return True if the file exist
-      - remove(): delete the file
-      
-    :Serializer:
-        By default, FileEntry use `PickleSerializer` (which use `cPickle`) to 
-        serialize/deserialize data. However, `load` and `save` have suitable 
-        parameter to provide alternate serializer.
-        
-        See also: `PickleSerializer`, `StorageEntry`
-    """
-    __scheme__ = ('file', '')  # url scheme managed by the FileEntry class
-    __meta_file__ = '__storage__.meta'  # name of file storing metadata 
-    
-    def __init__(self, filename):
-        """
-        Create a FileEntry object related to `filename`
-        """
-        ## `read`, `write`, `save` and `load` to have serializer arg?
-        
-        if len(filename): self.url = _os.path.abspath(_urlparse.urlsplit(filename).path)
-        else:             self.url = filename
-        self._stream = None
-        
-    # StorageEntry API
-    # ----------------
-    def exists(self):
-        return _os.path.exists(self.url)
-        
-    def load(self, serializer=None):
-        """
-        open, read and return the object entry
-         """
-        stream = open(self.url, mode='r')
-        if serializer is None:
-            serializer = self.get_metadata().get('serializer',PickleSerializer)
-        data = serializer.load(stream)
-        stream.close()
-        
-        return data
-            
-    def save(self,data, serializer=None):
-        stream = _TempFile()
-        save_meta = True
-        if serializer is None:
-            serializer = PickleSerializer
-            save_meta = False
-        serializer.dump(data, stream)
-        _assert_directory(self.url)
-        with open(self.url, mode='w') as f:
-            stream.seek(0)
-            f.write(stream.read())
-        
-        if save_meta:
-            self.set_metadata(dict(serializer=serializer)) ## what if write fails?
-            
+    def open(self, mode):
+        if 'w' in mode:
+            _assert_directory(self.url)
+        return open(self.url, mode=mode)
     def remove(self):
-        """
-        Remove the entry file (and metadata) from the file system
-        """
         if _os.path.exists(self.url):
             _os.remove(self.url)
-        self.rem_metadata()
+    def exists(self):
+        return _os.path.exists(self.url)
+    
+    def sibling(self, filename):
+        """
+        Create a FileEntry for the file `filename` in the same directory 
+        """
+        dirname, selfname = _os.path.split(self.url)
+        sibling = _os.path.join(dirname,filename)
+        return self.__class__(sibling)
 
-    # manage file entry IO on metadata file
-    def _metadata(self):
-        """ return metadata file and the key for this entry """
-        dirname, filename = _os.path.split(self.url)
-        meta_file = _os.path.join(dirname,FileEntry.__meta_file__)
-        return meta_file, filename
-    @staticmethod
-    def _read_metadata_file(meta_file):
-        if _os.path.exists(meta_file):
-            try:
-                f = open(meta_file, 'r')
-                meta_head = _cPickle.load(f)
-                f.close()
-            except EOFError:
-                print '\033]31mFileEntry: invalid content in metadata file ' + meta_file + '\033]30m'
-                meta_head = dict()
-        else:
-            meta_head = dict()
-        return meta_head
-    @staticmethod
-    def _write_metadata_file(meta_file, meta_data):
-        f = open(meta_file, 'w')
-        _cPickle.dump(meta_data, f)
-        f.close()
-        
-    def set_metadata(self, metadata, update=True):
-        """
-        Save the all (key,value) of `content` in this entry metadata
-        
-        If update, update metadata with `content`.
-        otherwise, replace the whole metadata set.
-        
-        FileEntry metadata are stored in a unique file in the same directory
-        with name given in `FileEntry.__meta_file__`
-        """
-        meta_file, entry_key = self._metadata()
-        meta_head = self._read_metadata_file(meta_file)
-        
-        if update:
-            update = metadata
-            metadata = meta_head.get(entry_key,dict())
-            metadata.update(update)
-        meta_head[entry_key] = metadata
-        
-        self._write_metadata_file(meta_file, meta_head)
-            
-    def get_metadata(self):
-        """
-        return this entry metadata (as a dict)
-        """
-        meta_file, entry_key = self._metadata()
-        meta_head = self._read_metadata_file(meta_file)
-        return meta_head.get(entry_key, dict())
-        
-            
-    def rem_metadata(self):
-        meta_file, entry_key = self._metadata()
-        if _os.path.exists(meta_file):
-            f = open(meta_file, 'r')
-            meta_head = _cPickle.load(f)
-            meta_head.pop(entry_key)
-            f.close()
-            if len(meta_head)==0:
-                _os.remove(meta_file)
-            else:
-                f = open(meta_file, 'w')
-                meta_head = _cPickle.load(f)
-                f.close()
-        
-class SFTPEntry(StorageEntry):
+class SFTPEntry(FileEntry):
     """
-    Serialization to a sftp file storage
+    Class to manage I/O for FileObject through sftp protocol
     
-    A SFTPEntry object has the following public methods:
-    
-      - load():   read and return content of file
-      - save():   save data into the file
-      - exists(): return True if the file exist
-      - remove(): delete the file
-      
+    It provides the following API:
+     - __init__(url): create an I/O interface for the local file at `url`
+     - open(mode):    open and return the file in read 'r' or write 'w' mode
+     - exists():      return True if the file exist
+     - remove():      delete the file
+     - url:           attribute that stores the url
+     
+     - sibling(filename): create an other FileEntry in the same directory
+     
     :login:
         In order to work, the calling OS should have a SSH key defined and 
         registered on the sftp (ssh) server. It should also have an ssh-agent
@@ -284,62 +161,116 @@ class SFTPEntry(StorageEntry):
         
     :dependencies:
         paramiko
-    
-    :Serializer:
-        By default, SFTPEntry use `PickleSerializer` (which use `cPickle`) to 
-        serialize/deserialize data. However, `load` and `save` have suitable 
-        parameter to provide alternate serializer.
-        
-        See also: `PickleSerializer`, `StorageEntry`, `FileEntry`
     """
-    __scheme__ = ('sftp')               # url scheme managed by the FileEntry class
-    __meta_file__ = '__storage__.meta'  # name of file storing metadata 
+    __scheme__ = ('sftp',)  # manages sftp scheme
+    
+    connections = {}  # static list of connection already established
     
     def __init__(self, url):
         """
-        Create a SFTPEntry object related to `url`
+        Create a SFTPEntry from an url or a ParseResult object
         """
-        ## `read`, `write`, `save` and `load` to have serializer arg?
-        
-        self.url = url
-        self.urlparse = _urlparse.urlparse(url)
-        self._stream = None
-
-        import paramiko
-        SSH_AUTH_SOCK  = paramiko.Agent()
-        self._sshkey = SSH_AUTH_SOCK.get_keys()[0]
-        
-        self.server = None
-
-    # manage connection
-    # -----------------
-    def connect(self):
-        """ if not connected, set self.server to the sftp connection, with suitable cwd """
-        if self.server is None:
-            from . import pysftp_fork as pysftp
-            self.server = pysftp.Connection(self.urlparse.hostname, username=self.urlparse.username, private_key=self._sshkey)
-            self.server.chdir(_os.path.split(self.urlparse.path)[0])
+        if isinstance(url,_urlparse.ParseResult):
+            self.url = url.geturl()
+            self.urlparse = url
         else:
-            self.server._sftp_connect()
+            self.url = url
+            self.urlparse = _urlparse.urlparse(url)
             
-    def disconnect(self):
-        """ close self.server and set it to None """
-        self.server.close()
-        self.server = None
+        self._connect()
         
-    # StorageEntry API
-    # ----------------
+    def _connect(self):
+        # connect to server
+        if self.urlparse.username:
+            user = self.urlparse.username
+        else:
+            import getpass
+            user = getpass.getuser()
+            
+        key = (user,self.urlparse.hostname)
+        if key in SFTPEntry.connections:
+            self.server = SFTPEntry.connections[key]
+        else:
+            if self.urlparse.password:
+                passw = self.urlparse.password
+            else:
+                import paramiko
+                passw = paramiko.Agent().get_keys()[0]
+                
+            from . import pysftp_fork as pysftp
+            self.server = pysftp.Connection(self.urlparse.hostname, username=user, private_key=passw)
+            SFTPEntry.connections[key] = self.server
+        
     def exists(self):
-        self.connect()
-        exist = _os.path.split(self.urlparse.path)[1] in self.server.listdir()
-        #self._disconnect()
-        return exist
+        return self.server.exists(self.urlparse.path)
+    def open(self, mode):
+        if 'w' in mode:
+            dirname = _os.path.dirname(self.urlparse.path)
+            if not self.server.exists(dirname):
+                self.server.mkdir(dirname)
+        return self.server.open(self.urlparse.path, mode=mode)
+    def remove(self):
+        return self.server.remove(self.urlparse.path)
+    
+    def sibling(self, filename):
+        """
+        Create a FileEntry for the file `filename` in the same directory 
+        """
+        p = self.urlparse
+        dirname = _os.path.dirname(p.path)
+        sibling = _os.path.join(dirname,filename)
+        sibling = _urlparse.ParseResult(scheme=p.scheme, netloc=p.netloc, path=sibling, params=p.params, query=p.query, fragment=p.fragment)
+        return self.__class__(sibling)
+        
+    def __getstate__(self):
+        d = self.__dict__.copy()
+        d['server'] = None
+        return d
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self._connect()
+        return self
+        
+    
+class FileObject(object):
+    """
+    Provide simplified I/O interface **with serialization** to & from file
+    
+    A FileObject instances have the following public methods:
+    
+      - load():   read and return content of file
+      - save():   save data into the file
+      - exists(): return True if the file exist
+      - remove(): delete the file
+      
+    :Serializer:
+        By default, FileEntry use `PickleSerializer` (which use `cPickle`) to 
+        serialize/deserialize data. However, `load` and `save` have suitable 
+        parameter to provide alternate serializer.
+        
+        See also: `PickleSerializer`, `FileEntry`
+    """
+    __meta_file__ = '__storage__.meta'  # name of 'header' file storing metadata 
+    
+    def __init__(self, url):
+        """
+        Create the FileObject related to file at `url`
+        """
+        self.entry = RegisteredEntry.create_entry(url)
+        self._stream = None
+        
+    @_property
+    def url(self):
+        return self.entry.url
+        
+    def exists(self):
+        return self.entry.exists()
         
     def load(self, serializer=None):
         """
         open, read and return the object entry
          """
-        stream = open(self.url, mode='r')
+        stream = self.entry.open(mode='r')
         if serializer is None:
             serializer = self.get_metadata().get('serializer',PickleSerializer)
         data = serializer.load(stream)
@@ -349,61 +280,41 @@ class SFTPEntry(StorageEntry):
             
     def save(self,data, serializer=None):
         stream = _TempFile()
-        save_meta = True
         if serializer is None:
             serializer = PickleSerializer
-            save_meta = False
         serializer.dump(data, stream)
-        _assert_directory(self.url)
-        with open(self.url, mode='w') as f:
+        with self.entry.open(mode='w') as f:
             stream.seek(0)
             f.write(stream.read())
         
-        if save_meta:
+        if serializer is not PickleSerializer:
             self.set_metadata(dict(serializer=serializer)) ## what if write fails?
             
     def remove(self):
         """
         Remove the entry file (and metadata) from the file system
         """
-        if _os.path.exists(self.url):
-            _os.remove(self.url)
+        self.entry.remove()
         self.rem_metadata()
+        
 
     # manage file entry IO on metadata file
+    # -------------------------------------
     def _metadata(self):
         """ return metadata file and the key for this entry """
-        dirname, filename = _os.path.split(self.url)
-        meta_file = _os.path.join(dirname,FileEntry.__meta_file__)
-        return meta_file, filename
-    @staticmethod
-    def _read_metadata_file(meta_file):
-        if _os.path.exists(meta_file):
-            try:
-                f = open(meta_file, 'r')
-                meta_head = _cPickle.load(f)
-                f.close()
-            except EOFError:
-                print '\033]31mFileEntry: invalid content in metadata file ' + meta_file + '\033]30m'
-                meta_head = dict()
-        else:
-            meta_head = dict()
-        return meta_head
-    @staticmethod
-    def _write_metadata_file(meta_file, meta_data):
-        f = open(meta_file, 'w')
-        _cPickle.dump(meta_data, f)
-        f.close()
+        meta_file = self.entry.sibling(FileObject.__meta_file__)
+        entry_key = _os.path.split(self.entry.url)[-1]  
+        return meta_file, entry_key
         
     def set_metadata(self, metadata, update=True):
         """
-        Save the all (key,value) of `content` in this entry metadata
+        Save the all (key,value) of `metadata` in this entry metadata entry
         
-        If update, update metadata with `content`.
-        otherwise, replace the whole metadata set.
+        If update, update metadata with `metadata` content.
+        otherwise, replace the whole metadata dictionary.
         
         FileEntry metadata are stored in a unique file in the same directory
-        with name given in `FileEntry.__meta_file__`
+        as the FileEntry, with name given by `FileEntry.__meta_file__`
         """
         meta_file, entry_key = self._metadata()
         meta_head = self._read_metadata_file(meta_file)
@@ -424,28 +335,45 @@ class SFTPEntry(StorageEntry):
         meta_head = self._read_metadata_file(meta_file)
         return meta_head.get(entry_key, dict())
         
+    @staticmethod
+    def _read_metadata_file(meta_file):
+        if meta_file.exists():
+            try:
+                f = meta_file.open(mode='r')
+                meta_head = _cPickle.load(f)
+                f.close()
+            except EOFError:
+                print '\033]31mFileEntry: invalid content in metadata file ' + meta_file + '\033]30m'
+                meta_head = dict()
+        else:
+            meta_head = dict()
+        return meta_head
+    @staticmethod
+    def _write_metadata_file(meta_file, meta_data):
+        f = meta_file.open(mode='w')
+        _cPickle.dump(meta_data, f)
+        f.close()
             
     def rem_metadata(self):
         meta_file, entry_key = self._metadata()
-        if _os.path.exists(meta_file):
-            f = open(meta_file, 'r')
+        if meta_file.exists():
+            f = meta_file.open(mode='r')
             meta_head = _cPickle.load(f)
             meta_head.pop(entry_key)
             f.close()
             if len(meta_head)==0:
-                _os.remove(meta_file)
+                meta_file.remove()
             else:
-                f = open(meta_file, 'w')
+                f = meta_file.open(mode='w')
                 meta_head = _cPickle.load(f)
                 f.close()
-        
 
 class MapStorage(object):
     """
     A MapStorage allows automated IO to storage entries related to a unique id
     The interface is done using `set_data(name,data)` and `load_data(name)`
     
-    MapStorage use a url generator function to relate identifiers to entry url  
+    MapStorage use a url generator function to relate identifiers to file url  
     """
     def __init__(self, url_generator):
         """
@@ -463,7 +391,7 @@ class MapStorage(object):
         self.url_generator = url_generator
         
     def set_data(self, name, data):
-        """ stores `data` to the storage entry related to key = `name` """
+        """ stores `data` to the FileObject related to key = `name` """
         serializer = getattr(data,'__serializer__', None)
         extension  = getattr(serializer,'extension', '')
         entry = self.make_entry(name, extension=extension)
@@ -471,23 +399,23 @@ class MapStorage(object):
         
     def get_data(self,name):
         """ retrieve data from the MapStorage object (i.e. load it) """
-        entry = self.get_entry(name)
+        entry = self.get_file(name)
         entry.load(data)
 
 
     def make_entry(self, key, extension=''):
         """
-        Create the storage entry related to `key`
+        Create the FileObject related to `key`
         
         The returned entry is generated with this MapStorage `url_generator`, 
         to which `extension` is appended.
         """
         url = self.url_generator.format(key)+extension
-        entry = create_entry(url)
+        entry = FileObject(url)
         self.__dict__[key] = entry
         return entry
         
-    def get_entry(self, key):
+    def get_file(self, key):
         """
         Return the entry related to `key` if it exist
         """

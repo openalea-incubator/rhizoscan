@@ -16,8 +16,7 @@ from rhizoscan.ndarray import aslice  as _aslice
 from rhizoscan.workflow import node as _node # to declare workflow nodes
 
 from rhizoscan.datastructure import Data as _Data
-from rhizoscan.storage       import StorageEntry as _StorageEntry
-from rhizoscan.storage       import create_entry as _create_entry
+from rhizoscan.storage       import FileObject as _FileObject
 from rhizoscan.datastructure import Sequence as _Sequence   
 
 from rhizoscan.tool   import static_or_instance_method as _static_or_instance
@@ -40,13 +39,13 @@ class Image(_np.ndarray, _Data):
         
         # create Image instance
         # ---------------------                                       
-        if isinstance(array_or_file,(basestring,_StorageEntry)):
+        if isinstance(array_or_file,(basestring,_FileObject)):
             obj = PILSerializer.load_image(array_or_file, 
                         color=color, dtype=dtype, scale=scale, from_color=from_color)
             
-            ## how load file info in new storage entry system?
+            ## how load file info in new __file_object__ system?
             #obj = _nd.imread(array_or_file).view(cls)
-            #obj.set_storage_entry(array_or_file)
+            #obj.set_file(array_or_file)
             #
             ## load image info and timestamp
             #from PIL import Image
@@ -56,7 +55,7 @@ class Image(_np.ndarray, _Data):
             #obj.info.update(info)
         else:
             obj = _np.asanyarray(array_or_file).view(cls)
-            obj.set_storage_entry('')
+            obj.set_file('')
             
             # conversion
             if obj.dtype.kind not in ('b','u','i','f'):
@@ -223,44 +222,44 @@ class Image(_np.ndarray, _Data):
            PIL modes:        http://www.pythonware.com/library/pil/handbook/concepts.htm
            PIL file formats: http://www.pythonware.com/library/pil/handbook/index.htm#appendixes
         """
-        ##todo:  provide scaling factor that is set back at loading
-        ##not implemented (.,.,3) yuv  - uint8        => Ycrcb - 4x8-bit pixels, colour separation
-        ##check: save without loss ?
+        ##todo: replace by Data.dump !
         from PIL.Image import fromarray
         
         # manage input image
         # ------------------
         if _Data.has_IO_API(image):
             if filename is not None:
-                image.set_storage_entry(filename)
-            elif image.get_storage_entry() is None:
+                image.set_file(filename)
+            elif image.get_file() is None:
                 raise TypeError("filename shoud be provided: input Image object has unset Data file")
         elif filename is None:
             raise TypeError("filename should be provided")
             
         if not isinstance(image,Image):
             image = Image(image)
-            image.set_storage_entry(filename)
+            image.set_file(filename)
             
-        entry = image.get_storage_entry()
+        fobj = image.get_file()
         
         # convert image
         # -------------
         if dtype=='auto':
-            if image.color!='gray':             dtype = 'uint8'
-            elif image.dtype in (bool,'uint8'): dtype = None
-            elif pil_format=='TIFF' or \
-                 entry.url.lower().endswith(('.tif','.tiff')):
-                                                dtype = 'float32'
-            else:                               dtype = 'uint8'
+            if image.color!='gray':    
+                dtype = 'uint8'
+            elif image.dtype in (bool,'uint8'): 
+                dtype = None
+            elif pil_format=='TIFF' or fobj.url.lower().endswith(('.tif','.tiff')):
+                dtype = 'float32'
+            else:
+                dtype = 'uint8'
             
         img = imconvert(image, color=color, dtype=dtype, scale=scale)
-        img.set_storage_entry(entry)
+        img.set_file(fobj)
         
         # save image
         # ----------
         ## file/dir preparation to be transfered to Data (_open, _close ?)
-        _assert_directory(entry.url) ## should be StorageEntry work? 
+        _assert_directory(fobj.url) ## should FileObject do it? 
         
         # check for pnginfo in pil_param
         if pil_param.has_key('pnginfo'):
@@ -272,34 +271,17 @@ class Image(_np.ndarray, _Data):
             pil_param['pnginfo'] = info
             
         img = fromarray(img,mode=pil_mode)
-        img.save(entry.url, format=pil_format, **pil_param)
+        img.save(fobj.url, format=pil_format, **pil_param)
         
         #loader = Image([])
         loader = image.loader()
         loader.from_color = color
-        loader.set_storage_entry(entry)
+        loader.set_file(fobj)
         if scale=='normalize':                 loader.scale = 'dtype'
         elif not isinstance(scale,basestring): loader.scale = 1/float(scale)
         
         return loader
         
-    ##def loader(self):
-    ##    """
-    ##    Return an empty Image which allow to load the image using load()
-    ##    
-    ##    *** if this Image has no associated file, it won't be able to load ***
-    ##    """
-    ##    loader = Data.loader(self)
-    ##    #loader.color  = self.color
-    ##    #loader = _np.array([],dtype=self.dtype).view(Image)
-    ##    #loader.set_storage_entry(self.get_storage_entry())
-    ##    #loader.__io_mode__ = 'r:loader'
-    ##    return loader
-        
-    ## __store/restore__ : return serialized stream ?
-    #def __store__(self):
-    #def __restore__(self):
-
     # for pickling
     def __setstate__(self,state):
         _np.ndarray.__setstate__(self,state[0])
@@ -335,12 +317,12 @@ class PILSerializer(object):
       - `load(stream)`:
             read (deserialize) an image from a stream
       - load_image(url,color,dtype,scale,from_color)
-            Static method that create an Image object from `url` with storage
-            entry and seiralizer set.
+            Static method that create an Image object from image file at `url`
+            with suitable __file_object__ and serializer set.
     
     The purpose of `PILSerializer` is to provide a serializing/deserializing
-    interface for `Image` objects. In pratice, it is used through the image 
-    storage entry. See `get/set_storage_entry`, the `datastructure.Data` class
+    interface for `Image` objects. In pratice, it is used by the image 
+    __file_object__. See `get/set_file`, the `datastructure.Data` class
     and the `storage` module for details on automatic serialization protocol.
     
     The (de)serialization is done using writing and reading functionalities of 
@@ -503,19 +485,19 @@ class PILSerializer(object):
         """
         return an Image object created from `url`
         
-        The image has the suitable PIL serializer and storage entry set
+        The image has the suitable PIL serializer and __file_object__ set
         """
         # create empty PILSerializer instance
         class TMP(object): pass
         s = TMP()
         s.__class__ = PILSerializer
         
-        # create the StorageEntry
-        e = _create_entry(url)
+        # create the FileObject
+        fobj = _FileObject(url)
         
         # load image storage type
         from PIL import Image
-        img = Image.open(e.url)
+        img = Image.open(fobj.url)
         s.pil_format = img.format
         s.pil_mode   = img.mode
         s.pil_param  = dict()
@@ -533,9 +515,9 @@ class PILSerializer(object):
         s.ser_dtype  = img.dtype  
         s.ser_scale  = _scale_inverse(scale)
         
-        # attach StorageEntry to image
+        # attach FileObject to image
         img.__serializer__ = s
-        img.set_storage_entry(e)
+        img.set_file(fobj)
         
         return img
         
@@ -609,7 +591,7 @@ class ImageSequence(_Sequence):
             raise AttributeError("This ImageSequence is output only")
             
         img = Image(filename, color=self.color, dtype=self.dtype, scale=self.scale)
-        img.set_storage_entry(filename)
+        img.set_file(filename)
         if self.roi    is not None: 
             if self.roi.ndim>1: img = img[self.roi[index].tolist()]
             else:               img = img[self.roi.tolist()]
@@ -625,7 +607,7 @@ class ImageSequence(_Sequence):
         see Image.save documentation
         """
         if not isinstance(image,Image): image = Image(image)
-        image.set_storage_entry(filename)
+        image.set_file(filename)
         return image.save(color=self.color,dtype=self.dtype,scale=self.scale)
         
     def play(self, filter=None):

@@ -91,7 +91,23 @@ class Connection(object):
         if not self._sftp_live:
             self._sftp = paramiko.SFTPClient.from_transport(self._transport)
             self._sftp_live = True
-
+    def open(self, remotepath, mode):
+        self._sftp_connect()
+        return self._sftp.open(remotepath, mode)
+    def remove(self, remotepath):
+        self._sftp_connect()
+        return self._sftp.remove(remotepath)
+    def exists(self, remotepath):
+        self._sftp_connect()
+        try:
+            self._sftp.stat(remotepath)
+            return True
+        except:
+            return False
+    def mkdir(self, remotepath):
+        self._sftp_connect()
+        return self._sftp.mkdir(remotepath)
+    
     def get(self, remotepath, localpath = None):
         """Copies a file between the remote host and the local host."""
         if not localpath:

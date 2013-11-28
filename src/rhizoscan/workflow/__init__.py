@@ -2,10 +2,10 @@
 Some stuff to add annotation to functions and allow
 
 todo? 
-change the general node system to follow the func_annotation as in PEP3107
+change the general node system to follow the func_annotation as in PEP3107?
   - node renamed to annotate
   - rename outputs by 'return'
-  - set input directly as entry
+  - set input directly as attribute
         => what about conflict with other annotated name!!!
   - annotate decorator only add `func_annotation`to functions (to method.im_func!)
   - add annotate_class: 
@@ -41,8 +41,6 @@ except:
 
 from types import MethodType   as _MethodType
 from types import FunctionType as _FunctionType
-
-from rhizoscan.storage import create_entry as _create_entry
 
 # default printing functionality
 def _print_state(verbose, msg):
@@ -231,7 +229,7 @@ class node(object):
         if len(stored_data):   ## ... this should be done another way ... 
             for oname, ovalue in outputs.iteritems():
                 namespace.set(oname,ovalue,store=oname in stored_data)
-            if hasattr(namespace,'dump') and getattr(namespace,'__storage_entry__',None):
+            if hasattr(namespace,'dump') and getattr(namespace,'__file_object__',None):
                 namespace.dump()
         else:
             namespace.update(outputs)

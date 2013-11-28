@@ -39,7 +39,7 @@ def compute_tree_stat(tree, stat_names='all', mask=None, save=True):
 class TreeStat(_Mapping):
     """ deprecated ? """
     def __init__(self,tree):
-        self._tree_file = tree.get_storage_entry()
+        self._tree_file = tree.get_file()
         self.metadata = tree.metadata
         
     @_property
@@ -83,7 +83,7 @@ class TreeCompare(_Mapping):
             
         self.image = image
         
-        self.set_storage_entry(filename)
+        self.set_file(filename)
 
     def compute_stat(self, stat_names='all', mask=None, save=True):
         for a in self.auto: 

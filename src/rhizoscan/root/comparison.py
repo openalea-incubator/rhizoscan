@@ -27,7 +27,7 @@ class TreeCompare(_Mapping):
         
         # set save filename
         if filename:
-            self.set_storage_entry(filename)
+            self.set_file(filename)
             self.dump()
         
     def match_plants(self, max_distance=None):
@@ -128,7 +128,7 @@ class TreeCompareSequence(_Mapping):
             self.tc_list = [TreeCompare(r,c)   for r,c   in izip(reference,compared)]
             
         if filename:
-            self.set_storage_entry(filename)
+            self.set_file(filename)
             self.dump()
 
     def match_plants(self, max_distance=None, save=True):
@@ -147,7 +147,7 @@ class TreeCompareSequence(_Mapping):
         
     def compute_stat(self, stat_names='all', mask=None, save=True):
         for tc in self.tc_list: 
-            tc.compute_stat(stat_names=stat_names, mask=mask, save=tc.get_storage_entry() is not None)
+            tc.compute_stat(stat_names=stat_names, mask=mask, save=tc.get_file() is not None)
         if save:
             self.dump()
             
@@ -231,9 +231,9 @@ def plot(self, stat='axe1_length', title=None, prefilter=None, split=None, legen
         
         ax.tree_data = _Mapping(stat=stat, trees=meta, x=refs, y=cmps) ##tree=>meta?
 
-def make_tree_compare(reference, compared, keys=None, storage_entry=None, verbose=False):
+def make_tree_compare(reference, compared, keys=None, file_object=None, verbose=False):
     """
-    `reference` and `compared` are 2 list of dataset. They should
+    `reference` and `compared` are 2 lists of dataset. They should
      - contain a 'metadata' attribute
      - be loader object (see datastructure.Data)
      - (once loaded) have the 'tree' attribute
@@ -276,7 +276,7 @@ def make_tree_compare(reference, compared, keys=None, storage_entry=None, verbos
             missing.append(c.filename)
     #return ref,cpr,missing
             
-    return TreeCompareSequence(reference=ref, compared=cpr, image=image, filename=storage_entry), missing
+    return TreeCompareSequence(reference=ref, compared=cpr, image=image, filename=file_object), missing
 
 
 # simple matching from distance matrix
@@ -352,7 +352,7 @@ def compare_sequence(vs, storage='mtg_compare', display=True, slices=slice(None)
     for i in range(len(vs.ref))[slices]:
         a = vs.auto[i].tree
         r = vs.ref[i].tree
-        print '--- comparing file: ...', a.get_storage_entry()[-30:], '---'
+        print '--- comparing file: ...', a.get_file()[-30:], '---'
         r.segment.radius = np.zeros(r.segment.size+1)
         a = split_mtg(a.to_mtg())
         r = split_mtg(r.to_mtg())

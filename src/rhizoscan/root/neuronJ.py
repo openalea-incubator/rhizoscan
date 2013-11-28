@@ -235,7 +235,7 @@ def make_ref_dataset(ini_file, output='tree', overwrite=False, verbose=1):
         print ' ------------------------\033[30m'
      
     for i,ref in enumerate(rds):
-        if not overwrite and ref.get_storage_entry().exists() and ref.load().has_key('tree'): continue
+        if not overwrite and ref.get_file().exists() and ref.load().has_key('tree'): continue
         
         ref.ref_file = splitext(ref.filename)[0]+'.ndf'
         if verbose:

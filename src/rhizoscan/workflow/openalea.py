@@ -36,6 +36,7 @@ except:
     
 import os, sys, imp, pkgutil
 from types import MethodType
+from . import node as _Node
 
 # Define the openalea workflow "plugin" (see workflow doc)
 # --------------------------------------------------------
@@ -68,7 +69,7 @@ def node_attributes(node):
     change function name, and purpose? eg. return added/updated attributes only
     """
     ##from . import node_attributes
-    attrib = node.get_node_attribute()
+    attrib = _Node.get_node_attribute(node)
     
     hidden = attrib.get('hidden', [])
     for node_input in attrib['inputs']:

@@ -10,12 +10,12 @@ def image_io(format, ser_dtype, ser_scale):
     
     img = Image(np.arange(10*18,dtype='uint8').reshape(10,18))
     img.set_serializer(pil_format=format, ser_dtype=ser_dtype, ser_scale=ser_scale)
-    img.set_storage_entry(fname)
+    img.set_file(fname)
     
     loader = img.dump()
     img2 = loader.load()
 
-    img.set_storage_entry(-1) # delete the file
+    img.set_file(-1) # delete the file
     
     # assert serialization parameters are equivalent
     ser_param = ['img_dtype', 'img_scale', 'pil_format', 'pil_mode', 'pil_param', 'ser_color', 'ser_dtype', 'ser_scale']

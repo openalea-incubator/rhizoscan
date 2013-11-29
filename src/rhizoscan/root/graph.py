@@ -895,46 +895,56 @@ class RootAxialTree(RootGraph):
             
         RootGraph.plot(self, bg=bg, sc=sc, **kargs)
             
-    def to_mtg(self, radius='radius'):
+    def to_mtg(self, radius='radius', sampling=1):
         from itertools import izip
         # create a MTG graph 
         from openalea.mtg import MTG
-        #from openalea.plantgl.all import Vector3 as V3
-        g = MTG()
+        from openalea.plantgl.all import Vector3 as V3
         
-        # mtg_id : id -> vid (mtg) 
-        mtg_id = _np.zeros(self.segment.parent.size, dtype=int)
         
-        # add seed nodes
-        
-        # seed : roots mask
-        seed = self.stype==_SEED
-        # lnodes : root vertices 
-        lnodes = self.segment.node[seed]
-        # sid : id of root vertices 
-        # Compute the bbox of each vertex root in the image 
-        b_id = self.sid[seed][:,None]*_np.ones((1,2))
-        buid = _np.unique(b_id)
-        xmin = _nd.minimum(self.node.x[lnodes],labels=b_id,index=buid)
-        xmax = _nd.maximum(self.node.x[lnodes],labels=b_id,index=buid)
-        ymin = _nd.minimum(self.node.y[lnodes],labels=b_id,index=buid)
-        ymax = _nd.maximum(self.node.y[lnodes],labels=b_id,index=buid)
-        x = (xmin+xmax)/2.                  # seeds center x-coord
-        y = (ymin+ymax)/2.                  # seeds center y-coord
-        r = (xmax-xmin+ymax-ymin)/4.        # mean of x & y radius
-        #for id,xi,yi,ri in izip(buid,x,y,r):
-            #mtg_id[id] = g.add_component(g.root)
-            # TODO: parent of a root need to be None or something explicit
-            
-        # add axe nodes
-        m = self.stype>=_UNSET
+        # short-named variables
+        # ---------------------
         seg = self.segment
         axe = self.segment.axe
-        sid = self.sid
-        parent = self.segment.parent
+        #sid = self.sid
         sn = self.segment.node
         nx = self.node.x
         ny = self.node.y
+        # mask of segment to add to mtg
+        m = (seg.axe>0)+(seg.seed>0)
+        m[0] = False             
+        
+        radius = seg[radius] if radius in dir(seg) else _np.ones(seg.size+1)
+        
+        seed   = self.segment.seed.astype(int)
+        parent = self.segment.parent.astype(int)
+        seed[seed>200] = 0  ## bug where seed=254
+        parent[seed>0] = -seed[seed>0]   # parent of seed segments are -plant_id
+        
+        # make seed mtg-elements
+        # ----------------------
+        # seed element for mtg have (virtual) negativ ids (-1 to -n with n = # of plants)
+        # here we compute a position and radius for those as the bbox center
+        # they are stored in an array using *positive* ids
+        
+        # sseg : mask of seed segments
+        sseg = self.stype==_SEED
+        # snodes : mask of nodes of seed segments 
+        snodes = self.segment.node[sseg]
+        # Compute the bbox of snodes grouped by seed id 
+        s_id = seed[sseg][:,None]*_np.ones((1,2))
+        suid = _np.unique(s_id)
+        if suid[0]==0: suid = suid[1:]
+        xmin = _nd.minimum(self.node.x[snodes],labels=s_id,index=suid)
+        xmax = _nd.maximum(self.node.x[snodes],labels=s_id,index=suid)
+        ymin = _nd.minimum(self.node.y[snodes],labels=s_id,index=suid)
+        ymax = _nd.maximum(self.node.y[snodes],labels=s_id,index=suid)
+        x = (xmin+xmax)/2.                  # seeds center x-coord
+        y = (ymin+ymax)/2.                  # seeds center y-coord
+        r = (xmax-xmin+ymax-ymin)/4.        # seed radius = mean of bbox dimension
+        
+        suid = -suid # set seed id tp negative  
+        
         
         # map global segment index in masked subset
         #indmap = _np.zeros(axe.size,dtype=int)
@@ -942,33 +952,61 @@ class RootAxialTree(RootGraph):
         
         # select the 'end' node of the segment
         #  i.e. the node of the segment that is not a node of its parent
-        #  in case no node is shared with parent (seeds) then use last
-        snode = _np.array([_np.setdiff1d(n1,n2)[-1] for n1,n2 in izip(sn[m],sn[parent[m]])])
-        # if parent node no found (1st segment of 1st s_axe) set the segment 1st node
-        ##pnode = _np.array([pn[0] if len(pn)>0 else sni[0] for sni,pn in izip(sn[m],pnode)])
+        #  in case there is no parent (seed), select the last
+        #  in case no node is shared with parent then use last ##=> to avoid error, but is it usefull?
+        snode = _np.array([_np.setdiff1d(n1,sn[p2])[-1] if p2>0 else n1[-1] for n1,p2 in izip(sn[m],parent[m])])
         
         # construct the children list of all segment
         #   required to add node in parent-first order 
         children = dict()
-        gen_child = ((i,p) for i,p in enumerate(parent) if p>_UNSET)
+        gen_child = ((i,p) for i,p in enumerate(parent) if m[i])
         for i,p in gen_child:
             children.setdefault(p,[]).append(i)
-        
+            
         # list info to store by node
         info = dict()
-        for si,pi,li,xi,yi,ai,ri in izip(sid[m],parent[m], seg.length[m],nx[snode],ny[snode],axe[m], seg[radius][m]):
-            edge = '<' if (ai==axe[pi]) else '+'
-            info[si] = dict(sparent=pi,sid=si,axe=ai,position=(xi,yi,0), length=li, radius=ri,edge_type=edge)
-        for seed,xi,yi,ri in izip(buid,x,y,r):
-            info[seed] = dict(sid=si,axe=ai,position=(xi,yi,0), x=xi,y=yi,radius=ri, seed=True)
-            
-        sampling = 1
+        seg_id = _np.arange(parent.size)
+        seed_axe = dict(zip(suid,suid))  # default axe property for seed element
+        for si,pi,li,xi,yi,ai,ri in izip(seg_id[m],parent[m], seg.length[m],nx[snode],ny[snode],axe[m], radius[m]):
+            if pi==0: continue
+            if pi<0:
+                # if parent is a seed elements
+                if not children.has_key(si):   # fake: has no child
+                    children[pi].remove(si)
+                    continue
+                    
+                ai = axe[children[si][0]] # take the axe id of child
+                if self.axe.order[ai]==1: # if order 1 axe:
+                    edge = '>'            #   direct child of parent (seed) 
+                    seed_axe[pi] = ai     #   give same axe property to parent
+                else:
+                    edge = '+'
+            else:
+                edge = '<' if (ai==axe[pi]) else '+'
+                
+            info[si] = dict(sparent=pi,sid=si,axe=ai,position=V3(xi,0,-yi), length=li, radius=ri,edge_type=edge)
+        for sid,xi,yi,ri in izip(suid,x,y,r):
+            info[sid] = dict(axe=sid,position=V3(xi,0,-yi), x=xi,y=yi,radius=ri, seed=True)
+           
+           
+        # id in mtg for ids in axial tree
+        # -------------------------------
+        # mtg_id[atree_id] -> vid in mtg
+        # also works for (negative) seed id
+        mtg_id = dict((i,None) for i in xrange(self.segment.parent.size))
+        mtg_id.update((i,None) for u in suid)
+        
+        
+        # make the mtg
+        # ------------
+        g = MTG()
         # add all segments recursively starting at seed segments
         def add_children(pid):  ##todo: avoid recursivity, replace by push/pop in a 'to_process' stack  
             """"
             recursive add_node function that process in depth order
               > sid is supposed to be already in the mtg graph
             """
+            ##print pid, children.get(pid,[])
             for child in children.get(pid,[]):
                 inf = info[child]
                 pn = snode[indmap[pid]]
@@ -983,9 +1021,11 @@ class RootAxialTree(RootGraph):
                 mtg_id[child] = p
                 add_children(child)
 
-        for seed in buid:
-            plant_id = g.add_component(g.root)
-            mtg_id[seed] = g.add_component(plant_id, **info[seed])
+        # for each seed, create a scale 1 element
+        # then call add children for the nodes (scale 2)
+        for seed in suid:
+            mtg_pid = g.add_component(g.root)                    # scale 1
+            mtg_id[seed] = g.add_component(mtg_pid, **info[seed]) # scale 2
             add_children(seed)            # start from seeds
         
         #pos = g.property('position')

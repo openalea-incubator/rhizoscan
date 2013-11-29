@@ -297,6 +297,9 @@ class FileObject(object):
         self.entry.remove()
         self.rem_metadata()
         
+    def __repr__(self):
+        return self.__class__.__name__+"('"+self.url+"')"
+        
 
     # manage file entry IO on metadata file
     # -------------------------------------

@@ -257,7 +257,7 @@ def make_tree_compare(reference, compared, keys=None, file_object=None, verbose=
     ##raise Exception()
     compared = dict([(to_key(c.metadata),c) for c in compared])
     compared = [compared.get(to_key(r.metadata),None) for r in reference]
-
+    
     # find tree that are not found
     missing = []
     image = []
@@ -267,6 +267,7 @@ def make_tree_compare(reference, compared, keys=None, file_object=None, verbose=
         rt = r.load().__dict__.get('tree', None)
         ct = c.load().__dict__.get('tree', None)
         if rt and ct:
+            print ct
             if verbose: print 'adding trees for', c.filename
             image.append(c.filename)
             ref.append(rt)
@@ -339,31 +340,33 @@ def compare_mtg(ref,auto,display=False):
     
 def compare_sequence(vs, storage='mtg_compare', display=True, slices=slice(None)):
     """
-    For all tree structure in `vs.auto` and `vs.ref` TreeStat sequence
-    call compare_mtg
+    For all TreeCompare in `vs.tc_list` call compare_mtg
     """
-    import os
-    storage = os.path.abspath(storage)
-    if not os.path.exists(storage):
-        os.mkdir(storage)
-        
     res = []
     
-    for i in range(len(vs.ref))[slices]:
-        a = vs.auto[i].tree
-        r = vs.ref[i].tree
-        print '--- comparing file: ...', a.get_file()[-30:], '---'
-        r.segment.radius = np.zeros(r.segment.size+1)
-        a = split_mtg(a.to_mtg())
-        r = split_mtg(r.to_mtg())
+    for i,tc in list(enumerate(vs.tc_list))[slices]:
+        c = tc.cmp
+        r = tc.ref
+        tc.clear()
         
-        for j,(ai,ri) in enumerate(zip(a,r)):
+        print '--- comparing file: ...', c.get_file().url[-30:], '---'
+        r.segment.radius = np.zeros(r.segment.size+1)
+        c.segment.radius = np.zeros(c.segment.size+1)
+        rmtg = r.to_mtg()
+        cmtg = c.to_mtg()
+        c = split_mtg(cmtg)
+        r = split_mtg(rmtg)
+        
+        for j,(ci,ri) in enumerate(zip(c,r)):
+            if display:
+                print 'comparing image %2d root %2d' % (i,j)
+                print '----------------------------'
             try:
-                match_ratio, topo_ratio = compare_mtg(ri,ai,display=display)
+                match_ratio, topo_ratio = compare_mtg(ri,ci,display=display)
                 res.append((i,j, match_ratio, topo_ratio))
             except:
                 print '\033[31merror processing', i,j, '\033[30m'
-            if display:
+            if 0:#display:
                 k = raw_input('continue(y/n):')
                 if k=='n': return
             else:
@@ -372,4 +375,4 @@ def compare_sequence(vs, storage='mtg_compare', display=True, slices=slice(None)
     return res
 
 def split_mtg(g, scale=1):
-    return map(g.sub_mtg, g.vertices(scale=1))
+    return map(g.sub_mtg, g.vertices(scale=scale))

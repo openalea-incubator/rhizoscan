@@ -12,6 +12,7 @@ import scipy.optimize as _optim
 
 from rhizoscan.ndarray import gradient_norm as _gradient_norm
 from rhizoscan.ndarray.measurements import label_size as _label_size
+from rhizoscan.ndarray.measurements import clean_label as _clean_label
 
 from rhizoscan.ndarray  import pad_array  as _pad
 from rhizoscan.ndarray  import lookup     as _lookup
@@ -20,6 +21,9 @@ from rhizoscan          import geometry   as _geo
 from rhizoscan.geometry import polygon    as _polygon
 from rhizoscan.stats    import cluster_1d as _cluster_1d
     
+from rhizoscan.image.measurements import mask_hull as _mask_hull
+
+
 from rhizoscan.workflow import node as _node # to declare workflow nodes
    
 @_node('foreground_mask')
@@ -100,7 +104,35 @@ def detect_petri_plate(fg_mask, border_width, plate_size, plate_shape='square'):
     pmask  = pmask + 2*_nd.binary_erosion(pmask>0, iterations=int(border_width))
     
     return pmask, px_scale, hull
+
+
+@_node('hull_mask','hull')
+def hull_mask(mask):
+    """ find hull of binary `mask` content and return an image of same shape with filled hull (and hull)"""
+    hull = _mask_hull(mask)
     
+    # compute (out of) petri plate mask
+    from PIL import Image, ImageDraw
+    hull_mask = Image.new('L', mask.shape[::-1], 0)
+    ImageDraw.Draw(hull_mask).polygon(map(tuple,hull[:,::-1]), fill=1)
+    hull_mask = _np.array(hull_mask)
+    
+    return hull_mask, hull
+    
+@_node('pmask', 'px_scale', 'hull', hidden=['border_width','marker_min_size'])
+def detect_marked_plate(image, border_width=0.03, plate_size=120, marker_threshold=0.6, marker_min_size=100):
+    mask    = image>marker_threshold
+    cluster = _clean_label(_nd.label(mask)[0], min_dim=marker_min_size)
+
+    # find plate mask and hull
+    pmask,hull = hull_mask(cluster>0)
+    pwidth = pmask.sum()**.5          # estimated plate width in pixels of a square shape
+    border = pwidth * border_width
+    pmask  = pmask + 2*_nd.binary_erosion(mask>0, iterations=int(border))
+    px_scale = plate_size/pwidth
+    
+    return pmask, px_scale, hull
+
 @_node('grad')
 def border_filter(img, size, axis):
     # "convolve" by flat kernel

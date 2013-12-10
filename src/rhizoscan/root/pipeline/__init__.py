@@ -11,6 +11,9 @@ from rhizoscan.root.graph  import RootAxialTree   as _RootAxialTree
 from rhizoscan.root.dev_graph2axial import make_axial_tree as _make_axial_tree 
 
 
+from rhizoscan.root.image.plate import detect_marked_plate as _detect_marked_plate
+
+
 def _print_state(verbose, msg):
     if verbose: print '  ', msg
 def _print_error(msg):
@@ -36,21 +39,6 @@ def load_image(filename, image_roi=None, *args, **kargs):
 
 # petri plate detection, function and node
 # ----------------------------------------
-##def _save_detect_petri_plate(filename, pmask, px_scale, hull):
-##    pnginfo = dict(px_scale=px_scale, hull=repr(hull.tolist()))
-##    _Image(pmask).save(filename, dtype='uint8', scale=85, pnginfo=pnginfo) # 85 = 255/pmask.max()
-##    
-##def _load_detect_petri_plate(filename):
-##    pmask = _Image(filename,dtype='uint8')/85
-##    px_scale = pmask.info.pop('px_scale')
-##    hull = _np.array(pmask.info.pop('hull'))
-##    return pmask, px_scale, hull
-##    
-##@_node('pmask','px_scale', 'hull', 
-##    save_fct=_save_detect_petri_plate,
-##    load_fct=_load_detect_petri_plate,
-##    suffix='_frame.png',
-##    hidden=['plate_shape','smooth', 'gradient_classes'])
 @_node('pmask','px_scale', 'hull', hidden=['plate_shape','smooth', 'gradient_classes'])
 def detect_petri_plate(image, border_width=.05, plate_size=120, plate_shape='square', smooth=5, gradient_classes=(2,1)):
     # binaray segmentation of image
@@ -66,7 +54,17 @@ def detect_petri_plate(image, border_width=.05, plate_size=120, plate_shape='squ
     
     return pmask, px_scale, hull
 
+@_node('pmask', 'px_scale', 'hull', hidden=['border_width','marker_min_size'])
+def detect_marked_plate(image, border_width=0.03, plate_size=120, marker_threshold=0.6, marker_min_size=100):
+    pmask, px_scale, hull = _detect_marked_plate(image=image, border_width=border_width, plate_size=plate_size, marker_threshold=marker_threshold, marker_min_size=marker_min_size)
+    
+    # set serialization parameter of output petri mask
+    pmask = pmask.view(_Image)
+    pmask.set_serializer(pil_format='PNG', ser_dtype='uint8', ser_scale=85)
+    
+    return pmask, px_scale, hull
 
+    
 # compute graph:
 # --------------
 from rhizoscan.root.image.to_graph import linear_label as _linear_label

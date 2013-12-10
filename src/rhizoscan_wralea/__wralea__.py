@@ -948,6 +948,12 @@ _4879054160 = CompositeNodeFactory(name='arabidopsis histogram analysis',
 
 
 
+
+
+
+
+
+
 ## ***** automatically generated code **** ##
 from rhizoscan.workflow.openalea import Factory
 if '__all__' not in locals(): __all__ = []

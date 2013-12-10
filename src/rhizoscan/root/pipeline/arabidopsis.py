@@ -11,6 +11,7 @@ from rhizoscan.image                import Image       as _Image
 ##from .dataset import make_dataset as _make_dataset
 from . import load_image
 from . import detect_petri_plate
+from . import detect_marked_plate
 from . import compute_graph, compute_tree
 from . import _print_state, _print_error
 
@@ -44,7 +45,6 @@ from rhizoscan.root.image.seed import detect_leaves  as _detect_leaves
 # ------------------
 @_node('rmask','bbox', hidden=['min_dimension','smooth', 'verbose'])
 def segment_image(image, pmask, root_max_radius=15, min_dimension=50, smooth=1, verbose=False):
-    #pmask = _nd.binary_erosion(pmask==pmask.max(), iterations=
     pmask = pmask==pmask.max()
     
     # find the bounding box, and crop image and pmask
@@ -92,4 +92,9 @@ def detect_leaves(rmask, image, bbox, plant_number=1, root_min_radius=3, leaf_he
             segment_image, detect_leaves,
             compute_graph, compute_tree])
 def pipeline(): pass
+
+@_pipeline([load_image,    _node.copy(detect_marked_plate,name='detect_frame'), 
+            segment_image, detect_leaves,
+            compute_graph, compute_tree])
+def pipeline2(): pass
 

@@ -42,6 +42,8 @@ except:
 from types import MethodType   as _MethodType
 from types import FunctionType as _FunctionType
 
+from rhizoscan.tool import _property
+
 # default printing functionality
 def _print_state(verbose, msg):
     if verbose: print '  ', msg
@@ -514,6 +516,12 @@ class Pipeline(object):
         
         return self.run(compute='all', namespace=kargs) # return whole namespace (??)
         
+    @_property
+    def inputs(self):
+        return node.get_attribute(self,'inputs')
+    @_property
+    def outputs(self):
+        return node.get_attribute(self,'outputs')
     
     def run(self, compute='missing', update=True, namespace=None, stored_data=[], **kargs):
         """

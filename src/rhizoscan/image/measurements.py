@@ -329,4 +329,18 @@ def curve_to_spline(mask, tip_weight=10, smooth=1, order=3):##, x0=None, y0=None
     tck,u = fit_spline([x,y],w=w,s=x.size*smooth,k=order)
     return tck
 
+@_node('hull')
+def mask_hull(mask):
+    """ find and return binary `mask` image hull, i.e. a list of pixels position """
+    from scipy import spatial, sparse
+    # find border pixels
+    px = _np.transpose((mask<>_nd.uniform_filter(mask,size=(3,3))).nonzero())
     
+    # compute hull (sort indices using csgraph stuff)
+    hull = spatial.Delaunay(px).convex_hull
+    graf = sparse.csr_matrix((_np.ones(hull.shape[0]),hull.T), shape=(hull.max()+1,)*2)
+    hull = sparse.csgraph.depth_first_order(graf,hull[0,0],directed=False)[0]    
+    hull = px[hull]
+
+    return hull
+

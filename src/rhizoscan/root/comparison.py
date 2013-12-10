@@ -344,7 +344,7 @@ def compare_sequence(vs, storage='mtg_compare', display=True, slices=slice(None)
     """
     res = []
     
-    for i,tc in list(enumerate(vs.tc_list))[slices]:
+    for i,tc in np.array(list(enumerate(vs.tc_list)))[slices]:
         c = tc.cmp
         r = tc.ref
         tc.clear()

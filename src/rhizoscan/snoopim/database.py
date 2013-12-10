@@ -52,14 +52,18 @@ def description(name, verbose=False):
             
     return dict(descr)
     
-def image_to_id_map(name):
+def image_to_id_map(name, reverse=False):
     import os 
     
     header, content = read_img_ok(name)
     base_path = header.get('path','')
     
     i2i = dict()
-    for c in content:
-        i2i[os.path.join(base_path,c['img'])] = c['id']
+    if reverse:
+        for c in content:
+            i2i[c['id']] = os.path.join(base_path,c['img'])
+    else:
+        for c in content:
+            i2i[os.path.join(base_path,c['img'])] = c['id']
     
     return i2i

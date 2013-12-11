@@ -44,28 +44,32 @@ from rhizoscan.root.image.seed import detect_leaves  as _detect_leaves
 # image segmentation
 # ------------------
 @_node('rmask','bbox', hidden=['min_dimension','smooth', 'verbose'])
-def segment_image(image, pmask, root_max_radius=15, min_dimension=50, smooth=1, verbose=False):
-    pmask = pmask==pmask.max()
+def segment_image(image, pmask=None, root_max_radius=15, min_dimension=50, smooth=1, verbose=False):
+    if pmask:
+        pmask = pmask==pmask.max()
     
     # find the bounding box, and crop image and pmask
     bbox  = _nd.find_objects(pmask)[0]
-    pmask = pmask[bbox]
     img   = image[bbox]
+    if pmask: pmask = pmask[bbox]
     
     if smooth:
         smooth_img  = _nd.gaussian_filter(img*pmask, sigma=smooth)
-        smooth_img /= _np.maximum(_nd.gaussian_filter(pmask.astype('f'),sigma=smooth),2**-10)
+        if pmask:
+            smooth_img /= _np.maximum(_nd.gaussian_filter(pmask.astype('f'),sigma=smooth),2**-10)
         img[pmask]  = smooth_img[pmask]
         
     # background removal
     _print_state(verbose,'remove background')
     img = _remove_background(img, distance=root_max_radius, smooth=1)
-    img *= _nd.binary_erosion(pmask,iterations=root_max_radius)
+    if pmask:
+        img *= _nd.binary_erosion(pmask,iterations=root_max_radius)
     
     # image binary segmentation
     _print_state(verbose,'segment binary mask')
     rmask = _segment_root(img)
-    rmask[-pmask] = 0
+    if pmask:
+        rmask[-pmask] = 0
     if min_dimension>0:
         cluster = _nd.label(rmask)[0]
         cluster = _clean_label(cluster, min_dim=min_dimension)

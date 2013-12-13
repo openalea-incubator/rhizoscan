@@ -61,7 +61,6 @@ def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir='output', out_s
     :ini format:
         ##todo
     """
-    import ConfigParser as cfg
     import os
     from os.path import join as pjoin
     from os.path import splitext, dirname, exists
@@ -75,9 +74,7 @@ def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir='output', out_s
         raise TypeError('input "ini_file" does not exist')
     
     # load content of ini file
-    ini = cfg.ConfigParser()
-    ini.read(ini_file)       
-    ini = _Mapping(**dict([(s,_Mapping(**dict((k,_param_eval(v)) for k,v in ini.items(s)))) for s in ini.sections()])) 
+    ini = _load_ini_file(ini_file)
     
     if verbose>2:
         print 'loaded ini:'
@@ -104,25 +101,25 @@ def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir='output', out_s
         if verbose>1:
             print '   ' + '\n   '.join(file_list)
     
-    # prepare metatdata parsing
-    # -------------------------
-    # function that load a referenced fields from the ini file, used for '$' type
-    def get_from_ini(field, default):
-        value   = ini[field]
-        return value
-    
+    # prepare metatata parser
+    # -----------------------
     # meta data list and regular expression to parse file names
     meta_parser = re.compile('(.*)'.join([fp.replace('*','.*') for fp in file_pattern[::2]]))
     meta_list = [_Mapping(name=s[0],type=s[1]) for s in [m.split(':') for m in file_pattern[1::2]]]
-    date_pattern = ini['PARSING'].get('date','')
+    date_pattern = ini['PARSING'].get('date','') ## to remove?
+    
+    types = dict(int=int,float=float,str=str)
     for m in meta_list:
-        if m.type=='date': 
+        if m.type=='date':   ## to remove? 
             m.eval = lambda s: strptime(s, date_pattern)
         elif m.type=="$":
             default = m.name+'_default'
-            m.eval = lambda name: get_from_ini(name, default=default)
+            m.eval = lambda name: ini.get(name, default=default)
         else: 
-            m.eval = eval(m.type)  ##Security issue ! (what it should do eval('int'))
+            try: 
+                m.eval = types[m.type]
+            except KeyError:
+                raise KeyError('unrecognized parsing type %s for field %s' % (m.type,m.name))
             
     default_meta = ini.get('metadata',{})
     for k,v in default_meta.iteritems():
@@ -148,6 +145,7 @@ def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir='output', out_s
     if verbose:
         print 'metadata:', meta_parser.pattern, 
         print '> ' + ', '.join((m.name+':'+m.type for m in meta_list))
+        
     # parse all image files, set metadata and remove invalid
     # ------------------------------------------------------
     img_list = []
@@ -165,12 +163,14 @@ def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir='output', out_s
                 print '   ' + str(meta_value) + ' from ' + subf + str(rm_len)
             meta = _Mapping(**default_meta)
             if group is not None:
-                meta.update(get_from_ini(group[ind], []))
+                meta.update(ini.get(group[ind], default=[]))
             for i,value in enumerate(meta_value):
                 field = meta_list[i].name
                 value = meta_list[i].eval(value)
-                if field=='$': meta.update(value)
-                else:          meta[field] = value
+                if field=='$': 
+                    meta.update(value) 
+                else:
+                    _add_multilevel_key_value(meta,field,value)
                 
             ds_item = _Mapping(filename=f, metadata=meta)
             ds_item.__loader_attributes__ = ['filename','metadata']
@@ -183,6 +183,62 @@ def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir='output', out_s
     return img_list, invalid, out_dir
     
     
+def _add_multilevel_key_value(m, key,value): 
+    """
+    add entry to Mapping `m` from possible multilevel `key`
+    return updated `mapping`
+    :Example: 
+        m = _add_multilevel_key_value(Mapping(),'a.b.c',42)
+        print m.a.b.c==42
+        # True
+    """
+    key = key.split('.')
+    def assert_mapping(subm,k):
+        if not subm.has_key(k) or not hasattr(subm[k],'iteritems'): 
+            subm[k] = _Mapping()
+        return subm[k]
+    last = reduce(assert_mapping, key[:-1],m)
+    last[key[-1]] = value
+    return m
+    
+def _load_ini_file(ini_file):
+    """
+    return the ini file content as a hierarchy of Mapping objects
+    
+    can manage: 
+     - multilevel key name
+     - inheritance of *previous* section:
+     
+    Example::
+    
+        [section1]
+        a=1
+        [section2:section1]
+        subsection.value=42
+        
+        returns a Mapping containing:
+        section1
+          a=1
+        section2
+          a=1
+          subsection
+            value=42
+    """
+    import ConfigParser as cfg
+    ini = cfg.ConfigParser()
+    ini.read(ini_file)
+    m = _Mapping()
+    for section in ini.sections():
+        s,parent = (section+':').split(':')[:2]
+        if len(parent):
+            parent = m[parent]
+        else:
+            parent = {}
+        m[s] = _Mapping(**parent)
+        for k,v in ini.items(section): 
+            _add_multilevel_key_value(m[s],k,_param_eval(v)) 
+    return m 
+   
 @_node('filename', 'metadata', 'output')
 def split_item(db_item):
     return db_item.filename, db_item.metadata, db_item.output

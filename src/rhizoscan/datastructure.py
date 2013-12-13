@@ -417,14 +417,17 @@ class Mapping(Data):
     ##  - what about saving to intermediate file when in a container ?
     #      > useful ?
     #      > then needs some 'update' flag ?
-    def __init__(self, load_file=None, **kwds):
+    def __init__(self, *args, **kwds):
         """
-        Create a Mapping object containing all keyword arguments as keys
+        Create a Mapping object 
         
-        If `load_file` is given, it loads the file and stores it as the Data 
-        file attribute for later io operation (see load and save documentation).
+        Possible arguments are:
+         - keywords:                                  Mapping(a=1,b=2)
+         - list of (key,value) pairs:                 Mapping([('a',1),('b',2)])
+         - a mapping object (i.e. with iteritems()):  Mapping({'a':1,'b':2})
+         - any combinasion of the above
         """
-        if load_file is not None: self.load(load_file)
+        for arg in args: self.__dict__.update(arg)
         self.__dict__.update(kwds)
         
     # accessors

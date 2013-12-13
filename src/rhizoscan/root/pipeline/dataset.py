@@ -13,43 +13,53 @@ from . import _print_state, _print_error, _param_eval
 
 #@_node('image_list', 'invalid_file', 'output_directory')
 @_node('image_list', 'invalid_file', 'output_directory', hidden=['verbose'])
-def make_dataset(ini_file, output='output', out_suffix='_', verbose=False):
+def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir='output', out_suffix='_', verbose=False):
     """
     Return a list of dataset item following parsing rules found in `ini_file`
     
     :Inputs:
       - `ini_file`: 
-          file with ini-formated content indicating the dataset to be loaded ##some doc?
-      - `output`:
-          String used to define the MapStorage of each loaded item.
-          If None, does not set MapStorage for dataset item
+          file with ini-formated content indicating the dataset to be loaded
+          See the 'ini format' section for details
+      - `base_dir`:
+          Starting directories for inputs and outputs (see 'directories' below)
+          If not given, use the directory of given `ini_file`
+      - `data_dir`:
+          Directories to look for data inputs         (see 'ini format' below)
+          If not given, use the `base_dir`
+          If it is not an absolute path, preppend it with `base_dir`
+      - `out_dir`:
+          Directories to set output into              (see 'directories' below)
+          If it is not an absolute path, preppend it with `base_dir`
       - `out_suffix':
-          String to append to the MapStorage url associated to loaded item
+          String to append to output files            (see 'directories' below)
       - `verbose`:
           If >0, print some message on loaded dataset
     
     :Outputs:
-      - A `Sequence` of `Mapping` object, one for each file found.
-         - their `__file_object__` are:
-              [base_output_dir]/[item-base].namespace
-              [base_output_dir]
-         - If `output` is given, their `map_storage` is set to:    
-              [base_output_dir]/[item-base][out-suffix]{}
-          
-        where:
-          base_output_dir is the 3rd value returned by this function
-          item-base is the filename of the loaded item with the directory of
-            ini_file and the file extension removed
-          out_suffix is the value given as argument
-          
-      - the list of **invalid files**: files found but that could not be parsed
-        
-      - The base directory to all item __file_object__. If `output` is an 
-        absolute path, then this is the returned value. Otherwise, it is the
-        `output` string preceded by the directory of `ini_file`.
+      - A list of `Mapping` object, one for each file found with suitable output
+        files configure (nothing is saved)
+      - The list of files found but which could not be parsed
+      - The base output directory to all item (see 'directories' below)
     
-    :todo:
-        - finish doc on ini_file structure
+    :directories:
+        All output files and directories are set following the values of given 
+        `base_dir`, `data_dir`, `out_dir` and `out_suffix`.
+        
+        The associated file of output `Mapping` items are set to:
+          "[out_dir]/[item-end].namespace"
+           
+        The output items have their MapStorage set (see Mapping doc) to:
+          "[out_dir]/[item-end][out_suffix]{}"
+          
+        Where `item-end` is the remaining part of the filename of found items 
+        after removing `data_dir` from the start and the file extension.
+        
+        See datastruture.Data and Mapping documentations for details on `Data` 
+        associated file and `Mapping` MapStorage
+        
+    :ini format:
+        ##todo
     """
     import ConfigParser as cfg
     import os
@@ -73,17 +83,20 @@ def make_dataset(ini_file, output='output', out_suffix='_', verbose=False):
         print 'loaded ini:'
         print ini.multilines_str(tab=1)
         
-    # find all image files that fit pattern given in ini_file
-    # -------------------------------------------------------
-    base_dir = dirname(abspath(ini_file))
-    base_out = abspath(output, base_dir)
+    # directory variable
+    if base_dir is None: base_dir = dirname(abspath(ini_file))
+    if data_dir is None: data_dir = base_dir
+    else:                data_dir = abspath(data_dir, base_dir)
+    out_dir = abspath(out_dir, base_dir)
     
+    # find all files that fit pattern given in ini_file
+    # -------------------------------------------------
     # list all suitable files
     file_pattern = ini['PARSING']['pattern']
     file_pattern = file_pattern.replace('\\','/')      # for windows
     file_pattern = re.split('[\[\]]',file_pattern)
     
-    glob_pattern = pjoin(base_dir,'*'.join(file_pattern[::2]))
+    glob_pattern = pjoin(data_dir,'*'.join(file_pattern[::2]))
     file_list = sorted(glob(glob_pattern))
     
     if verbose:
@@ -145,8 +158,8 @@ def make_dataset(ini_file, output='output', out_suffix='_', verbose=False):
             if rm_len>0: subf = f[rm_len+1:]
             else:        subf = f 
             subf = subf.replace('\\','/')   # for windows
-            out_store = pjoin(base_out, splitext(subf)[0]) + out_suffix + '{}'
-            out_file  = pjoin(base_out, splitext(subf)[0]) + '.namespace'
+            out_store = pjoin(out_dir, splitext(subf)[0]) + out_suffix + '{}'
+            out_file  = pjoin(out_dir, splitext(subf)[0]) + '.namespace'
             meta_value = meta_parser.match(subf).groups()
             if verbose>1:
                 print '   ' + str(meta_value) + ' from ' + subf + str(rm_len)
@@ -167,7 +180,7 @@ def make_dataset(ini_file, output='output', out_suffix='_', verbose=False):
         except Exception as e:
             invalid.append((type(e).__name__,e.message, f))
             
-    return img_list, invalid, base_out
+    return img_list, invalid, out_dir
     
     
 @_node('filename', 'metadata', 'output')

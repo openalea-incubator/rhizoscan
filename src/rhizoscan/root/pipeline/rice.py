@@ -19,7 +19,7 @@ from ..graph          import RootAxialTree               as _RootAxialTree
 @_node('failed_files')
 def process(ini_file, indices=None, **kargs):
     if isinstance(ini_file, basestring):
-        flist, invalid, outdir = _make_dataset(ini_file=ini_file, output='tree')
+        flist, invalid, outdir = _make_dataset(ini_file=ini_file, out_dir='tree')
     else:
         flist = ini_file
     

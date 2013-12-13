@@ -227,7 +227,7 @@ def make_ref_dataset(ini_file, output='tree', overwrite=False, verbose=1):
     from os.path import splitext, join, exists
     from .pipeline.dataset import make_dataset 
     
-    rds, invalid, out_dir = make_dataset(ini_file=ini_file, output=output)
+    rds, invalid, out_dir = make_dataset(ini_file=ini_file, out_dir=output)
     
     if verbose>1:
         print '\033[31m ---- invalid files: ----'
@@ -267,7 +267,7 @@ def load_db_with_ref(auto, ref, auto_out='tree', ref_out='tree'):
         else:
             return x
 
-    auto, inv, auto_dir = make_dataset(auto,output=auto_out)
+    auto, inv, auto_dir = make_dataset(auto,out_dir=auto_out)
     ref,  inv, ref_dir  = make_ref_dataset(ref,output=ref_out, verbose=False)
     auto = dict([(to_key(a.metadata),a) for a in auto])
     auto = [auto[to_key(r.metadata)] for r in ref]

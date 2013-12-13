@@ -8,7 +8,6 @@ from rhizoscan.workflow import pipeline as _pipeline # declare workflow pipeline
 from rhizoscan.ndarray.measurements import clean_label as _clean_label
 from rhizoscan.image                import Image       as _Image
 
-##from .dataset import make_dataset as _make_dataset
 from . import load_image
 from . import detect_petri_plate
 from . import detect_marked_plate
@@ -20,27 +19,6 @@ from rhizoscan.root.image import remove_background   as _remove_background
 from rhizoscan.root.image.seed import detect_leaves  as _detect_leaves
 
 
-##@_node('failed_files')
-##def process(ini_file, indices=None, **kargs):
-##    if isinstance(ini_file, basestring):
-##        flist, invalid, outdir = _make_dataset(ini_file=ini_file, output='output')
-##    else:
-##        flist = ini_file
-##    
-##    if indices is None: indices = slice(None)
-##    imgNum = len(flist[indices])
-##    failed = []
-##    for i,f in enumerate(flist[indices]):
-##        print 'processing (img %d/%d):' %(i+1,imgNum), f.filename
-##        try:
-##            image_pipeline(f, **kargs)
-##        except Exception as e:
-##            _print_error(e)
-##            failed.append((f,e))
-##            
-##    return failed
-
-       
 # image segmentation
 # ------------------
 @_node('rmask','bbox', hidden=['min_dimension','smooth', 'verbose'])
@@ -48,10 +26,12 @@ def segment_image(image, pmask=None, root_max_radius=15, min_dimension=50, smoot
     if pmask:
         pmask = pmask==pmask.max()
     
-    # find the bounding box, and crop image and pmask
-    bbox  = _nd.find_objects(pmask)[0]
-    img   = image[bbox]
-    if pmask: pmask = pmask[bbox]
+        # find the bounding box, and crop image and pmask
+        bbox  = _nd.find_objects(pmask)[0]
+        img   = image[bbox]
+        pmask = pmask[bbox]
+    else:
+        bbox = map(slice,image.shape)
     
     if smooth:
         smooth_img  = _nd.gaussian_filter(img*pmask, sigma=smooth)
@@ -80,7 +60,7 @@ def segment_image(image, pmask=None, root_max_radius=15, min_dimension=50, smoot
     rmask.set_serializer(pil_format='PNG', ser_dtype='uint8', ser_scale=255)
     
     return rmask, bbox
-                                         
+
     
 # detect leaves:
 # --------------

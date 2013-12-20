@@ -11,6 +11,7 @@ from rhizoscan.image                import Image       as _Image
 from . import load_image
 from . import detect_petri_plate
 from . import detect_marked_plate
+from . import no_plate_to_detect
 from . import compute_graph, compute_tree
 from . import _print_state, _print_error
 
@@ -23,7 +24,7 @@ from rhizoscan.root.image.seed import detect_leaves  as _detect_leaves
 # ------------------
 @_node('rmask','bbox', hidden=['min_dimension','smooth', 'verbose'])
 def segment_image(image, pmask=None, root_max_radius=15, min_dimension=50, smooth=1, verbose=False):
-    if pmask:
+    if pmask is not None:
         pmask = pmask==pmask.max()
     
         # find the bounding box, and crop image and pmask
@@ -31,13 +32,16 @@ def segment_image(image, pmask=None, root_max_radius=15, min_dimension=50, smoot
         img   = image[bbox]
         pmask = pmask[bbox]
     else:
-        bbox = map(slice,image.shape)
+        img  = image
+        bbox = map(slice,[0,0],image.shape)
     
     if smooth:
-        smooth_img  = _nd.gaussian_filter(img*pmask, sigma=smooth)
-        if pmask:
+        if pmask is None:
+            img  = _nd.gaussian_filter(img, sigma=smooth)
+        else:
+            smooth_img  = _nd.gaussian_filter(img*pmask, sigma=smooth)
             smooth_img /= _np.maximum(_nd.gaussian_filter(pmask.astype('f'),sigma=smooth),2**-10)
-        img[pmask]  = smooth_img[pmask]
+            img[pmask]  = smooth_img[pmask]
         
     # background removal
     _print_state(verbose,'remove background')
@@ -80,5 +84,10 @@ def pipeline(): pass
 @_pipeline([load_image,    _node.copy(detect_marked_plate,name='detect_frame'), 
             segment_image, detect_leaves,
             compute_graph, compute_tree])
-def pipeline2(): pass
+def pipeline_marked_frame(): pass
+
+@_pipeline([load_image,    _node.copy(no_plate_to_detect,name='detect_frame'), 
+            segment_image, detect_leaves,
+            compute_graph, compute_tree])
+def pipeline_no_frame(): pass
 

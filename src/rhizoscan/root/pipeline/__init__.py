@@ -63,7 +63,18 @@ def detect_marked_plate(image, border_width=0.03, plate_size=120, marker_thresho
     pmask.set_serializer(pil_format='PNG', ser_dtype='uint8', ser_scale=85)
     
     return pmask, px_scale, hull
-
+    
+@_node('pmask', 'px_scale', 'hull')
+def no_plate_to_detect(image, px_scale=1):
+    """to replace detect_*_plate when image contain no plate to detect """
+    #pmask = _np.zeros(image.shape,dtype='uint8').view(_Image)
+    #pmask.set_serializer(pil_format='PNG', ser_dtype='uint8', ser_scale=85)
+    
+    h,w = image.shape
+    hull = [[0,0],[0,w],[w,h],[h,0]]
+    
+    return None,px_scale,hull
+    
     
 # compute graph:
 # --------------

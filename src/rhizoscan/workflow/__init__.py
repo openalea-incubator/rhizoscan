@@ -592,5 +592,11 @@ class Pipeline(object):
                     if update:
                         for o in node.get_attribute(n,'outputs'):
                             names.pop(o['name'], None)
-        
+                            
         return nodes
+    
+    def __repr__(self):
+        def full_name(x): return x.__module__ + '.' + x.__name__
+        cls = full_name(self.__class__)
+        fct = ','.join([full_name(f) for f in self.__pipeline__])
+        return cls + '([' + fct + '])'

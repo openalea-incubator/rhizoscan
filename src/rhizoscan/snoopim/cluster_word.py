@@ -3,8 +3,56 @@ Tools to process snoopim extracted words
 """
 import numpy as np
 
+from . import results as res
 from .database import image_to_id_map as img2id
 
+def cluster_wordset(dataset_name,word_group,inflation,save=False):
+    """
+    Cluster specified wordset
+    
+    `inflation` should be a value in (0.,30.) or a list of such values
+    
+    use `load_cluster` to load the saved cluster
+    """
+    print "processing %s-%s with inflation=%s" %(dataset_name,word_group,inflation)
+    print " ***** compute similarity matrix *****"
+    words = res.load_words(dataset_name,word_group)
+    prox  = compute_word_proximity(words,dataset_name)
+
+    inflation = np.atleast_1d(inflation)
+    for inf in inflation:
+        print " ***** clustering (inflation=%g) *****" % inf
+        c = mcl(prox,float(inf))
+        print " ========>  %d clusters" % c.max()
+        if save:
+            filename = res.get_dataset_path(dataset_name,'Results',word_group,'cluster_inf%g'%inf)
+            with open(filename,'w') as f:
+                f.write(' '.join(map(str,c)))
+                
+def load_wordset_cluster(dataset_name, word_group, inflation):
+    """
+    Load wordset cluster saved by `cluster_wordset`
+    
+    inflation should be the scalar
+    """
+    filename = res.get_dataset_path(dataset_name,'Results',word_group,'cluster_inf%g'%inflation)
+    return np.loadtxt(filename,dtype=int)    
+        
+def list_wordset_cluster(dataset_name, word_group):
+    """
+    List all inflation value for which cluster has been computed
+    
+    See also:
+     - `cluster_word` (computing & saving)
+     - `load_wordset_cluster` (loading)
+    """
+    from glob import glob
+    base_name = res.get_dataset_path(dataset_name,'Results',word_group,'cluster_inf')
+    flist = glob(base_name + '*')
+    inf_start = len(base_name)
+    inf = [float(f[inf_start:]) for f in flist]
+    
+    return inf
 
 def mcl(proximity, inflation=None):
     """
@@ -40,7 +88,8 @@ def mcl(proximity, inflation=None):
     else:                 inflation = ['-I',str(inflation)]
     
     # call mcl and retrieve output
-    cmd = ['mcl', '-', '--abc', '-V','all'] + inflation + ['-o','-']
+    #cmd = ['mcl', '-', '--abc', '-V','all'] + inflation + ['-o','-']
+    cmd = ['mcl', '-', '--abc'] + inflation + ['-o','-']
     p = Popen(cmd, stdout=PIPE, stdin=PIPE)
     out = p.communicate(input=mcl_in)[0]
     

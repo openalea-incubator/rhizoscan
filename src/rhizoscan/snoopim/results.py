@@ -52,11 +52,23 @@ def image_with_words(dataset_name, word_group, wordset, plot=False):
 
     return res
 
-def display_words(dataset_name, words, images=None, column=1):
+def display_words(dataset_name, words, images=None, cluster=None, column=1):
     """
-    Display given `words` in given `images`
+    Display given `words` bounding box on `images`
     
-    if `images` is None, select all images that contains all the given words
+    :Inputs:
+     - `dataset_name`:
+          The name of the dataset the image is taken from
+     - `words`:
+          A dictionary (word_id,word) such as returned by `load_words`
+     - `images`:
+          The filenames of the image in dataset to display
+          If None, select all images that contains all the given `words`
+     - `cluster`:
+          Cluster label of words. Words with same label will have the same color
+          If None, word color are selected randomly
+     - `column`:
+          The number of column for the subplot
     """
     # find images that contains all given words
     if images is None:
@@ -77,30 +89,43 @@ def display_words(dataset_name, words, images=None, column=1):
     row = ceil(len(to_display)/float(column))
     for i,(im,bbox) in enumerate(to_display):
         plt.subplot(row,column,i)
-        display_image(dataset_name=dataset_name,image=im,words_bbox=bbox)
+        display_image(dataset_name=dataset_name,image=im,words_bbox=bbox, color=cluster)
 
     return len(to_display)
 
-def display_image(dataset_name, image, words_bbox):
+def display_image(dataset_name, image, words_bbox, color=None):
     """
     display the given bounding box `bbox` on top of `image`
     
-    `dataset_name` is the name of the dataset the image is taken from
-    `image` is the filename of the image in `dataset`
-    `words_bbox` is a list of lists [x_min, y_min, x_max, y_max]
+    :Inputs:
+     - `dataset_name`:
+          The name of the dataset the image is taken from
+     - `image`:
+          The filename of the image in `dataset`
+     - `words_bbox`:
+          A list of bounding box (i.e. lists [x_min, y_min, x_max, y_max])
+     - `color`: 
+          Color id (label) of bbox.
     """
     from matplotlib import pyplot as plt
     from os.path import split
-    image, ratio = get_thumbnails(dataset_name=dataset_name, image_name=split(image)[-1])
+    image_name=split(image)[-1]
+    image, ratio = get_thumbnails(dataset_name=dataset_name, image_name=image_name)
     plt.imshow(image)
     axis = plt.axis()
-    for bbox in words_bbox:
-        if bbox is None:
-            plt.plot(0,0)
-        else:
+    plt.gca().set_xlabel(image_name)
+    
+    base_color = 'bgrcmykw'
+    color_num  = len(base_color)
+    if color is None:
+        color = [base_color[i%color_num] for i in range(len(words_bbox))]
+    else:
+        color = [base_color[i%color_num] for i in color]
+    for i,bbox in enumerate(words_bbox):
+        if bbox is not None:
             x = ratio*np.array(bbox)[[0,2,2,0,0]]
             y = ratio*np.array(bbox)[[1,1,3,3,1]]
-            plt.plot(x,y)
+            plt.plot(x,y,color[i])
     plt.axis(axis)
     
 def word_to_itemset(dataset_name, word_group=-1, item='word', filename=None, verbose=False):

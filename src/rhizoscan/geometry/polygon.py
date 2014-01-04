@@ -12,7 +12,8 @@ def convex_hull(vertices):
     
     return a Kx2 array of the convex hull coordinates, as a polygon.
     """
-    hull = _sp.spatial.Delaunay(vertices).convex_hull
+    from scipy.spatial import Delaunay
+    hull = Delaunay(vertices).convex_hull
     graf = _sp.sparse.csr_matrix((_np.ones(hull.shape[0]),hull.T), shape=(hull.max()+1,)*2)
     hull = _sp.sparse.csgraph.depth_first_order(graf,hull[0,0],directed=False)[0]
     

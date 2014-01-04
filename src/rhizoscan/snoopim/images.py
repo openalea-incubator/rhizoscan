@@ -2,6 +2,7 @@
 manage access to the images of snoopim dataset
 """
 import scipy as sp
+from scipy.misc import imread as _imread
 from . import get_dataset_path
 
 def get_thumbnails(dataset_name, image_name):
@@ -13,5 +14,5 @@ def get_thumbnails(dataset_name, image_name):
             if image_name in line:
                 ratio = float(line.split(':')[1])
                 break
-    return sp.misc.imread(filename), ratio
+    return _imread(filename), ratio
 

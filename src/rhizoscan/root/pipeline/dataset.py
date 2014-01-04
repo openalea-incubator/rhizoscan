@@ -150,7 +150,7 @@ def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir='output', out_s
     # ------------------------------------------------------
     img_list = []
     invalid  = []
-    rm_len = len(base_dir)  ## imply images are in base_dir. is there a more general way
+    rm_len = len(data_dir)  ## imply images are in base_dir. is there a more general way
     for ind,f in enumerate(file_list):
         try:
             if rm_len>0: subf = f[rm_len+1:]

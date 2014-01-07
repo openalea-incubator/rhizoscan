@@ -66,6 +66,31 @@ class static_or_instance_method(object):
             #func = functools.partial(self.func,instance)
             #func.__doc__ = self.func.__doc__ 
         return func
+        
+# memory size of objects
+# ----------------------
+def sizeof(obj, ids=None):
+    """
+    (try to) Compute the total memory size (bytes) of `obj`
+    
+    Manage standard python types as well as numpy array
+    
+    `ids` is a set of object ids that should not be counted 
+    """
+    import sys
+    
+    if ids is None: ids = set()
+    if id(obj) in ids: return 0
+    
+    # count the size of current obj
+    if hasattr(obj,'nbytes'): s = obj.nbytes # for numpy arrays
+    else:                     s = sys.getsizeof(obj)
+    ids.add(id(obj))
+        
+    # count the size of object attributes, recursively
+    for o in getattr(obj,'__dict__',{}).values():
+        s += sizeof(o,ids)
+    return s
 
 # tool to open file, or source of modules and functions, with jedit
 # -----------------------------------------------------------------

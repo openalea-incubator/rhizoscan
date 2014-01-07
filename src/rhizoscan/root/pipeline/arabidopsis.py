@@ -46,13 +46,13 @@ def segment_image(image, pmask=None, root_max_radius=15, min_dimension=50, smoot
     # background removal
     _print_state(verbose,'remove background')
     img = _remove_background(img, distance=root_max_radius, smooth=1)
-    if pmask:
+    if pmask is not None:
         img *= _nd.binary_erosion(pmask,iterations=root_max_radius)
     
     # image binary segmentation
     _print_state(verbose,'segment binary mask')
     rmask = _segment_root(img)
-    if pmask:
+    if pmask is not None:
         rmask[-pmask] = 0
     if min_dimension>0:
         cluster = _nd.label(rmask)[0]

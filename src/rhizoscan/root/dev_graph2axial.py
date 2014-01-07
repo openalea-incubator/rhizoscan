@@ -216,10 +216,10 @@ def path_to_axes(graph, path, axe_selection=[('length',1),('min_tip_length',10)]
                 raise NotImplementedError('axe order selection with', method, param, 'is not implemented')
                 
         elif method=='radius':
-            from rhizoscan.stats import cluster_1d as cluster
+            from rhizoscan.stats import cluster_1d
             aRadius = _np.vectorize(lambda slist:segment.radius[slist].mean())(axe)
             aRadius[_np.isnan(aRadius)] = 0
-            main_axes = cluster(aRadius, classes=2, bins=256)
+            main_axes = cluster_1d(aRadius, classes=2, bins=256)
             aOrder[main_axes] = order
             
         elif method=='seminal':

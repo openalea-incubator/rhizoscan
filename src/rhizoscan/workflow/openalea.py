@@ -21,7 +21,7 @@ __this_module__ = __name__
 try:        
     from openalea.core import NodeFactory                
 except: 
-    print '\033[31m *** failed to import openalea.core.NodeFactory ***\033[30m'
+    print ' *** failed to import openalea.core.NodeFactory ***'
     NodeFactory = object
     import warnings
     warnings.warn("OpenAlea.core.NodeFactory could not be found. Aleanode won't be defined", ImportWarning)
@@ -29,7 +29,7 @@ except:
 try:        
     from openalea.core.node import FuncNode   
 except: 
-    print '\033[31m *** failed to import openalea.core.node.FuncNode ***\033[30m'
+    print ' *** failed to import openalea.core.node.FuncNode ***'
     FuncNode = object
     import warnings
     warnings.warn("OpenAlea.core.node.FuncNode could not be found. Aleanode won't be defined", ImportWarning)

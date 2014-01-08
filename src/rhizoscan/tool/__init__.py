@@ -71,11 +71,22 @@ class static_or_instance_method(object):
 # ----------------------
 def sizeof(obj, ids=None):
     """
-    (try to) Compute the total memory size (bytes) of `obj`
+    Simple (recursive) estimation of the memory used by `obj` (in bytes)
     
-    Manage standard python types as well as numpy array
+    This function manages standard python types (dict,list,tuple), instance of
+    (new type) classes and numpy arrays.
     
-    `ids` is a set of object ids that should not be counted 
+    `ids` is a set of object ids which should not be counted. It is used 
+    internally to avoid counting twice the same object.
+    
+    :Note 1: Two objects can share content, which biais their size count.
+    In order to get exclusive size count of objects `a` and `b`, do::
+    
+        ids = set()
+        a_size = sizeof(a,ids)  # ids of all parsed objects are added in ids
+        b_size = sizeof(b,ids)  # size of objects not already counted in a_size
+        
+    :Note
     """
     import sys
     
@@ -83,13 +94,27 @@ def sizeof(obj, ids=None):
     if id(obj) in ids: return 0
     
     # count the size of current obj
-    if hasattr(obj,'nbytes'): s = obj.nbytes # for numpy arrays
-    else:                     s = sys.getsizeof(obj)
+    if hasattr(obj,'nbytes') and isinstance(obj.nbytes,int): # for numpy arrays 
+        s = obj.nbytes 
+    else:
+        s = sys.getsizeof(obj)
     ids.add(id(obj))
-        
-    # count the size of object attributes, recursively
-    for o in getattr(obj,'__dict__',{}).values():
+    
+    # get all referenced objects
+    subobj = []
+    if isinstance(obj,dict):
+        subobj.extend(obj.values())
+    if hasattr(obj,'__dict__'):      
+        subobj.extend(obj.__dict__.values())
+    if hasattr(obj,'__slots__'):      
+        subobj.extend(filter(None,(getattr(obj,attr,None) for attr in obj.__slots__)))
+    if isinstance(obj,(list,tuple)): 
+        subobj.extend(obj)
+
+    # (recursively) add size of referenced objects 
+    for o in subobj:
         s += sizeof(o,ids)
+        
     return s
 
 # tool to open file, or source of modules and functions, with jedit

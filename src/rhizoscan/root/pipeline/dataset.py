@@ -299,20 +299,51 @@ def get_metadata(db):
     meta = [m for m in meta if m[0]!='_']
     return meta
     
-@_node('clustered_db')
-def cluster(db, key, metadata=True):
-    """ cluster db by (unique) 'key' 
+@_node('sorted_dataset')
+def sort(ds,key, metadata=True):
+    """
+    Sort `ds` by `key`
     
-    If key is a string, return a dictionary of lists with dictionary keys the 
-    possible db key value.
-    If key is a list of key, cluster recursively into dict of dict (...)
+    If `key` is a list of keys, sort items by all keys, in order.
+    If `metadata` is True, key(s) are looked for into the 'metadata' attribute
+    """
+    def mget(d,key):
+        return reduce(lambda x,f: getattr(x,f,None),[d]+key)
+        
+    def format_key(k):
+        key = key.split('.')
+        if metadata: key = ['metadata']+key
+        return k
+        
+    if isinstance(key,basestring):
+        key = [format_key(key)]
+    else:
+        key = map(format_key,key)
+    key_num = len(key)
     
-    if 'metadata' is True, looks for key in the metadata attribute of the db item
+    sort_key = [map(mget,[d]*key_num,key) for d in ds]
+    order    = sorted(range(len(a)), key=a.__getitem__)
+    
+    return [ds[i] for i in order]
+    
+@_node('clustered_dataset')
+def cluster(ds, key, metadata=True, flat=True, sort_key=None):
+    """ cluster `ds` by (unique) `key` 
+    
+    Return a dictionary of lists where the keys are the set of possible values
+    of the `key` attributes of the items in `ds`.
+    
+    `key` can contain '.' (ex: 'attr.subattr') meaning to process sub-attribute
+
+    If `key` is a list of keys, it clusters `ds` recursively either in:
+     - a dict with keys the tuple of possible values, if flat=True
+     - a dict of dict (...), otherwise
+    
+    If `metadata` is True, key(s) are looked for into the 'metadata' attribute
     i.e. same as cluster_db(db, 'metadata.'+key, metadata=False)
     
-    Note: In case of multiple keys (list), then the sub dict only contains keys
-          that exist in its cluster. Thus, all sub dict might not have the same
-          list of keys.
+    If `sort_key` is not None, it should be a suitable argument for the `sort`
+    function, which is then applied on each cluster. 
     """
     if len(key)==1:
         key = key[0]
@@ -323,18 +354,56 @@ def cluster(db, key, metadata=True):
         def mget(d,key):
             return reduce(lambda x,f: getattr(x,f,None),[d]+key)
         
-        cluster = {}
-        for d in db:
-            cluster.setdefault(mget(d,key),[]).append(d)
-        return cluster
+        group = {}
+        for d in ds:
+            group.setdefault(mget(d,key),[]).append(d)
         
+        #if sort_key is not None:
+        #    for k,g in group.iteritems():
+        #        group[k] = sort(g,key=sort_key,metadata=metadata)
     else:
-        cluster = cluster_db(db, key[0], metadata=metadata)
-        for k,subdb in cluster.iteritems():
-            cluster[k] = cluster_db(subdb, key[1:], metadata=metadata)
+        ## todo cluster for several keys
+        group = cluster(ds, key[0], metadata=metadata)
+        for k,subds in group.iteritems():
+            group[k] = cluster(subds, key[1:], metadata=metadata, sort_key=sort_key, flat=False)
         
-        return cluster
+        if flat==True:
+            group = _flatten_hierarchical(group,depth=len(key))
+            
+    return group
 
+def _flatten_hierarchical(cluster, depth, base_key=None):
+    """
+    Flatten the hierarchical cluster dictionary (dict of dict ...)
+    
+    Convert a hierarchical dictionaries into a "flat" dictionary (i.e. which 
+    does not contain subdictionary) where the keys are keys tuple of all levels. 
+    Example::
+    
+      d1 = dict(a=dict(b=1), c=dict(b=2,c=3)
+      d2 = _flatten_hierarchical(d2,depth=2)
+      # d2={('a','b'):1,('c','b'):2,('c','c'):3}
+    
+    `depth` is the (maximum) depth of subdictionary (starting at 1)
+    `base_key` is used internal for recursivity
+    
+    This function is used by the `cluster` function to convert the results 
+    obtained with multi='hierarchical' into the result for multi='flat'
+    """
+    if base_key is None: base_key = ()
+    if depth<1: return base_key
+    
+    flat = {}
+    for k,v in cluster.iteritems():
+        k = base_key+(k,)
+        if not all(map(hasattr,(v,v),('keys','iteritems'))):
+            flat[k] = v
+        else:
+            subdict = _flatten_hierarchical(v, depth=depth-1, base_key=k)
+            flat.update(subdict)
+    
+    return flat
+    
 @_node('tree')  
 def load_tree(db_item, ext='.tree'):     ## still useful ?
     return _Data.load(db_item.output+ext)

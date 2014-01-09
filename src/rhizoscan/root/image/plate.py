@@ -101,7 +101,8 @@ def detect_petri_plate(fg_mask, border_width, plate_size, plate_shape='square'):
     hull = _polygon.convex_hull(hull)
     
     # make the petri plate labeled image
-    pmask  = pmask + 2*_nd.binary_erosion(pmask>0, iterations=int(border_width))
+    two = _np.array(2,dtype='uint8')
+    pmask  = pmask + two*_nd.binary_erosion(pmask>0, iterations=int(border_width))
     
     return pmask, px_scale, hull
 
@@ -128,7 +129,8 @@ def detect_marked_plate(image, border_width=0.03, plate_size=120, marker_thresho
     pmask,hull = hull_mask(cluster>0)
     pwidth = pmask.sum()**.5          # estimated plate width in pixels of a square shape
     border = pwidth * border_width
-    pmask  = pmask + 2*_nd.binary_erosion(mask>0, iterations=int(border))
+    two    = _np.array(2,dtype='uint8')
+    pmask  = pmask.astype('uint8',copy=False) + two*_nd.binary_erosion(mask>0, iterations=int(border))
     px_scale = plate_size/pwidth
     
     return pmask, px_scale, hull

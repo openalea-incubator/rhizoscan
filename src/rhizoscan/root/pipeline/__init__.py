@@ -41,9 +41,9 @@ def load_image(filename, image_roi=None, *args, **kargs):
 # petri plate detection, function and node
 # ----------------------------------------
 @_node('pmask','px_scale', 'hull', hidden=['plate_shape','smooth', 'gradient_classes'])
-def detect_petri_plate(image, border_width=.05, plate_size=120, plate_shape='square', smooth=5, gradient_classes=(2,1)):
+def detect_petri_plate(image, border_width=.05, plate_size=120, plate_shape='square', fg_smooth=5, gradient_classes=(2,1)):
     # binaray segmentation of image
-    fg_mask = _plate.detect_foreground(image=image, smooth=smooth, gradient_classes=gradient_classes)
+    fg_mask = _plate.detect_foreground(image=image, smooth=fg_smooth, gradient_classes=gradient_classes)
     
     # Find petri plate in foreground mask
     pmask, px_scale, hull = _plate.detect_petri_plate(fg_mask=fg_mask, border_width=border_width,

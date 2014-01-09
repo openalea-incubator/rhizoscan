@@ -30,8 +30,8 @@ def normalize_image(img):
     imin = img.min()
     imax = img.max()
     img -= imin
-    img /= imax
-    op = ['add(image,-%s)'%str(imin),'div(image,-%s)'%str(imax)]
+    img /= imax-imin
+    op = ['sub(image,%s)'%str(imin),'div(image,%s)'%str(imax-imin)]
     if img.mean() > 0.5:
         img[:] = 1-img
         op.append('sub(1,image)')

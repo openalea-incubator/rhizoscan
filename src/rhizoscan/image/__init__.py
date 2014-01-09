@@ -651,16 +651,25 @@ def _scale_inverse(scale):
     else:                              return 1./scale
     
 @_node('converted_image')
-def imconvert(image, color=None, dtype=None, scale='dtype', from_color=None):
+def imconvert(image, color=None, dtype=None, scale='dtype', from_color=None, overflow='allowed'):
     """
     Convert Image color space and/or dtype
     
     :Inputs:
-        color:  new color space.                         - None means no conversion
-        dtype:  the data type to convert data to         - None means no conversion
-        scale:  'dtype', 'normalize', 'view' or a value  - see Scale and data type below
-        from_color: color space of input data. 
-                    If None, select it automatically - see Color space below
+        color:  
+            new color space.                         - None means no conversion
+        dtype:  
+            the data type to convert data to         - None means no conversion
+        scale:  
+            'dtype', 'normalize', 'view' or a value  - see Scale and data type below
+        from_color: 
+            color space of input data. 
+            If None, select it automatically - see Color space below
+        overflow: 
+            - For integer output dtype -
+            if not 'allowed', clip overflowed values to the value range of the 
+            output array. By default (overflow='allowed'), values mapped ouside 
+            this range "role over" this range (eg. 257 in 'uint8' is 1)   
         
     :Outputs:
         return an Image object 
@@ -752,33 +761,13 @@ def imconvert(image, color=None, dtype=None, scale='dtype', from_color=None):
     # dtype conversion
     # ----------------
     if scale!='dtype' or (dtype is not None and dtype!=image.dtype):
-        # factor to map maximum value between dtype (vmax_dst / vmax_src)
-        #   1 for float; 255 for 8bits integers, and 2**16 for > 8bits integer
-        ##?? if dtype is None: dtype = image.dtype
-        if dtype is None: dtype = image.dtype
-        '''
-        conversion table: 
-          - multiplication done B(efore), A(fter), H(igher precision) 
-          - *: Clipping needed
-          
-        conversion: normalize   dtype   value
-        any > b     -------- image!=0 --------
+        # scale image pixels value if required
+        #   scale=dtype: map maximum value between input and output dtype range
+        #   scale=normalize:  map image min/max on output dtype range
+        #   scale= a number:  multply by this number
         
-          f > u         B        B*      B*
-          i > u         B        B*      B*
-          u > u         H        H*      H*
-          b > u         A        A*      A*
-
-          f > i         B        B*      B*
-          i > i         H        H*      H*
-          u > i         A        A*      A*
-          b > i         A        A       A*
-
-          f > f         H        H       B
-          i > f         A        A       H
-          u > f         A        A       A
-          b > f         A        A       A
-        '''
+        if dtype is None: dtype = image.dtype
+        
         def dtype_max(dtype):
             """ Typical maximum image value depending of dtype
                 for bool and float,  1
@@ -790,13 +779,58 @@ def imconvert(image, color=None, dtype=None, scale='dtype', from_color=None):
                 return 1.
             else:
                 return 2**(8*_np.clip((dtype.itemsize - (dtype.kind=='i')),0.875,2))-1
-
+        
+        # if it is a view change  ## to be removed?
         if scale=='view':
             image = image.view(dtype=dtype)
+            
+        # if convertion to bool
         elif dtype.kind=='b':
             image = image!=0
+            
         else:
-            # scale before or after
+            # compute scaling factor (and possible shift)
+            # -------------------------------------------
+            if scale=='normalize':
+                imin = image.min()
+                imax = image.max()
+                if imin==imax:
+                    factor = 1  # no scaling
+                else:
+                    factor = dtype_max(dtype) / (imax-imin) 
+                    if imin<>0:
+                        image = image-imin
+            elif scale=='dtype':
+                factor = dtype_max(dtype) / dtype_max(from_dtype)
+            else:
+                factor = scale
+                
+                
+            # choose if scaling is to be done before or after dtype conversion
+            # ----------------------------------------------------------------
+            '''
+            a priori conversion table: 
+              - multiplication done B(efore), A(fter), H(igher precision selection) 
+              - *: Clipping possibly needed
+              
+            conversion: normalize   dtype   value
+            any > b     -------- image!=0 --------
+            
+              f > u         B        B*      B*
+              i > u         B        B*      B*
+              u > u         H        H*      H*
+              b > u         A        A       A*
+    
+              f > i         B        B*      B*
+              i > i         H        H*      H*
+              u > i         A        A*      A*
+              b > i         A        A       A*
+    
+              f > f         H        H       B
+              i > f         A        A       H
+              u > f         A        A       A
+              b > f         A        A       A
+            '''
             idt = image.dtype.kind
             odt = dtype.kind
             if odt=='u':
@@ -810,39 +844,35 @@ def imconvert(image, color=None, dtype=None, scale='dtype', from_color=None):
             else: # out dtype is float
                 if idt == 'f':       before = image.dtype.itemsize <= dtype.itemsize
                 else:                before = False
-            
-            # compute shift and scaling
-            if scale == 'normalize':
-                imin = image.min()
-                imax = image.max()
-                if imin==imax:
-                    if idt=='b': imin, imax = sorted((imin, not imin))
-                    else:        imin, imax = sorted((imin, imin+1))
-                shift  = -imin
-                factor = dtype_max(dtype) / (imax-imin) 
-            elif scale == 'dtype':
-                shift  = 0
-                factor = dtype_max(dtype) / dtype_max(from_dtype)
-            else:
-                shift  = 0
-                factor = scale
-                
+             
+            # convert factor type accordingly
+            #   and check if scaling cannot be done without conversion
+            if factor<>1:
+                factor_dt = _np.array(factor,dtype=image.dtype if before else dtype)
+                if factor==factor_dt: 
+                    factor = factor_dt
+                else:
+                    # scaling imply conversion to factor type
+                    before = True
+                    
             # do the scaling
+            # --------------
             if before:
-                img =  _np.asanyarray((shift+image)*factor,dtype=dtype)
-            else:    
-                img = (_np.asanyarray(image,dtype=dtype)+shift)*_np.array(factor,dtype=dtype)
+                if factor==1: img = image.astype(dtype)
+                else:         img = (image*factor).astype(dtype)
+            else:
+                img = _np.asanyarray(image,dtype=dtype)
+                if factor<>1: img = img*factor
+            #img = image
             
             # apply clipping, if necessary
-            if scale!='normalize' and odt!='f' and (scale!='dtype' or odt!='b'):
+            # ----------------------------
+            if overflow<>'allowed' and scale!='normalize' and odt in ('u','i') and (scale!='dtype' or idt!='b'):
                 omin = _np.iinfo(dtype).min
                 omax = _np.iinfo(dtype).max
-                
-                imin = float(omin)/factor - shift
-                imax = float(omax)/factor - shift
-                
-                img[image<(float(omin)/factor - shift)] = omin
-                img[image>(float(omax)/factor - shift)] = omax
+
+                img[image<(float(omin)/factor)] = omin
+                img[image>(float(omax)/factor)] = omax
                 
             image = img
                 

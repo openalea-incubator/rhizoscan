@@ -399,6 +399,7 @@ class MapStorage(object):
         extension  = getattr(serializer,'extension', '')
         entry = self.make_entry(name, extension=extension)
         entry.save(data, serializer=serializer)
+        return entry
         
     def get_data(self,name):
         """ retrieve data from the MapStorage object (i.e. load it) """

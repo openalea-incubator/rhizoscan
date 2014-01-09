@@ -96,7 +96,8 @@ def image_pipeline(image, plate_width=120, min_dimension=50, smooth=1, to_tree=2
     out_tree   = output+'.tree'
     
     ## load image, woulod be nice to avoid if possible    
-    image = _normalize_image(_Image(image,dtype='f',color='gray'))#[::2,::2]) ## sliced !!
+    image,op = _normalize_image(_Image(image,dtype='f',color='gray'))#[::2,::2]) ## sliced !!
+    image.__serializer__.post_op = op
         
     # segment image:
     # --------------

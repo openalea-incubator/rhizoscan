@@ -76,7 +76,8 @@ def image_pipeline(image, seed_min_radius, circle_number, pixel_size, min_dimens
         # load image
         if isinstance(image,basestring):
             _print_state(verbose, 'load image file')
-            image = _normalize_image(_Image(image,dtype='f',color='gray')[::2,::2]) ## sliced !!
+            image,op = _normalize_image(_Image(image,dtype='f',color='gray')[::2,::2]) ## sliced !!
+            image.__serializer__.post_op = op
             
         if smooth:
             img = _nd.gaussian_filter(image, sigma=smooth)
@@ -196,7 +197,7 @@ def rice_test0(filename=None):
         if hasattr(data,'sample'):
             sl = slice(None,None,_param_eval(data.sample))
             image = image[sl,sl]
-        #image = _normalize_image(image)
+        #image,op = _normalize_image(image)
 
         print "  *** processing image '%s': ***" % data.image
         print param

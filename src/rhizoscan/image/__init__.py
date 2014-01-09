@@ -331,7 +331,7 @@ class PILSerializer(object):
     def __init__(self, img_color, img_dtype,
                        pil_format, pil_mode=None, pil_param=None,
                        ser_color=None, ser_dtype='auto', ser_scale='dtype',
-                       extension=None):
+                       extension=None, post_op=None):
         """
         To be serialized, the image data format (`img_color` & `img_dtype`) has
         to fit one of the PIL mode (`pil_mode`) which it-self should be suitable
@@ -375,6 +375,11 @@ class PILSerializer(object):
               File extension that indicate the content type.
               By default use: '.' + pil_format.lower()
           
+          - `post_op`:
+              Optional list of operations to apply on loaded data
+               see post-operation below
+               *** warning: these are not done at saving (for now) *** 
+          
           (1) the pil_* arguments are directly passed to the save method of 
               PIL.Image. See PIL.Image's save method documentation.
               
@@ -415,6 +420,13 @@ class PILSerializer(object):
               else if pil_format is 'TIFF':          ser_dtype = float32
               else:                                  ser_dtype = uint8
 
+        :post-operation:
+            It is possible to add simple postoperation to be done on the loaded
+            image. Each of the `post_op` item should be an operation string 
+            of the form "fct(A,B)" where 
+             - either 'A' or 'B' is 'image'
+             - 'fct' is one function of the `operator` module 
+        
         :Warning:
             Deserialized previously serialized image, i.e. load(dump(image)), 
             should have the same data format (color and dtype) as the original. 
@@ -457,6 +469,7 @@ class PILSerializer(object):
         self.ser_dtype  = ser_dtype  
         self.ser_scale  = ser_scale
         self.extension  = extension
+        self.post_op    = post_op
         
         if ser_scale=='normalize':
             self.img_scale = 'dtype'
@@ -477,6 +490,13 @@ class PILSerializer(object):
         img = _np.array(Image.open(stream))
         img = imconvert(img, color=self.img_color,      dtype=self.img_dtype,
                               from_color=self.ser_color, scale=self.img_scale)
+        
+        if self.post_op is not None:  ### dangerous hack?!?
+            import operator
+            image= img
+            for op in self.post_op:
+                image = eval('operator.'+op)
+            img = image
         _Data.set_serializer(img,self)
         return img
         

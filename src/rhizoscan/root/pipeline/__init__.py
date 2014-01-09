@@ -29,7 +29,8 @@ def _param_eval(string):
 # ----------------------------
 @_node('image')
 def load_image(filename, image_roi=None, *args, **kargs):
-    image = _normalize_image(_Image(filename,dtype='f',color='gray'))
+    image,op = _normalize_image(_Image(filename,dtype='f',color='gray'))
+    image.__serializer__.post_op = op
     if image_roi:
         if isinstance(image_roi,slice):
             roi = [roi]*image.ndim

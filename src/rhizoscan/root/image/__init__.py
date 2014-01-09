@@ -13,7 +13,8 @@ from rhizoscan.workflow import node as _node # to declare workflow nodes
 def load_image(filename, normalize=True):
     img = _Image(filename, dtype='f', color='gray')
     if normalize:
-        img = normalize_image(img)
+        img,op = normalize_image(img)
+        img.__serializer__.post_op = op
     return img
 
 @_node('normalized_image')
@@ -21,11 +22,21 @@ def normalize_image(img):
     """
     Set image [min,max] to [0,1] and root pixel lighter than background
      --- computation are done *in place* ---
+     
+    :Outputs:
+     - the normilized image
+     - a list of operator string such as used by rhizoscan.image.PILSerializer
     """
-    img -= img.min()
-    img /= img.max()
-    if img.mean() > 0.5: img[:] = 1-img
-    return img
+    imin = img.min()
+    imax = img.max()
+    img -= imin
+    img /= imax
+    op = ['add(image,-%s)'%str(imin),'div(image,-%s)'%str(imax)]
+    if img.mean() > 0.5:
+        img[:] = 1-img
+        op.append('sub(1,image)')
+        
+    return img, op
 
 
 @_node('filtered_image')

@@ -42,6 +42,25 @@ def detect_orb(image_file, output_file=None, max_features=2000):
     
 
 def tracker(image1,image2, output_file=None, alpha=0.75, matching='FLANN'):
+    """
+    Compute the affine transformation between `image1` and `image2`
+    
+    `image1` and `image2` can be either:
+      - the filenames of a the images to load
+      - numpy array or (opencv) iplimage
+      - triple (imgs,key-points,descriptors) such as is returned by this function
+      
+    :Outputs:
+      - the affine transformation matrix
+      - triple (img1,kp1,desc1)   - (*)
+      - triple (img2,kp2,desc2)   - (*)
+      
+      (*) img#  is the image processed
+          kp#   is the detected key-points (position in image)
+          desc# is the respective descriptor
+          
+          Those are returned in order to be easily reused, and not re-computed
+    """
     # Initiate SIFT detector
     sift = cv2.SIFT()
     
@@ -50,12 +69,16 @@ def tracker(image1,image2, output_file=None, alpha=0.75, matching='FLANN'):
         print 'load and compute sift in:', image1
         img1 = cv2.imread(image1,0) # queryImage
         kp1, des1 = sift.detectAndCompute(img1,None)
+    elif isinstance(img1,(np.ndarray,cv2.cv.iplimage)):
+        kp1, des1 = sift.detectAndCompute(img1,None)
     else:
         img1, kp1, des1 = image1
         
     if isinstance(image2,basestring):
         print 'load and compute sift in:', image2
         img2 = cv2.imread(image2,0) # trainImage
+        kp2, des2 = sift.detectAndCompute(img2,None)
+    elif isinstance(img2,(np.ndarray,cv2.cv.iplimage)):
         kp2, des2 = sift.detectAndCompute(img2,None)
     else:
         img2, kp2, des2 = image2

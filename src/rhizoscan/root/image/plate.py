@@ -100,9 +100,12 @@ def detect_petri_plate(fg_mask, border_width, plate_size, plate_shape='square'):
     hull = _np.transpose((pmask>_nd.binary_erosion(pmask)).nonzero())
     hull = _polygon.convex_hull(hull)
     
-    # make the petri plate labeled image
+    # remove border and make the petri plate labeled image
+    be = _nd.binary_erosion
+    inside = _np.minimum(be(pmask>0, iterations=int(border_width)),
+                         be(pmask>0, iterations=int(border_width/2**.5), structure=_np.ones((3,3))))
     two = _np.array(2,dtype='uint8')
-    pmask  = pmask + two*_nd.binary_erosion(pmask>0, iterations=int(border_width))
+    pmask  = pmask + two*inside
     
     return pmask, px_scale, hull
 

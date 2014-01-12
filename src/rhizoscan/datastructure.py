@@ -127,7 +127,7 @@ class Data(object):
                 old_file.remove()
             file_url = None
         if file_url is not None and not isinstance(file_url,_FileObject):
-            file_url = _FileObject(file_url) 
+            file_url = _FileObject(file_url)
             
         self.__file_object__ = file_url
         
@@ -457,15 +457,22 @@ class Mapping(Data):
     def set(self,key, value=None, store=False):
         """ 
         Set the `key`,`value` pairs (use `value=None` if not provided)
-        If this object has a `storage` set and store is True: store value to it 
         
-        Note: this method simply calls `__setitem__`
+        If this object has a `storage` and store is True: store value to it and 
+        set/update the `value` Data file 
+        
+        Note: this method simply calls `__setitem__`   
         """
         self.__dict__[key] = value
         if store:
-            self.__map_storage__.set_data(key, value)
-            self.__map_keys__.add(key)
-            Data.set_file(value,self.__map_storage__.get_file(key)) ## wrong method!
+            Data.set_file(value,None)                               ## wrong way of doing it?!
+            if hasattr(value,'__parent_store__'):                   ##
+                val_to_store = value.__parent_store__()             ##  should just call value.__store__()?
+            else:                                                   ##
+                val_to_store = value                                ##
+            self.__map_storage__.set_data(key, val_to_store)        ##
+            self.__map_keys__.add(key)                              ##
+            Data.set_file(value,self.__map_storage__.get_file(key)) ##
         return self
     def setdefault(self,key, value=None):
         """ 

@@ -38,18 +38,15 @@ def segment_to_axe_distance(graph,tree):
     ##tn = t.node.position  # tn: Tree  Node coordinates
     ##nd = cdist(gn.T,tn,.T)    # nd: Node Distance
 
-    # (flat) list of segments of all tree axes  
-    ts_list = []
-    map(ts_list.extend,t.axe.segment)
-    
-    # flat list of axe ids of all tree segments, following ts_list order
-    ts_axid = []
-    map(ts_axid.extend,[[i]*len(s_list) for i,s_list in enumerate(t.axe.segment)])
-    
     # extract some relevant data from axe segment
     # -------------------------------------------
     #   n1,n2: nodes 1&2 of all tree segments
     #   sdir:  unit direction vector from n1 to n2
+    ts_list = []                        # (flat) list of segments of all tree axes  
+    map(ts_list.extend,t.axe.segment)
+    ### flat list of axe ids of all tree segments, following ts_list order
+    ##ts_axid = []
+    ##map(ts_axid.extend,[[i]*len(s_list) for i,s_list in enumerate(t.axe.segment)])
     tsn   = tree.segment.node[ts_list]  # node ids of tree segment (|ts|,node12)
     pos   = tree.node.position[:,tsn]   # coordinates of ts nodes  (xy,|ts|,node12)
     n1    = pos[:,:,0]                  # position of ts 1st node  (xy,|ts|)
@@ -80,7 +77,17 @@ def segment_to_axe_distance(graph,tree):
 
     # distance from node to axes: i.e. min distance to all axe segment
     # ----------------------------------------------------------------
+    # index of last segment of all tree axe w.r.t the 2nd axis of d_ns 
+    ta_end = _np.vectorize(len)(t.axe.segment)
+    ta_end = _np.cumsum(ta_end)
+    
+    # compute the minimlum segment distance per axe
+    d_na = _np.empty(d_ns.shape[0],len(ta_end))
+    start = 0
+    for i,end in enumerate(ta_end):
+        d_na[i] = d_ns[:,start:end].min(axis=0) 
+        start = end
     #ts_axid = _np.array(ts_axid)[_AXE,:]
     #d_na = label_min(d_ns,labels=ts_axid, index=_np.arange(len(t.axe.segment)+1))
     
-    return d_ns
+    return d_na, d_ns

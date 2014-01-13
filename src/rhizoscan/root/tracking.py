@@ -81,6 +81,6 @@ def segment_to_axe_distance(graph,tree):
     # distance from node to axes: i.e. min distance to all axe segment
     # ----------------------------------------------------------------
     ts_axid = _np.array(ts_axid)[_AXE,:]
-    d_na = label_min(d_ns,labels=ts_ax_id, index=_np.arange(len(t.axe.segment)+1))
+    d_na = label_min(d_ns,labels=ts_axid, index=_np.arange(len(t.axe.segment)+1))
     
     return d_na

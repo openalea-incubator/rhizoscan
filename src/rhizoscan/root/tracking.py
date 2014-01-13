@@ -85,6 +85,7 @@ def segment_to_axe_distance(graph,tree):
     d_na = _np.empty((d_ns.shape[0],len(ta_end)),dtype=d_ns.dtype)
     start = 0
     for i,end in enumerate(ta_end):
+        print i, start,end,d_ns[:,start:end].shape
         d_na[i] = d_ns[:,start:end].min(axis=0) 
         start = end
     #ts_axid = _np.array(ts_axid)[_AXE,:]

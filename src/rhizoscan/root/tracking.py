@@ -86,7 +86,10 @@ def segment_to_axe_distance(graph,tree):
     start = 0
     for i,end in enumerate(ta_end):
         print i, start,end,d_ns[:,start:end].shape
-        d_na[i] = d_ns[:,start:end].min(axis=1) 
+        if start==end:
+            d_na[i] = 0
+        else:
+            d_na[i] = d_ns[:,start:end].min(axis=1) 
         start = end
     #ts_axid = _np.array(ts_axid)[_AXE,:]
     #d_na = label_min(d_ns,labels=ts_axid, index=_np.arange(len(t.axe.segment)+1))

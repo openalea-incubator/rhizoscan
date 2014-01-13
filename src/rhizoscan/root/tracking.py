@@ -18,3 +18,66 @@ todo:
  - root "growth":
     - use (& arrange) the graph-2-axial method?
 """
+import numpy as _np
+
+def segment_to_axe_distance(graph,tree):
+    """
+    Compute the distance of all segment in `graph` to all axes in `tree`
+    """
+    from scipy.spatial.distance import cdist
+    from scipy.ndimage import minimum as label_min
+    norm = lambda x: (x**2).sum(axis=0)**.5
+    _AXE = _np.newaxis
+    
+    ### compute distance from graph nodes to tree nodes
+    ### ===============================================
+    ##gn = graph.node.position  # gn: Graph Node coordinates
+    ##tn = tree .node.position  # tn: Tree  Node coordinates
+    ##nd = cdist(gn.T,tn,.T)    # nd: Node Distance
+
+    # (flat) list of segments of all tree axes  
+    ts_list = []
+    map(ts_list.extend,t.axe.segment)
+    
+    # flat list of axe ids of all tree segments, following ts_list order
+    ts_axid = []
+    map(ts_axid.extend,[[i]*len(s_list) for i,s_list in enumerate(t.axe.segment)])
+    
+    # extract some relevant data from axe segment
+    # -------------------------------------------
+    #   n1,n2: nodes 1&2 of all tree segments
+    #   sdir:  unit direction vector from n1 to n2
+    tsn   = tree.segment.node[ts_list]  # node ids of tree segment (|ts|,node12)
+    pos   = tree.node.position[:,tsn]   # coordinates of ts nodes  (xy,|ts|,node12)
+    n1    = pos[:,:,0]                  # position of ts 1st node  (xy,|ts|)
+    n2    = pos[:,:,1]                  # position of ts 2nd node  (xy,|ts|)
+    sdir  = n2-n1                       # vector from n1 to n2     (xy,|ts|)
+    lsl   = norm(sdir)                  # distance between n1 and n2
+    lsl   = _np.maximum(lsl,2**-5)      
+    sdir /= lsl                         # make sdir unit vectors
+    
+    # compute the node-to-segment distance matrix
+    # -------------------------------------------
+    gnpos = graph.node.position         # graph node coordinates (xy,|gn|)
+    
+    # gnode projection on sdir: distance from n1 to the gn projected on sdir 
+    #    disallow projection out of segment (i.e not in [0,lsl])
+    on_edge = ((gnpos[:,:,_AXE]-n1[:,_AXE,:])*sdir[:,_AXE,:]).sum(axis=0) # (|gn|,|ts|) 
+    on_edge = _np.minimum(_np.maximum(on_edge,0),lsl[_AXE,:])
+            
+    # distance from node to "node projected on sdir"
+    d_ns = norm(n1[:,_AXE,:] + on_edge[_AXE,:,:]*sdir[:,_AXE,:] - gnpos[:,:,_AXE]) # (|gn|,|ts|)
+
+    ### check for node projected out of segment
+    ##mask = on_edge<0
+    ##d[mask] = norm(n1[:,mask]-p)
+    ##mask = on_edge>lsl
+    ##d[mask] = norm(n2[:,mask]-p)
+    ##return d
+
+    # distance from node to axes: i.e. min distance to all axe segment
+    # ----------------------------------------------------------------
+    ts_axid = _np.array(ts_axid)[_AXE,:]
+    d_na = label_min(d_ns,labels=ts_ax_id, index=_np.arange(len(t.axe.segment)+1))
+    
+    return d_na

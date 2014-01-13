@@ -44,9 +44,6 @@ def segment_to_axe_distance(graph,tree):
     #   sdir:  unit direction vector from n1 to n2
     ts_list = []                        # (flat) list of segments of all tree axes  
     map(ts_list.extend,t.axe.segment)
-    ### flat list of axe ids of all tree segments, following ts_list order
-    ##ts_axid = []
-    ##map(ts_axid.extend,[[i]*len(s_list) for i,s_list in enumerate(t.axe.segment)])
     tsn   = tree.segment.node[ts_list]  # node ids of tree segment (|ts|,node12)
     pos   = tree.node.position[:,tsn]   # coordinates of ts nodes  (xy,|ts|,node12)
     n1    = pos[:,:,0]                  # position of ts 1st node  (xy,|ts|)
@@ -85,13 +82,13 @@ def segment_to_axe_distance(graph,tree):
     d_na = _np.empty((d_ns.shape[0],len(ta_end)),dtype=d_ns.dtype)
     start = 0
     for i,end in enumerate(ta_end):
-        print i, start,end,d_ns[:,start:end].shape
-        if start==end:
-            d_na[:,i] = 0
-        else:
-            d_na[:,i] = d_ns[:,start:end].min(axis=1) 
+        if start==end: d_na[:,i] = 0
+        else:          d_na[:,i] = d_ns[:,start:end].min(axis=1) 
         start = end
-    #ts_axid = _np.array(ts_axid)[_AXE,:]
-    #d_na = label_min(d_ns,labels=ts_axid, index=_np.arange(len(t.axe.segment)+1))
+    ### flat list of axe ids of all tree segments, following ts_list order
+    ##ts_axid = []
+    ##map(ts_axid.extend,[[i]*len(s_list) for i,s_list in enumerate(t.axe.segment)])
+    ##ts_axid = _np.array(ts_axid)[_AXE,:]
+    ##d_na = label_min(d_ns,labels=ts_axid, index=_np.arange(len(t.axe.segment)+1))
     
     return d_na, d_ns

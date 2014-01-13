@@ -82,7 +82,7 @@ def segment_to_axe_distance(graph,tree):
     ta_end = _np.cumsum(ta_end)
     
     # compute the minimlum segment distance per axe
-    d_na = _np.empty(d_ns.shape[0],len(ta_end))
+    d_na = _np.empty((d_ns.shape[0],len(ta_end)),dtype=d_ns.dtype)
     start = 0
     for i,end in enumerate(ta_end):
         d_na[i] = d_ns[:,start:end].min(axis=0) 

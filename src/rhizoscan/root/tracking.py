@@ -29,10 +29,13 @@ def segment_to_axe_distance(graph,tree):
     norm = lambda x: (x**2).sum(axis=0)**.5
     _AXE = _np.newaxis
     
+    t = tree
+    g = graph
+    
     ### compute distance from graph nodes to tree nodes
     ### ===============================================
-    ##gn = graph.node.position  # gn: Graph Node coordinates
-    ##tn = tree .node.position  # tn: Tree  Node coordinates
+    ##gn = g.node.position  # gn: Graph Node coordinates
+    ##tn = t.node.position  # tn: Tree  Node coordinates
     ##nd = cdist(gn.T,tn,.T)    # nd: Node Distance
 
     # (flat) list of segments of all tree axes  
@@ -58,7 +61,7 @@ def segment_to_axe_distance(graph,tree):
     
     # compute the node-to-segment distance matrix
     # -------------------------------------------
-    gnpos = graph.node.position         # graph node coordinates (xy,|gn|)
+    gnpos = g.node.position         # graph node coordinates (xy,|gn|)
     
     # gnode projection on sdir: distance from n1 to the gn projected on sdir 
     #    disallow projection out of segment (i.e not in [0,lsl])

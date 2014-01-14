@@ -7,39 +7,43 @@ https://opencv-python-tutroals.readthedocs.org/en/latest/py_tutorials/py_tutoria
 import cv2
 import numpy as np
 
+from rhizoscan.workflow import node as _node
 
-def detect_sift(filename, output_file=None):
-    img = cv2.imread(filename)
-    gray= cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+@_node('key_point','descriptor')
+def detect_sift(image):
+    if isinstance(image,basestring):
+        image = cv2.imread(filename, cv2.CV_LOAD_IMAGE_GRAYSCALE)
     
     sift = cv2.SIFT()
-    kp, des = sift.detectAndCompute(gray,None)
-    
-    if output_file:
-        img=cv2.drawKeypoints(gray,kp)
-        cv2.imwrite(output_file,img)
+    kp, des = sift.detectAndCompute(image,None)
     
     return kp, des
     
-def detect_orb(image_file, output_file=None, max_features=2000):
-    img = cv2.imread(image_file,0)
+@_node('key_point','descriptor')
+def detect_orb(image, max_features=2000):
+    if isinstance(image,basestring):
+        image = cv2.imread(filename, cv2.CV_LOAD_IMAGE_GRAYSCALE)
     
     # Initiate STAR detector
     orb = cv2.ORB(nfeatures=max_features)
     
     # find the keypoints with ORB
-    kp = orb.detect(img,None)
+    kp = orb.detect(image,None)
     
     # compute the descriptors with ORB
     kp, des = orb.compute(img, kp)
     
     # draw only keypoints location,not size and orientation
-    if output_file:
-        img2 = cv2.drawKeypoints(img,kp,color=(255,255,255), flags=0)
-        cv2.imwrite(output_file,img)
-    
     return kp,des
+
+@_node('drawn_image')
+def draw_descriptor(image, output_file=None):
+    img2 = cv2.drawKeypoints(image,kp)#,color=(255,255,255), flags=0)
     
+    if output_file:
+        cv2.imwrite(output_file,img)
+
+    return img2
 
 def tracker(image1,image2, output_file=None, alpha=0.75, matching='FLANN'):
     """

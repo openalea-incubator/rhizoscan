@@ -22,7 +22,7 @@ import numpy as _np
 from rhizoscan.workflow import node  as _node
 from rhizoscan.image    import Image as _Image
 from rhizoscan.opencv   import descriptors as _descriptors
-
+from rhizoscan.geometry import transform   as _transform
 
 def track_root(dseq, update=False, verbose=True):
     """
@@ -38,18 +38,30 @@ def track_root(dseq, update=False, verbose=True):
     d1 = dseq[1].load()
     
     # image tracking
-    kp0   = d0.key_point
-    desc0 = d0.descriptor
-    kp1   = d1.key_point
-    desc1 = d1.descriptor
+    if not update and d1.has_key('image_transform'):
+        T = d1.image_transform
+    else:
+        kp0   = d0.key_point
+        desc0 = d0.descriptor
+        kp1   = d1.key_point
+        desc1 = d1.descriptor
+        
+        T = _descriptors.affine_match(kp0,desc0, kp1,desc1, verbose=verbose)
+        d1.image_transform = T
     
-    d1.image_transform = _descriptors.affine_match(kp0,desc0, kp1,desc1, verbose=verbose)
-
-
-
+    
+    if plot:
+        from matplotlib import pyplot as plt
+        t = d0.tree
+        g = d1.graph
+        t.plot(bg='k')
+        g.plot(bg=None,transform=T)
+    #d,s,p = 
+    
+    
 @_node('key_point','descriptor')
-def detect_sift(image, verbose=False):
-    kp, desc = _descriptors.detect_sift(image, verbose=verbose)
+def detect_sift(image, verbose=True):
+    kp, desc = _descriptors.detect_sift(image)
     
     if desc.max()<256:
         desc = _Image(desc)
@@ -152,9 +164,9 @@ def node_to_axe_distance(nodes,tree):
     for i,end in enumerate(ta_end):
         if start==end:
             # empty axe (no segment)
-            s_id[:,i] = 0
-            d_na[:,i] = 0
-            nprj[:,i] = 0
+            s_id[  :,i] = 0
+            d_na[  :,i] = 0
+            nprj[:,:,i] = 0
         else:
             s_id[  :,i] = d_ns[:,start:end].argmin(axis=1)
             d_na[  :,i] = d_ns [I,start+s_id[:,i]]

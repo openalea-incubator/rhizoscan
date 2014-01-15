@@ -19,32 +19,74 @@ todo:
     - use (& arrange) the graph-2-axial method?
 """
 import numpy as _np
+from rhizoscan.workflow import node  as _node
+from rhizoscan.image    import Image as _Image
+from rhizoscan.opencv   import descriptors as _descriptors
 
-def node_to_axe_distance(graph,tree):
+
+def track_root(dseq, update=False, verbose=True):
+    """
+    TESTING / IN DEV
+    
+    track root in dataset sequence `dseq`
+    
+    each item in `dseq` should have attributes graph,tree,key_point,descriptor
+    
+    use rhizoscan.opencv stuff to estimate affine transform between image
+    """
+    d0 = dseq[0].load()
+    d1 = dseq[1].load()
+    
+    # image tracking
+    kp0   = d0.key_point
+    desc0 = d0.descriptor
+    kp1   = d1.key_point
+    desc1 = d1.descriptor
+    
+    d1.image_transform = _descriptors.affine_match(kp0,desc0, kp1,desc1, verbose=verbose)
+
+
+
+@_node('key_point','descriptor')
+def detect_sift(image, verbose=False):
+    kp, desc = _descriptors.detect_sift(image, verbose=verbose)
+    
+    if desc.max()<256:
+        desc = _Image(desc)
+        desc.set_serializer(pil_format='PNG',ser_dtype='uint8',ser_scale=1,extension='.png')
+    elif verbose:
+        print '  descriptors cannot be serialized into png'
+        
+    return kp, desc
+
+
+def node_to_axe_distance(nodes,tree):
     """
     Compute the distance of all nodes in `graph` to all axes in `tree`
     
     :Inputs:
-      - `graph`:
-          a RootGraph object, containing a NodeList `node` attribute
+      - `nodes`:
+          [k]x[n] array of `n` nodes in `k` dimensional coordinates such as the 
+          the  `position` attribute of NodeList (i.e. RootGraph.node)
       - `tree`:
           a RootAxialTreeGraph object, containing a NodeList `node`,
           a SegmentList `segment` and an AxeList `axe` attributes
           
     :Outputs:
-      - The distance array with shape |gn|x|ta| where |gn| is the number of 
-        `graph` nodes and |ta| the number of `tree` axe
+      - The distance array with shape [n]x|ta| where |ta| is the axe number 
       - An array of the corresponding segment ids to which the nodes are closest
-        to. Its shape is |gn|x|ta|
-      - node projection on the axe. Its shape is [k]x|gn|x|ta| for k coordinates 
-        The norm |node-node_projection| is equal to the returned distance, 
+        to. Its shape is [n]x|ta|
+      - node projection on the axe. Its shape is [k]x[n]x|ta| for k coordinates 
+        The norm |nodes-node_projection| is equal to the returned distance, 
         but for empty axes (usually axe 0)
         
     :Example:
     
       >>> from matplotlib import pyplot as plt
       >>>
-      >>> d,s,p = node_to_axe_distance(g,t)
+      >>> # let g be a RootGraph object and t a RootAxialTree
+      >>>
+      >>> d,s,p = node_to_axe_distance(g.node.position,t)
       >>> 
       >>> t.plot(bg='k')
       >>> g.plot(bg=None)
@@ -63,37 +105,34 @@ def node_to_axe_distance(graph,tree):
     _NA_ = _np.newaxis
     
     t = tree
-    g = graph                                          
     
     # extract some relevant data from axe segment
     # -------------------------------------------
     #   n1,n2: nodes 1&2 of all tree segments
     #   sdir:  unit direction vector from n1 to n2
-    ts_list = []                        # (flat) list of segments of all tree axes  
+    ts_list = []                      # (flat) list of segments of all tree axes  
     map(ts_list.extend,t.axe.segment)
-    tsn   = tree.segment.node[ts_list]  # node ids of tree segment (|ts|,node12)
-    pos   = tree.node.position[:,tsn]   # coordinates of ts nodes  (xy,|ts|,node12)
-    n1    = pos[:,:,0]                  # position of ts 1st node  (xy,|ts|)
-    n2    = pos[:,:,1]                  # position of ts 2nd node  (xy,|ts|)
-    sdir  = n2-n1                       # vector from n1 to n2     (xy,|ts|)
-    lsl   = norm(sdir)                  # distance between n1 and n2
-    lsl   = _np.maximum(lsl,2**-5)      
-    sdir /= lsl                         # make sdir unit vectors
+    tsn   = t.segment.node[ts_list]   # node ids of tree segment (  |ts|,node12)
+    pos   = t.node.position[:,tsn]    # coordinates of ts nodes  (k,|ts|,node12)
+    n1    = pos[:,:,0]                # position of ts 1st node  (k,|ts|)
+    n2    = pos[:,:,1]                # position of ts 2nd node  (k,|ts|)
+    sdir  = n2-n1                     # vector from n1 to n2     (k,|ts|)
+    lsl   = norm(sdir)                # distance between n1 and n2
+    lsl   = _np.maximum(lsl,2**-5)    
+    sdir /= lsl                       # make sdir unit vectors
     
     
     # node-to-segment distance matrix
     # -------------------------------
-    gnpos = g.node.position         # graph node coordinates (xy,|gn|)
-    
     # gnode projection on segment
     #    i.e. distance from segment n1 to the projection of gnode on segment 
     #    disallow projection out of segment: values are in [0,lsl]
-    on_edge = ((gnpos[:,:,_NA_]-n1[:,_NA_,:])*sdir[:,_NA_,:]).sum(axis=0) # (|gn|,|ts|) 
+    on_edge = ((nodes[:,:,_NA_]-n1[:,_NA_,:])*sdir[:,_NA_,:]).sum(axis=0) # (n,|ts|) 
     on_edge = _np.minimum(_np.maximum(on_edge,0),lsl[_NA_,:])
             
     # distance from node to "node projected on sdir"
-    nproj = n1[:,_NA_,:] + on_edge[_NA_,:,:]*sdir[:,_NA_,:]   # (xy,|gn|,|ts|)
-    d_ns = norm(nproj - gnpos[:,:,_NA_])                      # (|gn|,|ts|)
+    nproj = n1[:,_NA_,:] + on_edge[_NA_,:,:]*sdir[:,_NA_,:]   # (k,n,|ts|)
+    d_ns = norm(nproj - nodes[:,:,_NA_])                      # (n,|ts|)
 
 
     # node-to-axe distance: i.e. min distance to all axe segments
@@ -157,15 +196,15 @@ def segment_to_projection_area(graph, node_projection):
     #  "Computing distance from RootGraph to RootAxialTree
     
     # var used in comments on array shape
-    #    xy:  number of coordinates
+    #    k:   number of coordinates
     #   |gs|: number of graph segments
     #    n12: 2, the number of nodes per segment
     #   |a|:  number of axe, i.e. number of node projection in node_projection
     
     # base variables adn functions
     g = graph
-    n = g.node.position[:,g.segment.node]    # node coord, (xy,|gs|,n12)
-    p = node_projection[:,g.segment.node]    # node proj,  (xy,|gs|,n12,|a|)    
+    n = g.node.position[:,g.segment.node]    # node coord, (k,|gs|,n12)
+    p = node_projection[:,g.segment.node]    # node proj,  (k,|gs|,n12,|a|)    
 
     _NA_ = _np.newaxis
     
@@ -177,11 +216,11 @@ def segment_to_projection_area(graph, node_projection):
     #     np1: vector from n1 to its projection (p1)
     #     np2: vector from n2 to its projection (p2)
     #     dp:  vector from p1 to p2
-    dn  = _np.diff(n,axis=-1)[...,0]    # shape (xy,|gs|)
-    np  = p-n[:,:,:,_NA_]               # shape (xy,|gs|,n12,|a|)
-    np1 = np[:,:,0]                     # shape (xy,|gs|,|a|)
-    np2 = np[:,:,1]                     # shape (xy,|gs|,|a|)
-    dp  = _np.diff(p,axis=2)[:,:,0]     # shape (xy,|gs|,|a|)
+    dn  = _np.diff(n,axis=-1)[...,0]    # shape (k,|gs|)
+    np  = p-n[:,:,:,_NA_]               # shape (k,|gs|,n12,|a|)
+    np1 = np[:,:,0]                     # shape (k,|gs|,|a|)
+    np2 = np[:,:,1]                     # shape (k,|gs|,|a|)
+    dp  = _np.diff(p,axis=2)[:,:,0]     # shape (k,|gs|,|a|)
     
     
     # process the "normal case": convex and concave in n2
@@ -196,23 +235,4 @@ def segment_to_projection_area(graph, node_projection):
     #    compute (|-dp x np2| - |dn x np1|)/2
     
     return area
-    
-
-def track_root(dseq, update=False):
-    """
-    TESTING / IN DEV
-    
-    track root in dataset sequence `dseq`
-    
-    each item in `dseq` should have graph & tree computed
-    
-    use rhizoscan.opencv stuff to estimate affine transform between image
-    """
-    d0 = dseq[0].load()
-    d1 = dseq[1].load()
-    
-    # image tracking
-    if not d1.has_key('T'):
-        im_desc0 = 
-        
     

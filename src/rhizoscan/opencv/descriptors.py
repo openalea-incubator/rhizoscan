@@ -7,22 +7,26 @@ https://opencv-python-tutroals.readthedocs.org/en/latest/py_tutorials/py_tutoria
 import cv2
 import numpy as np
 
-from rhizoscan.workflow import node as _node
+from rhizoscan.datastructure import Data  as _Data
+from rhizoscan.workflow      import node  as _node
+from rhizoscan.image         import Image as _Image
 
+
+# descriptor detection
+# --------------------
 @_node('key_point','descriptor')
-def detect_sift(image):
-    if isinstance(image,basestring):
-        image = cv2.imread(filename, cv2.CV_LOAD_IMAGE_GRAYSCALE)
+def detect_sift(image, verbose=False):
+    if verbose: print 'compute sift descritors'
+    image = _Image(image,dtype='uint8',color='gray') # load and/or convert if necessary
     
     sift = cv2.SIFT()
     kp, des = sift.detectAndCompute(image,None)
     
-    return kp, des
+    return KeyPoint(kp), des
     
 @_node('key_point','descriptor')
 def detect_orb(image, max_features=2000):
-    if isinstance(image,basestring):
-        image = cv2.imread(filename, cv2.CV_LOAD_IMAGE_GRAYSCALE)
+    image = _Image(image,dtype='uint8',color='gray') # load and/or convert if necessary
     
     # Initiate STAR detector
     orb = cv2.ORB(nfeatures=max_features)
@@ -34,7 +38,7 @@ def detect_orb(image, max_features=2000):
     kp, des = orb.compute(img, kp)
     
     # draw only keypoints location,not size and orientation
-    return kp,des
+    return KeyPoint(kp),des
 
 @_node('drawn_image')
 def draw_descriptor(image, output_file=None):
@@ -44,6 +48,64 @@ def draw_descriptor(image, output_file=None):
         cv2.imwrite(output_file,img)
 
     return img2
+
+
+# descriptor matching
+# -------------------
+@_node('descriptor_match')
+def match_flann(desc1, desc2, knn=2, index=0,trees=5,checks=50):
+    index_params = dict(algorithm=index, trees=trees)
+    search_params = dict(checks=checks)
+    flann = cv2.FlannBasedMatcher(index_params, search_params)
+    return flann.knnMatch(desc1,desc2, k=knn)
+
+@_node('descriptor_match')
+def match_bf(desc1, desc2, knn=2):
+    bf = cv2.BFMatcher()
+    return bf.knnMatch(des1,des2, k=knn)
+
+
+# tracking
+# --------
+@_node('image_transform')
+def affine_match(kp1, desc1, kp2, desc2, matching='FLANN', alpha=.75, verbose=False):
+    """
+    Find affine transformation between 2 images from their descriptors
+    
+    `kp1`:   keypoint list for 1st image
+    `desc1`: descriptor array relative to `kp1`
+    `kp2`:   keypoint list for 2nd image
+    `desc2`: descriptor array relative to `kp2`
+    `matching`: the descriptors matching method
+    `alpha`:    coefficient for trusting a descriptor match ##
+    
+    return the affine transformation as an array
+    """
+    # BFMatcher with default params
+    if verbose: print 'descriptor matching with ' + matching
+    if matching.lower()=='bf':
+        matches = match_bf(desc1,desc2)
+    else:
+        matches = match_flann(desc1,desc2)
+        
+    # Apply ratio test
+    good = []
+    for m,n in matches:
+        if m.distance < alpha*n.distance:
+            good.append(m)
+    
+    MIN_MATCH_COUNT = 10
+    if len(good)<MIN_MATCH_COUNT:
+        raise RuntimeError("Not enough matches are found - %d/%d" % (len(good),MIN_MATCH_COUNT))
+    else:
+        if verbose: print 'find image affine transformation'
+        pts1 = np.float32([ kp1[m.queryIdx].pt for m in good ]).reshape(-1,1,2)
+        pts2 = np.float32([ kp2[m.trainIdx].pt for m in good ]).reshape(-1,1,2)
+    
+        M, mask = cv2.findHomography(pts2, pts1, cv2.RANSAC,5.0)
+
+    return M
+    
 
 def tracker(image1,image2, output_file=None, alpha=0.75, matching='FLANN'):
     """
@@ -91,14 +153,9 @@ def tracker(image1,image2, output_file=None, alpha=0.75, matching='FLANN'):
     # BFMatcher with default params
     print 'matching (using ' + matching + ')'
     if matching.lower()=='bf':
-        bf = cv2.BFMatcher()
-        matches = bf.knnMatch(des1,des2, k=2)
+        matches = match_bf(des1,des2)
     else:
-        FLANN_INDEX_KDTREE = 0
-        index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 5)
-        search_params = dict(checks = 50)
-        flann = cv2.FlannBasedMatcher(index_params, search_params)
-        matches = flann.knnMatch(des1,des2,k=2)
+        matches = match_flann(des1,des2)
     
     # Apply ratio test
     good = []
@@ -165,6 +222,25 @@ def sequence_tracker(filenames, out_dir=None, matching='BF'):
             wrapImage(images[j][0], T[j], images[0][0].shape, output_file=join(out_dir,split(filenames[j])[-1]))
         
     return T        
+    
+    
+    
+# class to allow serialization
+class KeyPoint(_Data,list):
+    """
+    List of opencv KeyPoint which can be serialized
+    """
+    def __init__(self,keypoints):
+        self.extend(keypoints)
+        
+    def __store__(self):
+        return KeyPoint((p.pt,p.size,p.angle,p.response,p.octave,p.class_id) for p in self)
+        
+    def __restore__(self):
+        kp = cv2.KeyPoint
+        self[:] = (kp(x=p[0][0],y=p[0][1],_size=p[1], _angle=p[2],
+                      _response=p[3], _octave=p[4], _class_id=p[5]) for p in self)
+        return self
 
 if __name__ == "__main__":
    import sys
@@ -174,7 +250,7 @@ if __name__ == "__main__":
    
    def eval_input(x):
        try:
-           return literal_eval(x)
+           return literal_eval(x)             
        except:
            return x
    

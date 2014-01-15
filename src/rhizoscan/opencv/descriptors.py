@@ -15,8 +15,7 @@ from rhizoscan.image         import Image as _Image
 # descriptor detection
 # --------------------
 @_node('key_point','descriptor')
-def detect_sift(image, verbose=False):
-    if verbose: print 'compute sift descritors'
+def detect_sift(image):
     image = _Image(image,dtype='uint8',color='gray') # load and/or convert if necessary
     
     sift = cv2.SIFT()

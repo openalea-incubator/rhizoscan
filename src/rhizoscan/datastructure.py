@@ -630,7 +630,29 @@ class Mapping(Data):
         new._tmp_attr = self.temporary_attribute.copy()
         return new
     copy = __copy__
+    
+    def _move_file(self, old_dir, new_dir, verbose=False):
+        """
+        Change url of all content stored in `old_dir` to `new_dir`
+
+        This is used to update file url of already moved content 
+        but not to actually copy the files
         
+        if `verbose`, print a line for each applied correction
+        """
+        from os.path import join
+        old_len = len(old_dir)
+        for k,v in self.__dict__.iteritems():
+            if not Data.has_IO_API(v): continue
+            f = v.get_file()
+            if f is None: continue
+            url = f.url
+            
+            if url[:old_len]==old_dir:
+                new_url = join(new_dir,url[old_len:])
+                v.set_file(new_url)
+                if verbose: print 'moved',new_url
+                
             
     # string representation of Mapping content
     # ----------------------------------------

@@ -55,7 +55,7 @@ class Image(_np.ndarray, _Data):
             #obj.info.update(info)
         else:
             obj = _np.asanyarray(array_or_file).view(cls)
-            obj.set_file('')
+            obj.set_file(None)
             
             # conversion
             if obj.dtype.kind not in ('b','u','i','f'):

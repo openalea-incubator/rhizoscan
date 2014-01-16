@@ -24,7 +24,7 @@ from rhizoscan.image    import Image as _Image
 from rhizoscan.opencv   import descriptors as _descriptors
 from rhizoscan.geometry import transform   as _transform
 
-def track_root(dseq, update=False, verbose=True):
+def track_root(dseq, update=False, verbose=True, plot=False):
     """
     TESTING / IN DEV
     

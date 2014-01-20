@@ -164,7 +164,7 @@ def merge_tree_path(incomming, out_going, top_order, path_elt, elt_path, priorit
         #    merge= append path p2 starting at e to p1 end
         #           then remove p2
         for (p1,p1p,c),(p2,p2p) in zip(child_tip,free_path):
-            merge_pos = path_elt[p2].index(e)
+            merge_pos = path_elt[p2].index(e)  ##
             for s in path_elt[p2][:merge_pos]:
                 elt_path[s].remove(p2)
             path_elt[p1] = path_elt[p1] + path_elt[p2][merge_pos:]
@@ -304,7 +304,7 @@ def path_to_axes(graph, path, axe_selection=[('length',1),('min_tip_length',10)]
 
 # general rgraph to axial tree function
 # -------------------------------------
-def make_axial_tree(graph, axe_selection=[('length',1),('min_tip_length',10)]):
+def make_axial_tree(graph, axe_selection=[('length',1),('min_tip_length',10)], verbose=False):
     seed = graph.segment.seed
     seed[seed==254] = 0           ##bug with seed=254
     src  = (graph.segment.seed>0) 
@@ -332,7 +332,9 @@ def make_axial_tree(graph, axe_selection=[('length',1),('min_tip_length',10)]):
     path,spath,n = merge_tree_path(incomming=e_in, out_going=e_out, top_order=top_order, 
                                    path_elt=path, elt_path=spath, priority=pLength,
                                    clean_path=True)
-    print ' ', n, 'merged path on ', m, '(%2.1f percent)' % (100*float(n)/m) ##
+    
+    if verbose:
+        print ' axial tree:', n, 'path connected on ', m, '(%2.1f percent)' % (100*float(n)/m) ##
     #return dict(incomming=e_in, out_going=e_out, top_order=top_order, 
     #            path=path, spath=spath, priority=pLength.argsort()[::-1])
     

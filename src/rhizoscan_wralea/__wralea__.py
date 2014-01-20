@@ -954,6 +954,8 @@ _4879054160 = CompositeNodeFactory(name='arabidopsis histogram analysis',
 
 
 
+
+
 ## ***** automatically generated code **** ##
 from rhizoscan.workflow.openalea import Factory
 if '__all__' not in locals(): __all__ = []
@@ -966,7 +968,7 @@ __institutes__  = 'Virtual Plants, INRIA - CIRAD - INRA'
 __description__ = 'package for image processing and analysis of root system architecture'
 __url__         = 'https://sites.google.com/site/juliendiener/'
 __editable__    = 'True'
-__icon__        = '/home/diener/python/rhizoscan/src/rhizoscan/icon/root.png'
+__icon__        = '/Users/diener/openalea/rhizoscan/src/rhizoscan/icon/root.png'
 __alias__       = []
 
 

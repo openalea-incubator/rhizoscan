@@ -17,6 +17,7 @@ from rhizoscan.workflow import node as _node # to declare workflow nodes
   - Node/Segment/AxeList implement the required set_node/segment/axe_list setter
   - RootGraph also, making sure node.segment, segment.node, axe.segment, 
                     segment.axe link well
+  - Rename RootGraph/RootAxialTree to SegmentGraph/AxeTree ??
 """
 
 
@@ -457,7 +458,7 @@ class RootGraph(_Mapping):
     # printing    
     # --------
     def __str__ (self): 
-        return self.__class__.__name__ + ': %d nodes, %d segments' % (self.node.size, self.segment.size)
+        return self.__class__.__name__ + ': %d nodes, %d segments' % (self.node.number, self.segment.number)
     def __repr__(self): 
         return self.__str__()  ## for ipython of RootGraph obj...
         
@@ -539,14 +540,6 @@ class RootGraph(_Mapping):
         
         return lcol, [minb[0], maxb[0], minb[1], maxb[1]]
 
-
-_UNREACHABLE = -2
-_SEED        = -1
-_UNSET       = 0
-_SET         = 1
-##todo: remove RootAxialTree.stype, but add 'seed' ?
-##todo fully restructure rootAxialTree (subcalss of RootGraph)
-##      or simple delete it, add make function to compute a axe attribute to a RG
 
 class RootAxialTree(RootGraph):
     def __init__(self,node, segment, axe=None, to_tree=0, to_axe=0, single_order1_axe=True):
@@ -633,8 +626,8 @@ class RootAxialTree(RootGraph):
         # make LineCollection
         axe_node = self.axe.get_node_list()
         
-        shift = _np.arange(len(axe_node)) % (max_shift+1) #random.randint(0,max_shift,len(axe_node))
-        line = [nxy[node_list]+[[sh,0]] for node_list,sh in zip(axe_node,shift)]
+        shift  = _np.arange(len(axe_node)) % (2*max_shift+1) - max_shift
+        line = [nxy[node_list]+[[sh,sh]] for node_list,sh in zip(axe_node,shift)]
         lcol = mcol.LineCollection(line, color=color, **kargs)
         
         # compute bounding box

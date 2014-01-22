@@ -613,8 +613,3 @@ def diagonal(array):
 #    return nArray
 
 
-
-# add a quick pointer to ArrayGraph here
-#from graph import ArrayGraph as Graph
-
-

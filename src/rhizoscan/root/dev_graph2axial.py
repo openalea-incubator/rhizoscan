@@ -2,12 +2,74 @@
 Development of algorithms to convert RootGraph to a RootAxialGraph
 
 It uses mainly graph.py and dev_graph.py
+
+
+##TODO:
+ - make a "virtual" edge graph where too short edges are removed (i.e. their 
+   nodes are treated as 1 unique
+     * there can be neighboring edges detected thus groups of nodes to merge  
+     * if one node can be "suitably" selected: then an actual merge is possible
+        ? a node that don't rotate edges too much?
+        ? this might create edge between the same node. let merge node 'nm' and
+          a nighbor node nn, then edge (nm,nm) might appear, and pairs of (nn,nm)
+          
+     * or simply "avoid" them in the following algorithm, and add them back
+       once axes are computed
+        ? how to manage segment-segment edges, and direction_difference
+        * detect all node-pairs that are too close to be meaningful
+           - maybe remove node-pair that are segments but not "cross segments"
+             (cross seg=seg that touch >=2 other on both size) 
+           - find cluster of those (connected components of node-pairs graph)
+           - create a virtual segment.node where id of detected nodes are 
+             replaced by those of the cluster (ex: min of node id in cluster)
+           ? check for the computation of direction diff - > is it valid
+           - after axe detection, fill axes with missing segment
+             ? how...?
+             ? what about inexistant segment: create a new SegmentList?
+ - in the same ligne: detect "missing" edge: unconnected close nodes for which
+   there is a pair of edges (one on each side) that point toward each other
 """
 import numpy as _np
 
 from . import dev_graph as _dg
 from .graph import AxeList as _AxeList
 from .graph import RootAxialTree as _RootAxialTree
+
+# robust graph: virtually remove/add "little" segments
+# ----------------------------------------------------
+def make_robust_graph(node,segment, merge_distance):
+    """
+    IN DEV
+    return a RootGraph where nodes that are close enough are merged
+    
+    the output graph segments have same length and direction as original ones 
+    """
+    pairs = _close_pairs(node.position.T, max_d=merge_distance)
+    
+    
+
+def _close_pairs(X,max_d):
+    """
+    find all pairs of `x`i in `X` that are closer than `max_d`
+    
+    `X` is a (n,k) array of `n` points in `k` coordinates
+    
+    outputs is a (m,2) array of m pairs of `X` elements
+    """
+    from scipy.spatial.distance import cdist
+    d = cdist(X,X)
+
+    I,J = (d<max_d).nonzero()
+    IJ  = _np.sort(_np.vstack((I,J)), axis=0)
+
+    # remove diagonal element
+    IJ  = IJ[:,_np.diff(IJ,axis=0).ravel()<>0]
+
+    # remove duplicate
+    dt = _np.dtype([('i',int),('j',int)])
+    pairs = _np.unique(IJ.T.view(dtype=dt)).view(int).reshape(-1,2)
+
+    return pairs
 
 def dag_covering_path(incomming, out_going, parent, segment_length, node_order=None):
     """
@@ -200,8 +262,7 @@ def merge_tree_path(incomming, out_going, top_order, path_elt, elt_path, priorit
 
 def path_to_axes(graph, path, axe_selection=[('length',1),('min_tip_length',10)]):
     """
-    From a set of covering path, return a set of root axes with order 1 axe 
-    detected
+    Create an AxeList from a covering path set, selecting path/axe order
     
     `segment` should have its 'parent' suitably set
     

@@ -15,8 +15,9 @@ import scipy.ndimage as _nd
 from matplotlib import pyplot as _plt
 from matplotlib.figure import Figure as _Figure
 
-from rhizoscan.workflow import node as _node # to declare workflow nodesfrom ..image.measurements import color_label
-from ..ndarray            import lookup as _lookup
+from rhizoscan.workflow import node as _node # to declare workflow nodes
+from rhizoscan.image.measurements import color_label
+from rhizoscan.ndarray            import lookup as _lookup
 
 def gci():
     """

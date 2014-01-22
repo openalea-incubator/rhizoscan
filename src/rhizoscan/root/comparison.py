@@ -350,8 +350,8 @@ def compare_sequence(vs, storage='mtg_compare', display=True, slices=slice(None)
         tc.clear()
         
         print '--- comparing file: ...', c.get_file().url[-30:], '---'
-        r.segment.radius = np.zeros(r.segment.size+1)
-        c.segment.radius = np.zeros(c.segment.size+1)
+        r.segment.radius = np.zeros(r.segment.number)
+        c.segment.radius = np.zeros(c.segment.number)
         rmtg = r.to_mtg()
         cmtg = c.to_mtg()
         c = split_mtg(cmtg)

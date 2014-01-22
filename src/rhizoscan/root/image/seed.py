@@ -208,7 +208,7 @@ def detect_graph_seed(graph,seed_prop,seed_number):
     
     from .graph import SegmentGraph
     nb = SegmentGraph(segment=graph.segment, node=graph.node).edges
-    nb[nb>graph.segment.size+1] = 0
+    nb[nb>graph.segment.number] = 0
     
     #not_seed = (S==0)&(-(S[nb]&(nb!=0)).any(axis=1))
     #sur_seed = (S>0)&(S[nb]|(nb==0)).all(axis=1)

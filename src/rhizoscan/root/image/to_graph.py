@@ -180,7 +180,7 @@ def image_graph(segment_skeleton, node_map, segment_map=None, seed=None):
     #   Second pass, dilation is done with priority to node with lower id
     #     (necessary for cases where a 1 pixel segment touches 2 nodes)
     skn    = nmap.copy()
-    skn[skn==0] = node.size+1
+    skn[skn==0] = node.number
     n_dil  = -_nd.grey_dilation(-skn,size=(3,3))
     n_dil[n_dil==n_dil.max()] = 0
     mask = (n_dil!=0) & (sskl!=0)
@@ -205,7 +205,7 @@ def image_graph(segment_skeleton, node_map, segment_map=None, seed=None):
 
     # add segment to node.segment list & node to segment.node list
     # ------------------------------------------------------------
-    nslist = [[] for n in xrange(node.size+1)]     # node.segment
+    nslist = [[] for n in xrange(node.number)]     # node.segment
     snlist = [[] for s in xrange(segNum+1)]        # segment.node
     for ni,si in ns_set: 
         nslist[ni].append(si)
@@ -230,9 +230,9 @@ def image_graph(segment_skeleton, node_map, segment_map=None, seed=None):
     if smap is not None:
         # estimated length, area and radius of segments
         n = segNum_no_seed+1
-        length = _np.zeros(segment.size+1)
-        area   = _np.zeros(segment.size+1)
-        radius = _np.zeros(segment.size+1)
+        length = _np.zeros(segment.number)
+        area   = _np.zeros(segment.number)
+        radius = _np.zeros(segment.number)
         length[:n] = _corner_count(sskl)
         area  [:n] = _label_size(smap)
         radius[:n] = 0.5*area[:n]/_np.maximum(length[:n],1)
@@ -288,7 +288,7 @@ def line_graph(image_graph, segment_skeleton, print_fit_error=True):
     pl_ny  = ListChain(imgr.node.y)     # y-coord of polyline graph
     
     # list of polyline segments per graph segment
-    pl_sn  = _np.zeros(imgr.segment.size+1,dtype=object)
+    pl_sn  = _np.zeros(imgr.segment.number,dtype=object)
     pl_sn[0] = _np.array([])
     
     # parse all segments
@@ -297,8 +297,8 @@ def line_graph(image_graph, segment_skeleton, print_fit_error=True):
     if hasattr(imgr.segment,'seed'):
         seed = imgr.segment.seed
     else:
-        seed = _virtual_array(imgr.segment.size+1, 0)  # no segment is a seed
-    for s in xrange(1,imgr.segment.size+1):
+        seed = _virtual_array(imgr.segment.number, 0)  # no segment is a seed
+    for s in xrange(1,imgr.segment.number):
         if seed[s]==0 and obj[s-1] is not None:
             # fit polyline
             # ------------

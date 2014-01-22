@@ -140,6 +140,23 @@ def merge_tree_path(incomming, out_going, top_order, path_elt, elt_path, priorit
     """
     merge path when possible...`
     
+    input path: 
+     - they should be a graph-covering path set that covers at path start only: 
+         p1 = [1,2]
+         p2 = [1,3,4]
+         p3 = [1,3,5]
+     - At least the last segment of all path are not cover by any other path
+      
+    What is path merging:
+      if a path 'p1' last segment is not terminal 
+         i.e. it has at least one out going segment 'o1'
+      if a path 'p2' contains 'o1' and all previous segments are covered by at 
+         least one other path
+      then the end 'p2' starting at 'o1' is attached to the end of 'p1'
+         and (the remaining of) 'p2' is removed
+    
+    The order by which such merges are selected 
+    
     return updated path_elt, elt_path, and the number of merged path
     """
     # dictionary of (tip_element:path_id) of all path
@@ -236,7 +253,7 @@ def path_to_axes(graph, path, axe_selection=[('length',1),('min_tip_length',10)]
                 aOrder[seminal>0] = order
            
         elif method=='min_tip_length':
-            saxe = segment_axe_list(axe, segment.size+1)
+            saxe = segment_axe_list(axe, segment.number)
             saxe_num = _np.vectorize(len)(saxe)
             
             # test tip length all axes in order of decreasing length
@@ -382,12 +399,12 @@ def interactive_path_plot(rgraph, path=None, spath=None):
     
     if path is None:
         path  = rgraph.axe.segment
-        spath = [[] for i in xrange(rgraph.segment.size+1)]
+        spath = [[] for i in xrange(rgraph.segment.number)]
         for pid,p in enumerate(path):
             for s in p:
                 spath[s].append(pid)
     valid = _np.vectorize(len)(spath)>0
-    sc = _np.zeros(rgraph.segment.size+1, dtype=int)
+    sc = _np.zeros(rgraph.segment.number, dtype=int)
    
     env = _segdist_env(rgraph)
     
@@ -425,7 +442,7 @@ def _axe_distance_to_seed(graph, axe=None, aPlant=None, a2process=None):
     
     if axe is None:       axe    = graph.axe.segment
     if aPlant is None:    aPlant = graph.axe.plant
-    if a2process is None: a2process = _np.ones(graph.axe.size+1,dtype=bool)
+    if a2process is None: a2process = _np.ones(graph.axe.number,dtype=bool)
     
     segment = graph.segment
     
@@ -437,7 +454,7 @@ def _axe_distance_to_seed(graph, axe=None, aPlant=None, a2process=None):
     seed_pos = _np.vstack((seed_x,seed_y))                    # shape: 2xSeed#
     
     # find segment which has only one axe passing through
-    saxe = segment_axe_list(axe, segment.size+1)
+    saxe = segment_axe_list(axe, segment.number)
     uniq_axe = _np.array([(sid,alist[0]) for sid,alist in enumerate(saxe) if len(alist)==1 and a2process[alist[0]]])
     slist = uniq_axe[:,0]
     alist = uniq_axe[:,1]

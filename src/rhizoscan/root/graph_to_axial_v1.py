@@ -13,7 +13,7 @@ def graph2axial(graph, to_tree=0, to_axe=0, single_order1_axe=True):
     """
     seed = graph.segment.seed
     ##seed[_np.any(self.segment.node==0,axis=1)] = _UNREACHABLE  ###BUG!!!
-    sid = _np.arange(self.segment.size+1)
+    sid = _np.arange(self.segment.number)
     pid = _nd.minimum(self.sid,seed,_np.arange(seed.max()+1))  # plant(seed) unique id
     sid[seed>0] = self.pid[seed[seed>0]]
     pid = self.pid[1:]

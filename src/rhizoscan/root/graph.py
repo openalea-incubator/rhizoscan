@@ -49,7 +49,7 @@ class NodeList(GraphList):
         else:
             self.position = position
             
-        self.size = self.position.shape[1]-1   ## -1 should be removed ?
+        ##self.size = self.position.shape[1]-1   ## -1 should be removed ?
         
     @_property
     def x(self):  
@@ -60,9 +60,14 @@ class NodeList(GraphList):
         """ y-coordinates of nodes """  
         return self.position[1]
     
+    @_property
+    def number(self):  
+        """ number of nodes, including dummy (i.e. 0) node """  
+        return self.position.shape[1]
+        
     def set_segment(self, segment):
         if hasattr(segment,'node'):
-            ns = [[] for i in xrange(self.size+1)]
+            ns = [[] for i in xrange(self.number)]
             for s,sn in enumerate(segment.node[1:]):
                 ns[sn[0]].append(s+1)
                 ns[sn[1]].append(s+1)
@@ -75,7 +80,7 @@ class NodeList(GraphList):
     def terminal(self):
         """ bool flag, is node terminal """
         if not hasattr(self, '_terminal'):
-            terminal = _np.vectorize(len)(self.segment)==1
+            self._terminal = _np.vectorize(len)(self.segment)==1
             self.temporary_attribute.add('_terminal')
         return self._terminal
     
@@ -87,7 +92,12 @@ class SegmentList(GraphList):
         """
         self.node_list = node_list
         self.node = node_id
-        self.size = node_id.shape[0]-1  ## -1 should be removed ?!
+        ##self.size = node_id.shape[0]-1  ## -1 should be removed ?!
+        
+    @_property
+    def number(self):  
+        """ number of segments, including dummy (i.e. 0) segment """  
+        return self.node.shape[0]
         
     @_property
     def length(self):
@@ -147,6 +157,7 @@ class SegmentList(GraphList):
             to_revert = _np.any(self.node[:,None,:]==self.node[None,:,:],axis=-1)
             dangle[to_revert] = _np.pi - dangle[to_revert]
             dangle[0,:] = dangle[:,0] = _np.pi
+            self._direction_difference = dangle
             self.temporary_attribute.add('_direction_difference')
         return self._direction_difference
     
@@ -267,7 +278,7 @@ class AxeList(GraphList):
             self._segment_parent = segment_parent
         
         # find id of main axe for all segments
-        segment_axe  = _np.zeros(segment_list.size+1, dtype=int)
+        segment_axe  = _np.zeros(segment_list.number, dtype=int)
         #for aid,slist in enumerate(self.segment[::-1]):
         #    segment_axe[slist] = len(self.segment)-aid-1
         axe_priority = _np.argsort(order[1:])+1
@@ -281,8 +292,9 @@ class AxeList(GraphList):
         self._segment_list = segment_list
         
     @_property
-    def size(self):
-        return len(self.segment)-1 ## size-1...
+    def number(self):
+        """ number of axes, including dummy (i.e. 0) axe """  
+        return len(self.segment)
         
     @_property
     def segment_number(self):
@@ -344,6 +356,30 @@ class AxeList(GraphList):
             axe_length[i] = arcL[-1]
             segment_number[i] = len(arcL)
         self.segment.add_property('axelength',arc_length)
+        
+    def get_node_list(self):
+        """
+        Return list of axes as a list of node
+        """
+        from scipy.sparse import csr_matrix as csr
+        from scipy.sparse.csgraph import depth_first_order as dfo
+        
+        axe_node = []
+        for seg_list in self.segment:
+            if len(seg_list)==0: 
+                axe_node.append([])
+                continue
+            
+            seg_node = self._segment_list.node[seg_list]
+            if seg_node.shape[0]==1:
+                axe_node.append(seg_node[0])
+            else:
+                c = csr((_np.ones(2*seg_node.shape[0],dtype='uint8'),_np.hstack((seg_node[::-1].T,seg_node[:,::-1].T))))
+                i = set(seg_node[0]).difference(seg_node[1]).pop()
+                order = dfo(c,i, return_predecessors=False)
+                axe_node.append(order)
+                
+        return axe_node
 
 def neighbor_array(node_segment, segment_node, seed):
     """
@@ -393,7 +429,7 @@ class SegmentGraph(_ArrayGraph):
         _ArrayGraph.__init__(self)
         nsbor = _np.asarray(node.segment)
         snbor = [set(s1).union(s2).difference([i]) for i,(s1,s2) in enumerate(nsbor[segment.node])]
-        self.setNodes(getattr(segment,'length', _np.ones(segment.size+1)))
+        self.setNodes(getattr(segment,'length', _np.ones(segment.number)))
         self.setEdges(snbor)
 
 
@@ -429,6 +465,10 @@ class RootGraph(_Mapping):
     # ----------------
     def plot(self,bg='k', transform=None, sc=None, cmap=None, corder=1, cstart=1, indices='valid', **kargs):
         """ plot the graph, require matplotlib """
+        lcol,bbox = self._get_LineCollection(sc=sc, cmap=cmap, corder=corder, cstart=cstart, transform=transform, indices=indices, **kargs)
+        self._plot_collection(bg,collection=lcol, bbox=bbox, transformed=transform is not None)
+            
+    def _plot_collection(self,bg,collection, bbox, transformed=False):
         from matplotlib import pyplot as plt
         if isinstance(bg,basestring):
             plt.cla()
@@ -440,12 +480,11 @@ class RootGraph(_Mapping):
             plt.imshow(bg)
             axis = plt.axis()
         
-        lcol,bbox = self._get_LineCollection(sc=sc, cmap=cmap, corder=corder, cstart=cstart, transform=transform, indices=indices, **kargs)
-        plt.gca().add_collection(lcol)
+        plt.gca().add_collection(collection)
         
         if axis is not None:
             plt.axis(axis)
-        elif transform is None:
+        elif not transformed:
             #nx = self.node.x
             #ny = self.node.y
             plt.axis(_np.array(bbox)[[0,1,3,2]])#[nx.min(),nx.max(),ny.max(),ny.min()])
@@ -463,7 +502,7 @@ class RootGraph(_Mapping):
     def _get_LineCollection(self, sc=None, cmap=None, corder=1, cstart=1, transform=None, indices='valid', **kargs):
         from matplotlib import collections as mcol
         if sc is None: 
-            sc=_np.arange(self.segment.size+1)
+            sc=_np.arange(self.segment.number)
             color = _color_label(sc,cmap=cmap, order=corder, start=cstart)
         elif isinstance(sc,basestring):
             color = sc
@@ -544,19 +583,71 @@ class RootAxialTree(RootGraph):
             self.temporary_attribute.add('_dtheta')
         return self._dtheta
 
-    def plot(self, bg=None, sc='axe', **kargs):
-        if sc is 'axe':
-            sc = self.segment.axe
-        elif sc=='order':
-            sc = self.axe.order[self.segment.axe]
-            sc[self.segment.axe<0] = -1
-        elif sc=='plant':
-            sc = self.axe.plant[self.segment.axe]
-            sc[self.segment.axe<0]  = -1
-            sc[self.segment.seed>0] = self.segment.seed[self.segment.seed>0]
+    def plot(self, bg='k', ac=None, sc=None, max_shift=0, transform=None, cmap=None, corder=1, cstart=1, **kargs):
+        """
+        Plot tree on top of `bg`
+        
+        If `sc` is not None, call RootGraph.plot with it (and **kargs)
+        
+        Otherwise, use `ac` to select color. POssible values are
+          -  None:   color is selected w.r.t. axe id
+          - 'order': color is selected w.r.t. axe order
+          - 'plant': color is selected w.r.t. axe plant id
+          -  an array of shape (axe.number,)
+        """
+        if sc is not None:
+            RootGraph.plot(self, bg=bg, sc=sc, transform=transform, cmap=cmap, corder=corder, cstart=cstart, **kargs)
+            return
             
-        RootGraph.plot(self, bg=bg, sc=sc, **kargs)
-            
+        from matplotlib import collections as mcol
+        
+        # manage color arguments
+        if ac=='order':
+            ac = self.axe.order
+        elif ac=='plant':
+            ac = self.axe.plant
+        
+        if ac is None: 
+            ac=_np.arange(self.axe.number)
+            color = _color_label(ac,cmap=cmap, order=corder, start=cstart)
+        elif isinstance(ac,basestring):
+            color = ac
+        else:
+            ac = _np.asarray(ac)
+            if ac.ndim==1:
+                if ac.dtype.kind=='f':
+                    if ac.max()>1: ac = ac/ac.max()
+                    color = _reshape(ac, (None,-3))
+                else:
+                    if ac.dtype.kind=='b': ac = ac+0
+                    color = _color_label(ac,cmap=cmap, order=corder, start=cstart)
+            else:
+                color = ac
+
+        # get nodes, transformed if necessary
+        nxy = self.node.position
+        if transform is not None:
+            nxy = _geo.normalize(_geo.dot(transform,_geo.homogeneous(nxy[::-1])))[1::-1]
+        nxy = nxy.T
+        
+        # make LineCollection
+        axe_node = self.axe.get_node_list()
+        
+        shift = _np.arange(len(axe_node)) % (max_shift+1) #random.randint(0,max_shift,len(axe_node))
+        line = [nxy[node_list]+[[sh,0]] for node_list,sh in zip(axe_node,shift)]
+        lcol = mcol.LineCollection(line, color=color, **kargs)
+        
+        # compute bounding box
+        slist = []
+        map(slist.extend, self.axe.segment)
+        nodes = self.node.position[:,self.segment.node[slist]].reshape(2,-1)
+        minb  = nodes.min(axis=1)
+        maxb  = nodes.max(axis=1)
+        bbox = [minb[0], maxb[0], minb[1], maxb[1]]
+        
+        # plot the tree
+        self._plot_collection(bg,collection=lcol, bbox=bbox)
+        
     def to_mtg(self, radius='radius', sampling=1):
         from itertools import izip
         # create a MTG graph 
@@ -576,7 +667,7 @@ class RootAxialTree(RootGraph):
         m = (seg.axe>0)+(seg.seed>0)
         m[0] = False             
         
-        radius = seg[radius] if radius in dir(seg) else _np.ones(seg.size+1)
+        radius = seg[radius] if radius in dir(seg) else _np.ones(seg.number)
         
         seed   = self.segment.seed.astype(int)
         parent = self.segment.parent.astype(int)
@@ -698,7 +789,7 @@ class RootAxialTree(RootGraph):
     # printing    
     # --------
     def __str__ (self): 
-        return self.__class__.__name__ + ': %d nodes, %d segments, %d axes' % (self.node.size, self.segment.size, self.axe.size)
+        return self.__class__.__name__ + ': %d nodes, %d segments, %d axes' % (self.node.number, self.segment.number, self.axe.number)
     def __repr__(self): 
         return self.__str__()  ## for ipython of RootGraph obj...
 

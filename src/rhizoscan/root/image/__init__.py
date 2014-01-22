@@ -70,17 +70,27 @@ def segment_root_image(image, mask=None):
     The segmentation is done using EM fitting of 2 gaussian distributions: 
     one for the background, and one for the foreground.
     
-    If mask is provided, do not segment these area
+    If mask is provided, apply segmentation in `mask==True` area
     """
     from rhizoscan.stats import gmm1d, cluster_1d  ## relative import ?
     # segment image
     # -------------
-    if mask is None: m = slice(None)
-    else:            m = mask
+    mask_given = mask is not None
+    if mask_given: m = slice(None)
+    else:          m = mask
     im   = image
-    #n,w  = gmm1d(im[m], classes=2, bins=256)
     mask = _np.zeros(im.shape,dtype=int)
-    mask[m] = cluster_1d(im[m], classes=2, bins='unique' if im.dtype=='uint8' else 256)#, distributions=n, w)
+    mask[m] = cluster_1d(im[m], classes=2, bins='unique' if im.dtype=='uint8' else 256)
+    
+    # assert pixels with lower value that estimated background is background too
+    #   foreground gaussian is much more flat that backgrond, thus it can be 
+    #   of higher probability if value "far enough" below the bg estimated mode
+    if mask_given:
+        min_bg = im[(mask==0)&m].min()
+        mask[(im<=min_bg)&m] = False
+    else:
+        min_bg = im[mask==0].min()
+        mask[im<=min_bg] = False
     
     return mask
         

@@ -3,6 +3,10 @@ Initial version of axial tree construction from root graph
 
 *** Some old code is copied, but not made to work ***
 """
+_UNREACHABLE = -2
+_SEED        = -1
+_UNSET       = 0
+_SET         = 1
 
 @_node('tree')
 def graph2axial(graph, to_tree=0, to_axe=0, single_order1_axe=True):

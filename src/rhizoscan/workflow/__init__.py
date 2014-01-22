@@ -143,7 +143,7 @@ class node(object):
         return f
         
     @staticmethod
-    def update_required(function, namespace):
+    def is_update_required(function, namespace):
         """
         Return true if one or more of `function` outputs is missing in
         dictionary `namespace`.
@@ -214,7 +214,7 @@ class node(object):
         
         if namespace is None: namespace = dict()
         namespace.update(kargs) 
-        if update    is None: update = node.update_required(function, namespace)
+        if update    is None: update = node.is_update_required(function, namespace)
                                          
         # compute the data
         if update:
@@ -302,7 +302,7 @@ class node(object):
                     d = dict(name=d, value=None, required=True)
                 else:
                     d.setdefault('name', 'in'+str(i+1)) # just in case...
-                    d['required'] = not d.has_key('value')
+                    d.setdefault('required',not d.has_key('value'))
                     d.setdefault('value', None)
                 value.append(d)
         elif attribute=='outputs':
@@ -587,7 +587,7 @@ class Pipeline(object):
             names  = dict((k,None) for k in namespace.keys())
             if compute=='missing': compute=[]
             for n in self.__pipeline__:
-                if node.get_attribute(n,'name') in compute or node.update_required(n, names):
+                if node.get_attribute(n,'name') in compute or node.is_update_required(n, names):
                     nodes.append(n)
                     if update:
                         for o in node.get_attribute(n,'outputs'):

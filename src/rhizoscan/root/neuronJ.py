@@ -97,12 +97,14 @@ class NJ_loader(Mapping):
         
     def to_tree(self, scale=1):
         from rhizoscan.root.graph import SegmentList, NodeList, RootGraph, RootAxialTree
-        from rhizoscan.root.graph import _UNSET, _SEED, _UNREACHABLE
-    
+        ##from rhizoscan.root.graph import _UNSET, _SEED, _UNREACHABLE
+        ##  should not do it like that anymore...
+        _UNREACHABLE = -2  ##
+        _SEED        = -1  ##
+        
         # find axes order
         t_type  = [t.type for t in self.tracing]
         max_order = max(t_type)-2
-        min_order = min(t_type)-2
         for t in self.tracing:
             t.order = t.type-2
             if t.order<1:
@@ -112,7 +114,7 @@ class NJ_loader(Mapping):
         # find cluster ids and make suitable "seed" nodes (and bg)
         cplant = set([t.cluster for t in self.tracing])
         cplant.add(0)
-        cplant = np.array(list(cplant))
+        cplant = np.array(sorted(cplant))
         corder = np.ones(cplant.size)*_SEED
         corder[0] = _UNREACHABLE
         cnode  = np.zeros((cplant.size,2))

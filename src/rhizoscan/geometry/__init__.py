@@ -23,6 +23,18 @@ def mdot(*args):
     """ Apply multiple dot product: mdot(T1, T2,...,Tn) = T1 * T2 * ... * Tn """
     return reduce(dot,args)
 
+@_node('translation')
+def translation(t,s=1):
+    """ 
+    Create a translation matrix, adding homogeneous coordinates  
+    
+    ex: translation([1,2]) returns [[1,0,1],[0,1,2],[0,0,1]
+    """
+    T = _np.eye(len(t)+1)
+    T[:-1,-1] = t
+    T[ -1,-1] = s
+    return T
+
 @_node('homogeneous_coordinates')
 def homogeneous(coordinates, N=None):
     """

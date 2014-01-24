@@ -157,3 +157,40 @@ def fit_rect_b(polygon, corner0='bbox', focus=0.9, method='BFGS', **min_kargs):
                     dof_map=rect2corner_b, **min_kargs)
     r.x = corner0
     return r
+    
+    
+def distance_to_segment(points,segments):
+    """
+    Compute the minimum distance from all `points` to all `segments`
+    
+    `points`: 
+       a (k,n) array for the k-dimensional coordinates of n points
+    `segments`:
+       a (k,s,2) array for the k-dim coordinates of the 2 vertices of s segments
+       
+    :Outputs: 
+       - a (n,s) array of the point-segment distances
+       - a (k,n,s) array of the coordinates of the closest point of all segments
+         relative to input `points`
+    """
+    norm = lambda x: (x**2).sum(axis=0)**.5
+    
+    v1    = segments[...,0]           # 1st segment vertex, shape (k,s)
+    v2    = segments[...,1]           # 2nd segment vertex, shape (k,s)
+    sdir  = v2-v1                     # direction vector of segment
+    lsl   = norm(sdir)                # distance between v1 and v2
+    lsl   = _np.maximum(lsl,2**-5)    
+    sdir /= lsl                       # make sdir unit vectors
+    
+    # distance from v1 to the projection of points on segments
+    #    disallow projection out of segment: values are in [0,lsl]
+    on_edge = ((points[:,:,None]-v1[:,None,:])*sdir[:,None,:]).sum(axis=0) # (n,s)
+    on_edge = _np.minimum(_np.maximum(on_edge,0),lsl[None,:])
+    
+    # distance from points to "points projection on sdir"
+    nproj = v1[:,None,:] + on_edge[None,:,:]*sdir[:,None,:]   # (k,n,s)
+    d = norm(nproj - points[:,:,None])                        # (n,s)
+
+    return d, nproj
+
+

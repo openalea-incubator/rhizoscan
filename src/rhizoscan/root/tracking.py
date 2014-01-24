@@ -30,6 +30,7 @@ from rhizoscan.workflow import node  as _node
 from rhizoscan.image    import Image as _Image
 from rhizoscan.opencv   import descriptors as _descriptors
 from rhizoscan.geometry import transform   as _transform
+from rhizoscan.geometry.polygon import distance_to_segment as _d2segment
 
 _NA_ = _np.newaxis
 
@@ -194,7 +195,7 @@ def node_to_axe_distance(nodes,tree):
     ts_list = []                      # (flat) list of segments of all tree axes  
     map(ts_list.extend,t.axe.segment)
     tsn   = t.segment.node[ts_list]   # node ids of tree segment (|ts|,node12)
-    d_ns, nproj = node_to_segment_distance(nodes,t.node.position[:,tsn])
+    d_ns, nproj = _d2segment(nodes,t.node.position[:,tsn])
 
 
     # node-to-axe distance
@@ -226,40 +227,6 @@ def node_to_axe_distance(nodes,tree):
         start = end
     
     return d_na, s_id, nprj
-
-def node_to_segment_distance(nodes,segments):
-    """
-    Compute the minimum distance from all `nodes` to all `segments`
-    
-    `nodes`: 
-       a (k,n) array for the k-dimensional coordinates of n nodes
-    `segments`:
-       a (k,s,2) array for the k-dim coordinates of the 2 nodes of s segments
-       
-    :Outputs: 
-       - a (n,s) array of the node-segment distances
-       - a (k,n,s) array of the coordinates of the closest point to all nodes on 
-         all segments.
-    """
-    norm = lambda x: (x**2).sum(axis=0)**.5
-    
-    n1    = segments[...,0]           # 1st segment node, shape (k,s)
-    n2    = segments[...,1]           # 2nd segment node, shape (k,s)
-    sdir  = n2-n1                     # direction vector of segment
-    lsl   = norm(sdir)                # distance between n1 and n2
-    lsl   = _np.maximum(lsl,2**-5)    
-    sdir /= lsl                       # make sdir unit vectors
-    
-    # distance from n1 to the projection of nodes on segments
-    #    disallow projection out of segment: values are in [0,lsl]
-    on_edge = ((nodes[:,:,_NA_]-n1[:,_NA_,:])*sdir[:,_NA_,:]).sum(axis=0) # (n,s) 
-    on_edge = _np.minimum(_np.maximum(on_edge,0),lsl[_NA_,:])
-            
-    # distance from node to "node projected on sdir"
-    nproj = n1[:,_NA_,:] + on_edge[_NA_,:,:]*sdir[:,_NA_,:]   # (k,n,s)
-    d = norm(nproj - nodes[:,:,_NA_])                         # (n,s)
-
-    return d, nproj
 
 def segment_to_projection_area(graph, node_projection):
     """

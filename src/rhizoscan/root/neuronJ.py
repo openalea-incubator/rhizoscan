@@ -52,11 +52,9 @@ class NJ_loader(Mapping):
         while not self.is_eof():
             block = self.next_block()
             if block=='Tracing':
-                ##print 'add tracing'
                 t = NJ_Tracing(self)
                 self.tracing.append(t)
             elif block=='Segment':
-                ##print '   add segment'
                 s = self.read_segment()
                 t.add_segment(s)
         
@@ -223,23 +221,26 @@ def load_ref_trees(p):
         
 # ------ pipeline stuff ------ 
 # ----------------------------
-def make_ref_dataset(ini_file, output='tree', overwrite=False, verbose=1):
+def make_ref_dataset(ini_file, output='tree', load_ndf=True, overwrite=False, verbose=1):
     from os.path import splitext, join, exists
     from .pipeline.dataset import make_dataset 
     
     rds, invalid, out_dir = make_dataset(ini_file=ini_file, out_dir=output)
     
     if verbose>1:
-        print '\033[31m ---- invalid files: ----'
+        print '  ---- invalid files: ----'
         for i in invalid: print ':'.join(i[:2]), '\n    '+ i[2]
-        print ' ------------------------\033[30m'
+        print '  ------------------------'
      
+    if not load_ndf: return rds,invalid, out_dir
+    
     for i,ref in enumerate(rds):
-        if not overwrite and ref.get_file().exists() and ref.load().has_key('tree'): continue
-        
+        if ref.get_file().exists():
+            ref = ref.load()
         ref.ref_file = splitext(ref.filename)[0]+'.ndf'
-        if verbose:
-            print 'converting file', ref.ref_file
+
+        if overwrite or not ref.has_key('tree'):
+            if verbose: print 'converting file', ref.ref_file
             meta = ref.metadata
             if hasattr(meta,'scale'): scale = meta.scale
             else:                     scale = 1 
@@ -247,7 +248,8 @@ def make_ref_dataset(ini_file, output='tree', overwrite=False, verbose=1):
             tree.metadata = meta
             ref.set('tree',tree,store=True)
             ref.__loader_attributes__ = ['metadata','filename']
-            rds[i] = ref.dump()
+            
+        rds[i] = ref.dump()
         
     return rds, invalid, out_dir
     

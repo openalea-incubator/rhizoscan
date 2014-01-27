@@ -30,7 +30,7 @@ from rhizoscan.workflow import node  as _node
 from rhizoscan.image    import Image as _Image
 from rhizoscan.opencv   import descriptors as _descriptors
 from rhizoscan.geometry import transform   as _transform
-from rhizoscan.geometry.polygon import distance_to_segment as _d2segment
+from rhizoscan.geometry.polygon import distance_to_segment as _distance_to_segment
 
 _NA_ = _np.newaxis
 
@@ -195,7 +195,7 @@ def node_to_axe_distance(nodes,tree):
     ts_list = []                      # (flat) list of segments of all tree axes  
     map(ts_list.extend,t.axe.segment)
     tsn   = t.segment.node[ts_list]   # node ids of tree segment (|ts|,node12)
-    d_ns, nproj = _d2segment(nodes,t.node.position[:,tsn])
+    d_ns, nproj = _distance_to_segment(nodes,t.node.position[:,tsn])[:2]
 
 
     # node-to-axe distance

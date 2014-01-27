@@ -5,7 +5,7 @@ from scipy.linalg import inv
 
 dot = np.dot
 
-def mire_segment(p):
+def mire_segment(p):    ### this function seems obsolete
     import matplotlib.pyplot as plt
     plt.clf()
     color = 'rgbycm'

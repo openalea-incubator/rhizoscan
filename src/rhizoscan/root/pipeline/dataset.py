@@ -327,23 +327,23 @@ def sort(ds,key, metadata=True):
     return [ds[i] for i in order]
     
 @_node('clustered_dataset')
-def cluster(ds, key, metadata=True, flat=True, sort_key=None):
-    """ cluster `ds` by (unique) `key` 
+def group_by(ds, key, metadata=True, flat=True, sort_key=None):
+    """ group `ds` element by the values of given `key` 
     
     Return a dictionary of lists where the keys are the set of possible values
-    of the `key` attributes of the items in `ds`.
+    of the value of attributes `key` of item in `ds`.
     
     `key` can contain '.' (ex: 'attr.subattr') meaning to process sub-attribute
 
     If `key` is a list of keys, it clusters `ds` recursively either in:
-     - a dict with keys the tuple of possible values, if flat=True
-     - a dict of dict (...), otherwise
+     - a 'flat' dict where the keys are the tuple of possible values, if flat=True
+     - a dict of dict (etc...), otherwise
     
     If `metadata` is True, key(s) are looked for into the 'metadata' attribute
-    i.e. same as cluster_db(db, 'metadata.'+key, metadata=False)
+      i.e. same as cluster_db(db, 'metadata.'+key, metadata=False)
     
-    If `sort_key` is not None, it should be a suitable argument for the `sort`
-    function, which is then applied on each cluster. 
+    ## not implemented: If `sort_key` is not None, it should be a suitable argument for the `sort`
+    function, which is then applied on each group. 
     """
     if len(key)==1:
         key = key[0]
@@ -362,19 +362,18 @@ def cluster(ds, key, metadata=True, flat=True, sort_key=None):
         #    for k,g in group.iteritems():
         #        group[k] = sort(g,key=sort_key,metadata=metadata)
     else:
-        ## todo cluster for several keys
-        group = cluster(ds, key[0], metadata=metadata)
+        group = group_by(ds, key[0], metadata=metadata)
         for k,subds in group.iteritems():
-            group[k] = cluster(subds, key[1:], metadata=metadata, sort_key=sort_key, flat=False)
+            group[k] = group_by(subds, key[1:], metadata=metadata, sort_key=sort_key, flat=False)
         
         if flat==True:
             group = _flatten_hierarchical(group,depth=len(key))
             
     return group
 
-def _flatten_hierarchical(cluster, depth, base_key=None):
+def _flatten_hierarchical(hdist, depth, base_key=None):
     """
-    Flatten the hierarchical cluster dictionary (dict of dict ...)
+    Flatten hierarchical dictionaries (dict of dict ...) `hdist`
     
     Convert a hierarchical dictionaries into a "flat" dictionary (i.e. which 
     does not contain subdictionary) where the keys are keys tuple of all levels. 
@@ -385,16 +384,16 @@ def _flatten_hierarchical(cluster, depth, base_key=None):
       # d2={('a','b'):1,('c','b'):2,('c','c'):3}
     
     `depth` is the (maximum) depth of subdictionary (starting at 1)
-    `base_key` is used internal for recursivity
+    `base_key` is used internally for recursivity
     
-    This function is used by the `cluster` function to convert the results 
+    This function is used by the `group_by` function to convert the results 
     obtained with multi='hierarchical' into the result for multi='flat'
     """
     if base_key is None: base_key = ()
     if depth<1: return base_key
     
     flat = {}
-    for k,v in cluster.iteritems():
+    for k,v in hdist.iteritems():
         k = base_key+(k,)
         if not all(map(hasattr,(v,v),('keys','iteritems'))):
             flat[k] = v

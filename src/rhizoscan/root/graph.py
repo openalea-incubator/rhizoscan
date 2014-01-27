@@ -542,15 +542,12 @@ class RootGraph(_Mapping):
 
 
 class RootAxialTree(RootGraph):
-    def __init__(self,node, segment, axe=None, to_tree=0, to_axe=0, single_order1_axe=True):
+    def __init__(self,node, segment, axe):
         """
-        Construct a RootAxialTree graph
-        
-        if axe is not given, i.e. only a general [node,segment] graph, then
-            'segment' should have a 'seed' property
-            if to_tree>0, call make_tree with method set to to_tree value 
-            if to_axe>0,  call find_axes with method set to to_axe  value
-                          (which call set_axes with 'single_order_1_axe' parameter)
+        Construct a RootAxialTree graph from 
+          - NodeList `node`
+          - SegmentList `segment`
+          - AxeList `axe`
         """
         RootGraph.__init__(self, node=node, segment=segment)
         self.axe = axe

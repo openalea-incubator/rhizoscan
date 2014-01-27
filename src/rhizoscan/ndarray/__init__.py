@@ -9,6 +9,23 @@ from rhizoscan.workflow import node as _node # to declare workflow nodes
 # icon of openalea package
 __icon__ = 'cube.png'
 
+def unique_rows(array):
+    """
+    Return the set of unique rows of `array`
+    
+    if `array`shape is ([S],n) for any multidimensionnal [S] of n-sized vectors
+    return a (k,n) array of the k unique such vectors
+    
+    Note: 1d `array` are not input
+    """
+    array = _np.asanyarray(array)
+    if not array.flags['C_CONTIGUOUS']:
+        array = _np.ascontiguousarray(array)
+    row_size = array.shape[-1]
+    dt   = _np.dtype(zip(map(str,range(row_size)),(array.dtype,)*row_size))
+    uniq = _np.unique(array.view(dtype=dt))
+    return uniq.view(dtype=array.dtype).reshape(-1,row_size)
+
 def virtual_array(shape,value=1):
     """
     return an ndarray of virtual shape containing a single 'value' element

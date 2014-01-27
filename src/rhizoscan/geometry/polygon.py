@@ -170,9 +170,13 @@ def distance_to_segment(points,segments):
        
     :Outputs: 
        - a (n,s) array of the point-segment distances
-       - a (k,n,s) array of the coordinates of the closest point of all segments
-         relative to input `points`
+       - a (k,n,s) array of the coordinates of the closest point (i.e. the point
+       projection) of all points on all segments
+       - a (n,s) array of the position in [0,1] of points on the segments
     """
+    points   = _np.asfarray(points)
+    segments = _np.asfarray(segments)
+    
     norm = lambda x: (x**2).sum(axis=0)**.5
     
     v1    = segments[...,0]           # 1st segment vertex, shape (k,s)
@@ -191,6 +195,6 @@ def distance_to_segment(points,segments):
     nproj = v1[:,None,:] + on_edge[None,:,:]*sdir[:,None,:]   # (k,n,s)
     d = norm(nproj - points[:,:,None])                        # (n,s)
 
-    return d, nproj
+    return d, nproj, on_edge/lsl
 
 

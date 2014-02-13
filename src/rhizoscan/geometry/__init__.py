@@ -11,6 +11,7 @@ from scipy.linalg import svd  as _svd
 
 from numpy.lib.stride_tricks import broadcast_arrays as _broadcast
 
+from rhizoscan.ndarray     import diagonal  as _diagonal
 from rhizoscan.ndarray     import as_vector as _vector
 from rhizoscan.ndarray     import lookup    as _lookup
 
@@ -24,15 +25,16 @@ def mdot(*args):
     return reduce(dot,args)
 
 @_node('translation')
-def translation(t,s=1):
+def translation(t=[0,0],s=1):
     """ 
-    Create a translation matrix, adding homogeneous coordinates  
+    Create a translation matrix, with homogeneous row  
     
     ex: translation([1,2]) returns [[1,0,1],[0,1,2],[0,0,1]
     """
     T = _np.eye(len(t)+1)
     T[:-1,-1] = t
-    T[ -1,-1] = s
+    _diagonal(T)[:-1] = s
+    
     return T
 
 @_node('homogeneous_coordinates')

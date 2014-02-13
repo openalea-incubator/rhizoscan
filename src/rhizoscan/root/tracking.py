@@ -63,7 +63,7 @@ def track_root(dseq, update=False, verbose=True, plot=False):
     t = d0.tree
     g = d1.graph
 
-    # make a copy of g with transformed node postion 
+    # make a copy of g with transformed node position 
     gnpos = _transform(T=T, coordinates=g.node.position)
     g_input = g
     g = g.copy()

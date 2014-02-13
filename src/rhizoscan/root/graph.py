@@ -361,26 +361,37 @@ class AxeList(GraphList):
     def get_node_list(self):
         """
         Return list of axes as a list of node
+        and a list of invalid axe id: 1-segment axes with no sparent 
         """
         from scipy.sparse import csr_matrix as csr
         from scipy.sparse.csgraph import depth_first_order as dfo
         
         axe_node = []
-        for seg_list in self.segment:
+        invalid  = []
+        for i,seg_list in enumerate(self.segment):
             if len(seg_list)==0: 
                 axe_node.append([])
                 continue
+                
             
             seg_node = self._segment_list.node[seg_list]
+            spnode   = self._segment_list.node[self.sparent[i]]
             if seg_node.shape[0]==1:
-                axe_node.append(seg_node[0])
+                snode0   = set(seg_node[0])
+                nparent  = snode0.intersection(spnode)
+                if len(nparent)<>1:
+                    invalid.append(i)
+                    #print i, nparent, snode0, spnode
+                    axe_node.append([])#seg_node[0])
+                else:
+                    axe_node.append(_np.array(list(nparent) + list(snode0.difference(nparent))))
             else:
                 c = csr((_np.ones(2*seg_node.shape[0],dtype='uint8'),_np.hstack((seg_node[::-1].T,seg_node[:,::-1].T))))
-                i = set(seg_node[0]).difference(seg_node[1]).pop()
-                order = dfo(c,i, return_predecessors=False)
+                s = set(seg_node[0]).difference(seg_node[1]).pop()
+                order = dfo(c,s, return_predecessors=False) #nparent.pop()
                 axe_node.append(order)
                 
-        return axe_node
+        return axe_node,invalid
 
 def neighbor_array(node_segment, segment_node, seed):
     """
@@ -577,7 +588,7 @@ class RootAxialTree(RootGraph):
         """
         Plot tree on top of `bg`
         
-        If `sc` is not None, call RootGraph.plot with it (and **kargs)
+        If `sc` is not None, call RootGraph.plot with it and all other arguments
         
         Otherwise, use `ac` to select color. POssible values are
           -  None:   color is selected w.r.t. axe id
@@ -621,7 +632,7 @@ class RootAxialTree(RootGraph):
         nxy = nxy.T
         
         # make LineCollection
-        axe_node = self.axe.get_node_list()
+        axe_node = self.axe.get_node_list()[0]
         
         shift  = _np.arange(len(axe_node)) % (2*max_shift+1) - max_shift
         line = [nxy[node_list]+[[sh,sh]] for node_list,sh in zip(axe_node,shift)]
@@ -638,7 +649,7 @@ class RootAxialTree(RootGraph):
         # plot the tree
         self._plot_collection(bg,collection=lcol, bbox=bbox)
         
-    def to_mtg(self, radius='radius', sampling=1):
+    def to_mtg_old(self, radius='radius', sampling=1):
         from itertools import izip
         # create a MTG graph 
         from openalea.mtg import MTG
@@ -661,7 +672,7 @@ class RootAxialTree(RootGraph):
         
         seed   = self.segment.seed.astype(int)
         parent = self.segment.parent.astype(int)
-        seed[seed>200] = 0  ## bug where seed=254
+        ##seed[seed>200] = 0  ## bug where seed=254
         parent[seed>0] = -seed[seed>0]   # parent of seed segments are -plant_id
         
         # make seed mtg-elements
@@ -671,7 +682,7 @@ class RootAxialTree(RootGraph):
         # they are stored in an array using *positive* ids
         
         # sseg : mask of seed segments
-        sseg = self.stype==_SEED
+        sseg = self.segment.seed>0
         # snodes : mask of nodes of seed segments 
         snodes = self.segment.node[sseg]
         # Compute the bbox of snodes grouped by seed id 
@@ -727,7 +738,7 @@ class RootAxialTree(RootGraph):
             else:
                 edge = '<' if (ai==axe[pi]) else '+'
                 
-            info[si] = dict(sparent=pi,sid=si,axe=ai,position=V3(xi,0,-yi), length=li, radius=ri,edge_type=edge)
+            info[si] = dict(sparent=pi,sid=si,axe=ai,position=V3(xi,0,-yi), length=li, radius=ri,edge_type=edge, plant=self.axe.plant[ai])
         for sid,xi,yi,ri in izip(suid,x,y,r):
             info[sid] = dict(axe=sid,position=V3(xi,0,-yi), x=xi,y=yi,radius=ri, seed=True)
            
@@ -767,13 +778,125 @@ class RootAxialTree(RootGraph):
         # for each seed, create a scale 1 element
         # then call add children for the nodes (scale 2)
         for seed in suid:
-            mtg_pid = g.add_component(g.root)                    # scale 1
+            mtg_pid = g.add_component(g.root)##,plant=abs(seed))     # scale 1
             mtg_id[seed] = g.add_component(mtg_pid, **info[seed]) # scale 2
             add_children(seed)            # start from seeds
         
         #pos = g.property('position')
         #assert [pos[i] for i in g.vertices(scale=1)]
         
+        return g
+        
+    def to_mtg(self, verbose=False):
+        """ create a mtg from this axial tree """
+        from openalea.mtg import MTG
+        
+        # initialization
+        # ==============
+        # node sequence of each axe, node coordinates, ...
+        node_list = self.axe.get_node_list()[0]
+        node_pos  = [(xi,0,-yi) for xi,yi in self.node.position.T]
+        max_order = self.axe.order.max()
+        
+        # compute seed position
+        seed_mask  = self.segment.seed>0
+        seed_label = self.segment.seed[seed_mask]
+        seed_id    = _np.unique(seed_label)
+        
+        seed_pos   = self.node.position[:,self.segment.node[seed_mask]]
+        seed_pos   = seed_pos.reshape(seed_pos.shape[0],-1)
+        seed_label = (seed_label[:,None]*_np.ones((1,2),dtype=int)).ravel()
+        x = _nd.mean(seed_pos[0], labels=seed_label, index=seed_id)
+        y = _nd.mean(seed_pos[1], labels=seed_label, index=seed_id)
+        seed_pos = _np.vstack((x,_np.zeros(x.size),-y)).T
+        seed_pos = dict(zip(seed_id,seed_pos))
+
+        # create mtg tree
+        # ===============
+        #   parse axe (adding nodes) in min-order, then max-length order
+        #   1st time a node is parsed, its current axe is set as its main
+        #   hypothesis: 1st axe node (branching node) "main axe" is the parent axe
+        g = MTG()
+        
+        mtg_pid = {}  # plant id in mtg - keys are self plant id  
+        mtg_nid = {}  # node  id in mtg - keys are self nodes id -> set the 1st processed
+        
+        
+        # add plant
+        # ---------
+        for pid in seed_id:
+            properties = dict(plant=pid, axe_order=0, axe_id=0, radius=1)   ## axe_id...
+            
+            # add the plant: scale 1
+            mtg_id = g.add_component(g.root,plant=pid)
+            ##mtg_pid[pid] = mtg_id
+            
+            # add an axe (scale 2) 
+            v = g.add_component(mtg_id, **properties)
+            
+            # add a node in its center (scale 3)
+            n = g.add_component(v, position=seed_pos[pid], **properties)
+            mtg_pid[pid] = n
+
+            if verbose: 
+                print 'plant added: %d->%d (mtg node:%d)' % (pid, mtg_id, mtg_pid[pid])
+            
+        # To select the parent axe: 
+        #   - axe parsing follows axe asc. order, then length desc. order
+        #   - the 1st time a node is added, the current axe is set as its 'main' 
+        #     (stored mtg_nid)
+        #   - when a new axe is processed, its first node is set as its parent:
+        #      - if its first node has already been parsed: it is selected as
+        #        its parent node, which induces its parent axe
+        #      - otherwise, choose the seed node as its parent node
+        for order in range(1,max_order+1):
+            axe_mask  = self.axe.order==order
+            axe_order = _np.argsort(self.axe.length[axe_mask])[::-1]
+            
+            # add axe
+            # -------
+            for aid in axe_mask.nonzero()[0][axe_order]:
+                # find parent node id in mtg
+                nlist  = node_list[aid]
+                if len(nlist)==0: continue
+                
+                node_0 = nlist[0]
+                properties = dict(axe_order=order, plant=pid, axe_id=aid, radius=1)
+                
+                if not mtg_nid.has_key(node_0):  #order==1 and axes connected to seed 
+                    ### add axe
+                    #cur_plant = mtg_pid[self.axe.plant[aid]]
+                    ##cur_axe = g.add_component(cur_plant, **properties)
+                    ### add 1st node
+                    ##parent_node = g.add_component(cur_axe, position=node_pos[node_0], **properties)
+                    ##mtg_nid.setdefault(node_0,parent_node)
+                    parent_node = mtg_pid[self.axe.plant[aid]]
+                    parent_node,cur_axe = g.add_child_and_complex(parent_node, position=node_pos[nlist[0]], **properties)
+                    mtg_nid.setdefault(nlist[0],parent_node)
+                    
+                    if verbose: 
+                        print 'seed axe added: %d->%d (complex %d, 1st node %d->%d)' % (aid, cur_axe, g.complex(cur_axe), node_0, parent_node)
+                else:
+                    parent_node = mtg_nid[node_0]
+                    # add 1st and current axe
+                    parent_node,cur_axe = g.add_child_and_complex(parent_node, position=node_pos[nlist[1]], **properties)
+                    mtg_nid.setdefault(nlist[1],parent_node)
+                    nlist = nlist[1:]
+                    if verbose: 
+                        print 'axe added: %d->%d' % (aid, cur_axe)
+                        _p = g.parent(parent_node)
+                        if _p is None: print '**** parent None %d ****' % parent_node
+                    
+                # add nodes
+                # ---------
+                for node in nlist[1:]:
+                    parent_node = g.add_child(parent_node, position=node_pos[node], **properties)
+                    mtg_nid.setdefault(node,parent_node)
+                    _p = g.parent(parent_node)
+                    if _p is None: print '**** parent None %d ****' % parent_node
+                if verbose>1: 
+                    print '    node:', nlist
+
         return g
         
     # printing    
@@ -784,3 +907,19 @@ class RootAxialTree(RootGraph):
         return self.__str__()  ## for ipython of RootGraph obj...
 
 
+## tests
+def test_to_mtg(t):
+    g = t.to_mtg()
+    
+    # test if plant property is correct
+    # ---------------------------------
+    # split mtg by plants
+    g = map(g.sub_mtg, g.vertices(scale=1))
+    
+    pl_axe = [list(set(gi.property('axe').values())) for gi in g]
+    pl_axe = [[a for a in alist if a>0] for alist in pl_axe]      ## remove negativ axe...
+    
+    ac = np.zeros(ref.axe.number,dtype=int)
+    for i,al in enumerate(pl_axe): ac[al] = i+1
+    
+    assert (t.axe.plant==ac).all()

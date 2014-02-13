@@ -321,6 +321,7 @@ class NJ_loader(Mapping):
                 sparent[c_1st_seg] = 0
         segment.add_property('parent',sparent)
         
+          
         # construct AxeList
         # -----------------
         ax_seg_num = [s.shape[0] for s in ax_segments]
@@ -331,6 +332,13 @@ class NJ_loader(Mapping):
         axe = AxeList(axes=axe_segment,order=axe_order,plant=axe_plant, segment_list=segment)
         axe.add_property('seg_1st',np.hstack(([0],axe_1st_segment)))
         
+          # set 1st segment of each axe of order 1 as seed
+          ## this might not induce bugs: seed are usually not part of axe
+        seed = np.zeros(segment.number,dtype='uint8')
+        axe1 = axe.order==1
+        seed[axe.segment1[axe1]] = np.arange(1,np.sum(axe1)+1).astype('uint8')
+        segment.add_property('seed', seed)
+          
         return RootAxialTree(node=node, segment=segment, axe=axe)
 
     def to_tree_0(self, scale=1):
@@ -471,24 +479,36 @@ def test_ref_dataset(ini_file):
             
     return invalid, error
 
-def make_ref_dataset(ini_file, output='tree', load_ndf=True, overwrite=False, verbose=1):
+def make_ref_dataset(ini_file, data_dir=None, out_dir='nj_tree', load_ndf=True, overwrite=False, scale_file=None, verbose=1):
     from os.path import splitext, join, exists
     from .pipeline.dataset import make_dataset 
     
-    rds, invalid, out_dir = make_dataset(ini_file=ini_file, out_dir=output)
+    rds, invalid, out_dir = make_dataset(ini_file=ini_file, data_dir=data_dir, out_dir=out_dir,verbose=verbose)
     
-    if verbose>1:
+    if verbose>2:
         print '  ---- invalid files: ----'
         for i in invalid: print ':'.join(i[:2]), '\n    '+ i[2]
         print '  ------------------------'
-     
+    
+    for i,ref in enumerate(rds):
+        ref.ref_file = splitext(ref.filename)[0]+'.ndf'
+    rds = [r for r in rds if exists(r.ref_file)]
+
+    if scale_file:
+        set_scale_from_file(rds,scale_file)
+    
+    if verbose>1:
+        print '  ---- ndf files: ----'
+        for r in rds: print r.ref_file
+        print '  ------------------------'
+
     if not load_ndf: return rds,invalid, out_dir
     
     for i,ref in enumerate(rds):
-        if ref.get_file().exists():
-            ref = ref.load()
-        ref.ref_file = splitext(ref.filename)[0]+'.ndf'
-
+        if not overwrite: 
+            if ref.get_file().exists():
+                ref = ref.load()
+            
         if overwrite or not ref.has_key('tree'):
             if verbose: print 'converting file', ref.ref_file
             meta = ref.metadata
@@ -503,6 +523,43 @@ def make_ref_dataset(ini_file, output='tree', load_ndf=True, overwrite=False, ve
         rds[i] = ref
         
     return rds, invalid, out_dir
+    
+def set_scale_from_file(rds, scale_file):
+    """
+    Read `scale_file` for scales of `rds` dataset.
+    
+    `scale_file` constains 
+      - a line with as one integer indicating how many file parts are used as keys
+      - a list of `key_name=s` lines where:
+         - key_name` is the end of `rds` element filename attribute
+        - s is the scale to set
+      
+    `key_dir_num` is the number of directories previous to the file name part of 
+    the filename attribute of `rds` entries that is used as key. 0 means only 
+    the name of the file is used.
+    
+    This function is meant to be called by `make_ref_dataset`
+    """
+    from os.path import sep, join
+    
+    with open(scale_file,'r') as f:
+        split_num = int(f.readline())
+        
+        # make rds dict:
+        rdict = {}
+        for r in rds:
+            print sep.join(r.filename.split(sep)[-split_num:])
+            rdict[sep.join(r.filename.split(sep)[-split_num:])] = r
+            
+        print 'keys(%d):' % split_num + '\n'.join(rdict.keys())
+            
+        scales = map(lambda x:str.split(x,'='),map(str.strip, f.readlines()))
+        for key,s in scales:
+            if rdict.has_key(key):
+                rdict[key].metadata.scale = float(s)
+            else:
+                print 'missing file key:', key
+    
     
 ## TO DELETE? Project stuff
 ## -------------

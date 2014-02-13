@@ -143,7 +143,25 @@ def axe2_number(tree, mask=None):
     pl_id  = np.unique(tree.segment.seed)#.plant[ax_mask])
     number = np.bincount(tree.axe.plant[ax_mask], tree.axe.order[ax_mask]==2,minlength=pl_id.max()+1)
     return dict([(i,n) for i,n in enumerate(number) if i in pl_id])
+
+@_tree_stat
+def plant_hull(tree, mask=None):
+    #pl_id  = np.unique(tree.axe.plant)
+    pl_seg = {}
+    for i,slist in enumerate(tree.axe.segment[1:]):
+        pl_seg.setdefault(tree.axe.plant[i+1],[]).append(slist)
+        
+    pl_hull = {}
+    for k,slists in pl_seg.iteritems():
+        slists = np.hstack(slists)
+        pl_hull[k] = 0
+        if len(slists>1):
+            nodes = np.unique(tree.segment.node[slists])
+            if nodes.size>2:
+                pl_hull[k] = hull_area(tree.node.position[:,nodes].T)
     
+    return pl_hull
+
 ##@_tree_stat
 def ramification_length(tree, mask=None):
     from scipy.ndimage import maximum
@@ -167,82 +185,8 @@ def ramification_percent(tree, mask=None):
     
     return dict([(plid,ram_length[plid]/ax1_l) for plid,ax1_l in ax1_length.iteritems()])
     
-# ploting
-def plot(tc, stat='axe1_length', title=None, prefilter=None, split=None, legend=True, merge_unique=False, scale=1):
-    """ deprecated """
-    import matplotlib.pyplot as plt
-    
-    title if title is not None else stat
-    
-    auto = []
-    ref  = []
-    tree = []
-    if prefilter is None: prefilter = lambda st: st
-    for a,r in zip(tc.auto, tc.ref):
-        sa = a[stat]
-        sr = r[stat]
-        # 'valid' plant id: plant id present in both auto and ref 
-        pl_id = set(r[stat].keys()).intersection(a[stat].keys())
 
-        tree.extend([(pid,a,r) for pid in pl_id])
-        auto.extend([prefilter(sa[pid]) for pid in pl_id])
-        ref .extend([prefilter(sr[pid]) for pid in pl_id])
-
-    auto  = np.array(auto)*scale
-    ref   = np.array(ref) *scale
-    
-    bound = max(max(ref), max(auto))
-    plt.cla()
-    plt.plot([0,bound], [0,bound], 'r')
-    
-    error_name = 'Average percentage error'#'normalized RMS Error'
-    def error(x,y):
-        """ OR NOT... normalized root mean square error """
-        err = (abs(x-y)/y)
-        siz = err.size
-        err = np.sort(err)[.1*siz:-.1*siz]
-        return err.mean()
-        return ((x-y)**2/x.size).sum()**.5 / (max(x.max(),y.max())-min(x.min(),y.min()))
-    
-    if split is None:
-        plt.plot(ref, auto, '.')
-        print error_name + ' of ' + title+':', error(ref,auto)
-    else:
-        label = [reduce(getattr, [t[1]]+split.split('.')) for t in tree]
-        import time
-        if isinstance(label[0], time.struct_time):
-            label = [' '.join(map(str,(l.tm_year,l.tm_mon,l.tm_mday))) for l in label]
-        
-        label = np.array(label)
-        label_set = np.unique(label)
-        color = ['b','g','r','c','m','y','k']
-        print '---', title, '---'
-        for i,lab in enumerate(label_set):
-            x = ref[label==lab]
-            y = auto[label==lab]
-            if merge_unique:
-                pos = np.concatenate([x[:,None],y[:,None]],axis=-1)
-                pos = np.ascontiguousarray(pos).view([('x',pos.dtype),('y',pos.dtype)])
-                v,s = np.unique(pos, return_inverse=1)
-                size = np.bincount(s)
-                x,y  = v['x'],v['y']
-            else:
-                size = 1
-            plt.scatter(x, y, s=10*size, c=color[i%len(color)], edgecolors='none', label=lab)
-            print error_name +' of '+lab+':', error(x,y)
-        if legend:
-            plt.legend(loc=0)
-            
-    ax = plt.gca()
-    ax.set_xlabel('reference')
-    ax.set_ylabel('measurements')
-    ax.set_title(title)
-    
-    ax.set_ylim(0,bound)
-    ax.set_xlim(0,bound)
-    
-    ax.tree_data = _Mapping(stat=stat, trees=tree, x=ref, y=auto)
-
+##TODO: move multi_plot to comparison.py
 @_node(name='treeCompare_plot')
 def multi_plot(tc, split='metadata.date', scale=1):
     """ deprecated """
@@ -326,6 +270,7 @@ def multi_plot(tc, split='metadata.date', scale=1):
         cid = pylab.connect('button_press_event', display_tree)
         setattr(plt.gcf(),flag,cid)
 
+##TODO: cmp_plot: should go in comparison.py (rename to 'bar_plot_stat'?)
 @_node()
 def cmp_plot(db, stat, key1, key2, update_stat=False, fig=42, outliers=.05, key_color=2):
     """
@@ -673,7 +618,7 @@ def get_axes_property(t,property_name, mask=None, order=None, per_plant=True, sc
         plant = t.axe.plant[ax_id]
         plant_id = np.unique(t.segment.seed) ## in case no axe of one plant has been found
         plant_id = plant_id[plant_id>0]
-        plant_id = plant_id[plant_id<254]  ##bug: 254 plant id...
+        ##plant_id = plant_id[plant_id<254]  ##bug: 254 plant id...
         
         res = dict()
         for pid in plant_id:

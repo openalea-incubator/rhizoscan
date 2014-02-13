@@ -8,7 +8,7 @@ _SEED        = -1
 _UNSET       = 0
 _SET         = 1
 
-@_node('tree')
+#@_node('tree')
 def graph2axial(graph, to_tree=0, to_axe=0, single_order1_axe=True):
     """
     graph: a RootGraph instance (with NodeList and SegmentList)

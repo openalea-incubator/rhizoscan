@@ -5,7 +5,7 @@ import sys
 import os
 
 from setuptools import setup, find_packages
-
+#from __future__ import print_function
 
 
 #The metainfo files must contains 'metainfo.ini'
@@ -32,7 +32,7 @@ metadata = dict([(key,conf.get('metainfo',key)) for key in conf.options('metainf
 ##    exec("%s = '%s'" % (key, value))
 
 
-print '*** Installing the following package: ***'
+print('*** Installing the following package: ***')
 for key,value in metadata.items():
     key = str(key)
     print '\t', key+':\t', value
@@ -56,25 +56,24 @@ dependency_links = ['http://openalea.gforge.inria.fr/pi']
 #  ------------------------------------------
 src_abs_path = os.path.abspath('src')
 sys.path.insert(0,src_abs_path)
-import rhizoscan
-from rhizoscan.workflow.openalea import wrap_package, clean_wralea_directory
-
-# clear previously generated wralea folder
-clean_wralea_directory(os.path.join(src_abs_path,'rhizoscan_wralea'))
-
-##if left:
-##    print '\n There are not-generated content in the folloing wralea files:'
-##    print '\n'.join(left)
-##else:
-##    print '\n wralea folder is empty'
-    
-# generate wralea packages
-entry =  wrap_package(rhizoscan,entry_name='rhizoscan',verbose=0)
-print '\n wralea entry found:\n' + '\n'.join(entry) + '\n'
 
 entry_points = {}
-if entry:
-    entry_points['wralea'] = entry
+
+try:
+	import rhizoscan
+	from rhizoscan.workflow.openalea import wrap_package, clean_wralea_directory
+	# clear previously generated wralea folder
+	clean_wralea_directory(os.path.join(src_abs_path,'rhizoscan_wralea'))
+
+	# generate wralea packages
+	entry =  wrap_package(rhizoscan,entry_name='rhizoscan',verbose=0)
+	print('\n wralea entry found:\n' + '\n'.join(entry) + '\n')
+
+	if entry:
+		entry_points['wralea'] = entry
+
+except ImportError:
+	print("WARNING: Relaunch the setup.py because VisuAlea packages have not been generated.")
 
 
 # call setup

@@ -13,17 +13,17 @@ from rhizoscan.image    import Image  as _Image
 __icon__ = 'window.png'
 
 @_node()
-def plot_tree(tree, background='k', sc='order', fig=41):
+def plot_tree(tree, background='k', ac=None, sc=None, fig=41):
     if hasattr(background,'filename'):
         background = background.filename
     
-    if isinstance(background, basestring):
-        background = _Image(background)
+    #if isinstance(background, basestring):
+    #    background = _Image(background)
     
     if fig is not None: 
         plt.ion()
         plt.figure(fig)
-    tree.plot(bg=background, sc=sc)
+    tree.plot(bg=background, ac=ac, sc=sc)
     
 
 def segment_id(graph):

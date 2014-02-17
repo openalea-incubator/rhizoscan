@@ -825,17 +825,17 @@ class RootAxialTree(RootGraph):
         # add plant
         # ---------
         for pid in seed_id:
-            properties = dict(plant=pid, axe_order=0, axe_id=0, radius=1)   ## axe_id...
+            properties = dict(plant=pid)
             
             # add the plant: scale 1
-            mtg_id = g.add_component(g.root,plant=pid)
+            mtg_id = g.add_component(g.root, plant=pid, label='P%d'%pid)
             ##mtg_pid[pid] = mtg_id
             
             # add an axe (scale 2) 
-            v = g.add_component(mtg_id, **properties)
+            v = g.add_component(mtg_id, label='G')
             
             # add a node in its center (scale 3)
-            n = g.add_component(v, position=seed_pos[pid], **properties)
+            n = g.add_component(v, position=seed_pos[pid], label='H', **properties)
             mtg_pid[pid] = n
 
             if verbose: 
@@ -864,22 +864,22 @@ class RootAxialTree(RootGraph):
                 properties = dict(axe_order=order, plant=pid, axe_id=aid, radius=1)
                 
                 if not mtg_nid.has_key(node_0):  #order==1 and axes connected to seed 
-                    ### add axe
-                    #cur_plant = mtg_pid[self.axe.plant[aid]]
-                    ##cur_axe = g.add_component(cur_plant, **properties)
-                    ### add 1st node
-                    ##parent_node = g.add_component(cur_axe, position=node_pos[node_0], **properties)
-                    ##mtg_nid.setdefault(node_0,parent_node)
                     parent_node = mtg_pid[self.axe.plant[aid]]
-                    parent_node,cur_axe = g.add_child_and_complex(parent_node, position=node_pos[nlist[0]], **properties)
+                    parent_node,cur_axe = g.add_child_and_complex(parent_node, 
+                        position=node_pos[nlist[0]], 
+                        edge_type='+',
+                        **properties)
+                    g.node(parent_node).label='S'
+                    g.node(cur_axe).label='A'
                     mtg_nid.setdefault(nlist[0],parent_node)
-                    
                     if verbose: 
                         print 'seed axe added: %d->%d (complex %d, 1st node %d->%d)' % (aid, cur_axe, g.complex(cur_axe), node_0, parent_node)
                 else:
                     parent_node = mtg_nid[node_0]
                     # add 1st and current axe
-                    parent_node,cur_axe = g.add_child_and_complex(parent_node, position=node_pos[nlist[1]], **properties)
+                    parent_node,cur_axe = g.add_child_and_complex(parent_node, position=node_pos[nlist[1]], edge_type='+', **properties)
+                    g.node(parent_node).label='S'
+                    g.node(cur_axe).label='A'
                     mtg_nid.setdefault(nlist[1],parent_node)
                     nlist = nlist[1:]
                     if verbose: 
@@ -889,13 +889,29 @@ class RootAxialTree(RootGraph):
                     
                 # add nodes
                 # ---------
+                properties.pop('axe_order')
                 for node in nlist[1:]:
-                    parent_node = g.add_child(parent_node, position=node_pos[node], **properties)
+                    position=node_pos[node]
+                    parent_node = g.add_child(parent_node, 
+                           position=position, 
+                           x=position[0], 
+                           y=-position[2], 
+                           edge_type='<', 
+                           label='S', 
+                           **properties)
                     mtg_nid.setdefault(node,parent_node)
                     _p = g.parent(parent_node)
                     if _p is None: print '**** parent None %d ****' % parent_node
                 if verbose>1: 
                     print '    node:', nlist
+            
+        # add edge_type to axe vertex: '+' for all axe but 1st that have no parent
+        ## second (or more) order axes which starts at seeds are not topologically second order !!!
+        edge_type = g.property('edge_type')
+        for v in g.vertices(scale=2):
+            if g.parent(v) is not None:
+                #g[v]['edge_type'] = '+' # don't work
+                edge_type[v] = '+'
 
         return g
         

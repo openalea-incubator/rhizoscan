@@ -36,7 +36,6 @@ except:
     
 import os, sys, imp, pkgutil
 from types import MethodType
-from . import node as _Node
 
 # Define the openalea workflow "plugin" (see workflow doc)
 # --------------------------------------------------------
@@ -69,7 +68,8 @@ def node_attributes(node):
     change function name, and purpose? eg. return added/updated attributes only
     """
     ##from . import node_attributes
-    attrib = _Node.get_node_attribute(node)
+    from . import node as _Node
+    attrib = _Node.get_attribute(node)
     
     hidden = attrib.get('hidden', [])
     for node_input in attrib['inputs']:
@@ -919,4 +919,26 @@ def read_wralea(filename):
 
     return text_start, text_end
 
+def load_module(module_name, search_path=[]):
+    """
+    load `module_name`
+    
+    :Inputs:
+      - `module_name`
+          string with the name of the module as it is given to import 
+          (i.e. containing package dependancies separated by '.')
+      - `search_path`
+          Additional search directories, given as a list of string, to look for 
+          `module_name` (and its parent package) if it is in not in `sys.path`.
+    """
+    if len(search_path)>0:
+        syspath  = sys.path
+        sys.path = search_path + sys.path
+        
+    module = __import__(module_name,globals(),{}, [''], -1)
+    
+    if len(search_path)>0:
+        sys.path = syspath
+
+    return module
 

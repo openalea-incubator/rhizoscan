@@ -101,7 +101,7 @@ class SeedMapEditor(list):
             mask = smap==seed_number
             value = 0
             self._remove_seed_id(seed_number)
-            ##print "*** remove seed %d ***" % seed_number
+            print "*** remove seed %d ***" % seed_number
             
         elif action=='add':
             from rhizoscan.gui.image.draw import fill_polygon
@@ -117,7 +117,7 @@ class SeedMapEditor(list):
             mask = fill_polygon(mask=mask.astype('uint8'),polygon=polygon-bmin)[0]>0
             
             value = self._get_new_seed_id()
-            ##print "*** add seed %d ***" % value
+            print "*** add seed %d ***" % value
             
         # create and apply edition
         edit = Edition(action=action,slices=slices,mask=mask, value=value)

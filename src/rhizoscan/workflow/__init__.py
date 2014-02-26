@@ -400,6 +400,21 @@ class node(object):
         return function.__node__.get(attribute,default)
 
     @staticmethod
+    def set_input_attribute(function, input_name, **attributes):
+        """
+        Set `attributes` in the input node attributes of `function` with name `input_name` 
+        """
+        inputs = node.get_attribute(function, 'inputs')
+        in_names = dict((i['name'],k) for k,i in enumerate(inputs))
+        
+        if not input_name in in_names:
+            raise KeyError("The given function does not have input with name %s" % input_name)
+        else:
+            k = in_names[input_name]
+            inputs[k].update(attributes)
+            node.set_attribute(function, 'inputs', inputs)
+        
+    @staticmethod
     def copy(function, **kargs):
         """
         Make a copy of the node `function`, with optional change of node attribute

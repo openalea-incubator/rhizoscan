@@ -11,8 +11,7 @@ from rhizoscan.datastructure import Data    as _Data
 from . import _print_state, _print_error, _param_eval 
 
 
-#@_node('image_list', 'invalid_file', 'output_directory')
-@_node('image_list', 'invalid_file', 'output_directory', hidden=['verbose'])
+@_node('image_list', 'invalid_file', 'output_directory', OA_hide=['verbose'])
 def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir='output', out_suffix='_', verbose=False):
     """
     Return a list of dataset item following parsing rules found in `ini_file`

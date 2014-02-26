@@ -27,7 +27,7 @@ def _param_eval(string):
 
 # load image function and node
 # ----------------------------
-@_node('image')
+@_node('image', OA_interface=dict(filename='IFileStr'))
 def load_image(filename, image_roi=None, *args, **kargs):
     image,op = _normalize_image(_Image(filename,dtype='f',color='gray'))
     image.__serializer__.post_op = op
@@ -37,10 +37,9 @@ def load_image(filename, image_roi=None, *args, **kargs):
         image = image[roi]
     return image
 
-
 # petri plate detection, function and node
 # ----------------------------------------
-@_node('pmask','px_scale', 'hull', hidden=['plate_shape','smooth', 'gradient_classes'])
+@_node('pmask','px_scale', 'hull', OA_hide=['plate_shape','smooth', 'gradient_classes'])
 def detect_petri_plate(image, border_width=.05, plate_size=120, plate_shape='square', fg_smooth=5, gradient_classes=(2,1)):
     # binaray segmentation of image
     fg_mask = _plate.detect_foreground(image=image, smooth=fg_smooth, gradient_classes=gradient_classes)
@@ -55,7 +54,7 @@ def detect_petri_plate(image, border_width=.05, plate_size=120, plate_shape='squ
     
     return pmask, px_scale, hull
 
-@_node('pmask', 'px_scale', 'hull', hidden=['border_width','marker_min_size'])
+@_node('pmask', 'px_scale', 'hull', OA_hide=['border_width','marker_min_size'])
 def detect_marked_plate(image, border_width=0.03, plate_size=120, marker_threshold=0.6, marker_min_size=100):
     pmask, px_scale, hull = _detect_marked_plate(image=image, border_width=border_width, plate_size=plate_size, marker_threshold=marker_threshold, marker_min_size=marker_min_size)
     
@@ -83,7 +82,7 @@ from rhizoscan.root.image.to_graph import linear_label as _linear_label
 from rhizoscan.root.image.to_graph import image_graph  as _image_graph
 from rhizoscan.root.image.to_graph import line_graph   as _line_graph
 
-@_node('graph',hidden=['verbose'])
+@_node('graph',OA_hide=['verbose'])
 def compute_graph(rmask, seed_map, bbox=None, verbose=False):
     _print_state(verbose,'compute mask linear decomposition')
     sskl, nmap, smap, seed = _linear_label(mask=rmask, seed_map=seed_map, compute_segment_map=True)

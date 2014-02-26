@@ -123,7 +123,7 @@ def hull_mask(mask):
     
     return hull_mask, hull
     
-@_node('pmask', 'px_scale', 'hull', hidden=['border_width','marker_min_size'])
+@_node('pmask', 'px_scale', 'hull', OA_hide=['border_width','marker_min_size'])
 def detect_marked_plate(image, border_width=0.03, plate_size=120, marker_threshold=0.6, marker_min_size=100):
     mask    = image>marker_threshold
     cluster = _clean_label(_nd.label(mask)[0], min_dim=marker_min_size)

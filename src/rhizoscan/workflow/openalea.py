@@ -62,26 +62,20 @@ def __OA_call__(node, *args):
     return node(**karg)
     
 def node_attributes(node):
-    """ Return the node attributes dictionary for openalea wrapper 
-    
-    ##todo: use get/set_node_attributes instead of node_attributes()
-    change function name, and purpose? eg. return added/updated attributes only
-    """
-    ##from . import node_attributes
+    """ Return the node attributes dictionary for openalea wrapper """
     from . import node as _Node
-    attrib = _Node.get_attribute(node)
+    attrib = _Node.get_attribute(node).copy()
     
-    hidden = attrib.get('hidden', [])
+    hidden = attrib.get('OA_hide', [])
+    interf = attrib.get('OA_interface', {})
     for node_input in attrib['inputs']:
-        try:
-            node_input['interface'] = find_interface(node_input['value'])
-        except Exception as e:
-            print '\n\n'
-            print attrib
-            print '\n\n'
-            raise e
-        if node_input['name'] in hidden:
+        input_name = node_input['name']
+        if input_name in interf:
+            node_input['interface'] = interf[input_name]
+        if input_name in hidden:
             node_input['hide'] = True
+        if not node_input.has_key('interface'):
+            node_input['interface'] = find_interface(node_input['value'])
     
     attrib['description'] = attrib['doc']
     
@@ -264,9 +258,6 @@ class FuncFactory(NodeFactory):
             if(not node.caption):
                 node.set_caption(self.name)
                 
-            ##name in self.hidden:
-            ##    node.set_port_hidden(self, name, state)
-
             node.delay = self.delay
         except:
             pass

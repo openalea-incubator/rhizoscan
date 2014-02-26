@@ -42,6 +42,16 @@ class PickleSerializer(object):
     def load(stream):
         return _cPickle.load(stream)
 
+def _urlsplit(url):
+    """
+    Split `url` and return scheme and path 
+    """
+    if url[1:3] == ':\\':
+        return 'file', url
+    else:
+        split = _urlparse.urlsplit(url)
+        return split.scheme, split.path
+    
 class RegisteredEntry(type):
     """
     Metaclass used to register FileEntry w.r.t url scheme
@@ -92,7 +102,7 @@ class RegisteredEntry(type):
         if isinstance(url, FileEntry):
             entry = url
         else:
-            scheme = _urlparse.urlsplit(url).scheme
+            scheme = _urlsplit(url)[0]
             cls    = RegisteredEntry.get(scheme)
             entry  = cls(url)
         
@@ -118,7 +128,7 @@ class FileEntry(object):
     
     def __init__(self, url):
         if len(url): 
-            self.url = _os.path.abspath(_urlparse.urlsplit(url).path)
+            self.url = _os.path.abspath(_urlsplit(url)[1])
         else:
             print '*** invalid url for FileEntry ***' ## remove undefined url?
             self.url = url

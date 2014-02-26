@@ -230,5 +230,10 @@ class SeedMapBlocking(_BlockInput):
 def seedmap_editor(seed_map, root_mask, fig=1):
     sedit = SeedMapEditor(seed_map, root_mask)
     smb = SeedMapBlocking(seed_map_editor=sedit,fig=fig)
+    print "seed map editor, shows  the seed map on top of the root map:"
+    print "  - right click on a seed area to remove it"
+    print "  - left  click + drag to draw the contour of new seed area"
+    print "  - ctrl+z to undo"
+    
     smb()
     return seed_map, sedit

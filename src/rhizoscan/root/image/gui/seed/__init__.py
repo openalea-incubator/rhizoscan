@@ -128,7 +128,9 @@ class SeedMapEditor(list):
     def pop(self):
         """ undo last edition """
         if len(self):
-            self[-1].undo(self.seed_map)
+            edit = self[-1]
+            print "*** undo %s seed %d ***" % (edit.action, edit.value)
+            edit.undo(self.seed_map)
             list.pop(self)
         
     def extend(self, iterable):
@@ -163,10 +165,16 @@ class SeedMapBlocking(_BlockInput):
         """ Dispatch event """
         assert len(self.events) > 0, "No events yet"
 
+        
         update_display = False
         event = self.events[-1]
         if event.name == 'key_press_event':
             self.key_event(event)
+        elif self.mode=='pause':
+            if self.n>0:
+                self.n += 1
+            _BlockInput.post_event(self)
+            return
         else:
             button = event.button
             x,y = event.xdata, event.ydata
@@ -187,6 +195,7 @@ class SeedMapBlocking(_BlockInput):
                             self.polygon = None
                         finally:
                             self.mode = 'select'
+                    self.update_polygon()
                         
             elif button==3:
                 if self.mode=='select':
@@ -204,7 +213,16 @@ class SeedMapBlocking(_BlockInput):
             self.stop(event)
         elif key=='ctrl+z' and self.mode<>'wait':
             self.editor.pop()
+            self.editor.update_seed_id_list()
             self.update_display()
+        elif key==' ':
+            if self.mode<>'pause':
+                print "edition is off"
+                self._paused_mode = self.mode
+                self.mode = 'pause'
+            else:
+                print "edition is on"
+                self.mode = self._paused_mode
             
             
     def stop(self, event):
@@ -217,6 +235,17 @@ class SeedMapBlocking(_BlockInput):
     def update_display(self):
         _plt.clf()
         _plt.imshow(self.editor.seed_map + self.editor.root_mask)
+    def update_polygon(self):
+        axis = _plt.axis()
+        if hasattr(self,'drawn_poly') and self.drawn_poly is not None:
+            self.drawn_poly.remove()
+            self.drawn_poly = None
+        if self.polygon is not None:
+            x,y = zip(*self.polygon)
+            self.drawn_poly = _plt.plot(x,y,'w')[0]
+        else:
+            _plt.draw()
+        _plt.axis(axis)
         
     def __call__(self):
         """ block execution and start the event handler """
@@ -230,10 +259,12 @@ class SeedMapBlocking(_BlockInput):
 def seedmap_editor(seed_map, root_mask, fig=1):
     sedit = SeedMapEditor(seed_map, root_mask)
     smb = SeedMapBlocking(seed_map_editor=sedit,fig=fig)
+    print "------------------------------------------------------------"
     print "seed map editor, shows  the seed map on top of the root map:"
     print "  - right click on a seed area to remove it"
     print "  - left  click + drag to draw the contour of new seed area"
     print "  - ctrl+z to undo"
+    print "------------------------------------------------------------"
     
     smb()
     return seed_map, sedit

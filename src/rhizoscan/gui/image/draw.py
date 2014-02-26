@@ -6,16 +6,21 @@ import numpy as _np
 
 from rhizoscan.workflow import node as _node # to declare workflow nodes
 
-@_node('updated_mask')
+@_node('updated_mask', 'slice_bbox')
 def fill_polygon(mask, polygon, order='xy', color=1):
     """
-    Draw given `polygon` in a mask using opencv
+    Draw given `polygon` in a `mask`
     
-    `polygon`: a Nx2 array-like of 2d coordinates of N points 
-    `order`: either 'xy' or 'yx', the coordinates order of `polygon` 
-    `color`: value to draw
+    :Inputs:
+      - `polygon`: a Nx2 array-like of 2d coordinates of N points 
+      - `order`: either 'xy' or 'yx', the coordinates order of `polygon` 
+      - `color`: value to draw
     
-    Note: 
+    :Outputs:
+      - the updated mask
+      - the polygon bounding box as a pair of slice objects
+    
+    :Note: 
       This method tries first to use opencv (cv2), then otherwise use PIL.
       One of those is thus required
     """
@@ -47,7 +52,7 @@ def fill_polygon(mask, polygon, order='xy', color=1):
         m2 = _np.asarray(m2)
         m[m2>0] = color
 
-    return mask
+    return mask, slices
     
 def _uitest_fill_polygon(shape=(30,40)):
     """

@@ -19,6 +19,16 @@ from rhizoscan.workflow import node as _node # to declare workflow nodes
 from rhizoscan.image.measurements import color_label
 from rhizoscan.ndarray            import lookup as _lookup
 
+@_node('AxesImage', OA_interface=dict(figure='IInt'))
+def imshow(image, figure=None):
+    """
+    Simple call to matplotlib imshow
+    """
+    if figure:
+        _plt.ion()
+        _plt.figure(figure)
+    return _plt.imshow(image)
+
 def gci():
     """
     Return current displayed image (on current figure and axe) 

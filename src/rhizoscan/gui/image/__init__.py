@@ -7,7 +7,6 @@ Modules containing user interfaces related to image.
 It requires matplotlib installed and working, otherwise import will fail.
 Some functions won't be defined if PyQt4 is not installed 
 """
-##to test: everything
 
 import numpy as _np
 import scipy.ndimage as _nd
@@ -135,12 +134,8 @@ class BlockPolyline(_BlockMouse):
         """ intercept key event """
         intercepted = False
         key = self.events[-1].key
-        for k in self._key_event:
-            if key==k: 
-                self._key_event[k](self)
-                intercepted = True
-                
-        if intercepted:
+        if self._key_event.has_key(key):
+            self._key_event[key](self)
             self.events.pop()
         else:
             _BlockMouse.key_event(self,*args)
@@ -156,15 +151,7 @@ class BlockPolyline(_BlockMouse):
             _BlockMouse.mouse_event(self,*args)
         elif self.n>0:
             self.n += 1
-        
-        
-    def mouse_event_stop( self, event ):
-        # correct bug: stop_event_loop takes only 1 arguments (self)
-        _BlockInput.pop(self,-1)
-        if self.fig.canvas.stop_event_loop.__func__.__code__.co_argcount > 1:
-              self.fig.canvas.stop_event_loop(event) # old - bugged
-        else: self.fig.canvas.stop_event_loop()
-            
+                    
     def add_click(self,event):
         # add the coordinates of an event to the list of clicks, 
         # and draw markers and lines
@@ -343,8 +330,8 @@ def glvalue(step=1, interpolation=1, image=None, fig=None):
     return (x,y) + tuple([_lookup(img,(y,x),order=interpolation) for img in image])
 
 
-from .       import getOpenFileName as _getOpenFileName
-from ..image import Image as _Image
+from .. import getOpenFileName as _getOpenFileName
+from rhizoscan.image import Image as _Image
 
 @_node('image')
 def load(filename="", dtype=None, color=None):## to finish !

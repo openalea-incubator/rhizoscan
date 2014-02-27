@@ -154,7 +154,7 @@ class SeedMapBlocking(_BlockInput):
             
         self.editor = seed_map_editor
             
-        self.update_display()
+        self.display()
             
         _BlockInput.__init__(self, fig=fig, eventslist=('key_press_event',
                                                         'button_press_event', 
@@ -215,7 +215,7 @@ class SeedMapBlocking(_BlockInput):
             self.editor.pop()
             self.editor.update_seed_id_list()
             self.update_display()
-        elif key==' ':
+        elif key=='p':
             if self.mode<>'pause':
                 print "edition is off"
                 self._paused_mode = self.mode
@@ -233,8 +233,14 @@ class SeedMapBlocking(_BlockInput):
         self.fig.canvas.stop_event_loop()
         
     def update_display(self):
+        axis = _plt.axis()
+        self.display()
+        _plt.axis(axis)
+    def display(self):
         _plt.clf()
         _plt.imshow(self.editor.seed_map + self.editor.root_mask)
+        _plt.gca().set_position([0,0,1,1])
+        
     def update_polygon(self):
         axis = _plt.axis()
         if hasattr(self,'drawn_poly') and self.drawn_poly is not None:
@@ -259,12 +265,14 @@ class SeedMapBlocking(_BlockInput):
 def seedmap_editor(seed_map, root_mask, fig=1):
     sedit = SeedMapEditor(seed_map, root_mask)
     smb = SeedMapBlocking(seed_map_editor=sedit,fig=fig)
-    print "------------------------------------------------------------"
+    print "--------------------------------------------------------------"
     print "seed map editor, shows  the seed map on top of the root map:"
     print "  - right click on a seed area to remove it"
     print "  - left  click + drag to draw the contour of new seed area"
     print "  - ctrl+z to undo"
-    print "------------------------------------------------------------"
+    print "  - 'p' to switch between edition mode and pan&zoom mode"
+    print "  - enter to quit"
+    print "--------------------------------------------------------------"
     
     smb()
     return seed_map, sedit

@@ -4,9 +4,10 @@ Module to track images of RSA
 import numpy as _np
 from scipy import ndimage as _nd
 
-from rhizoscan.workflow import node      as _node
-from rhizoscan.workflow import pipeline  as _pipeline
+from rhizoscan.workflow import node        as _node
+from rhizoscan.workflow import pipeline    as _pipeline
 from rhizoscan.opencv   import descriptors as _descriptors
+from rhizoscan.image    import Image       as _Image
 ##from rhizoscan.geometry import translation as _translation
 
 
@@ -55,14 +56,15 @@ def transformation_sequence(ds, reference=0, release_image=True, verbose=False):
     for d in ds:
         d.load()
         if not d.has_key('key_point') or not d.has_key('descriptor'):
-            if verbose: print 'compute sift on item', d.__key__
-            kp, desc = detect_sift(d.image, verbose=verbose)
+            if verbose: 
+                print 'compute sift on item', d.__key__
+            kp, desc = detect_sift(d.image, verbose=verbose-1)
     
             if release_image:
                 d.image = d.image.loader()
                 
     # image tracking
-    r = d[reference]
+    r = ds[reference]
     r_kp   = r.key_point
     r_desc = r.descriptor
     for i,d in enumerate(ds):
@@ -73,6 +75,8 @@ def transformation_sequence(ds, reference=0, release_image=True, verbose=False):
         d_kp   = d.key_point
         d_desc = d.descriptor
         
-        T = _descriptors.affine_match(d_kp,d_desc, r_kp,r_desc, verbose=verbose)
+        if verbose: 
+            print 'find affine transfrom on item', d.__key__
+        T = _descriptors.affine_match(d_kp,d_desc, r_kp,r_desc, verbose=verbose-1)
         d.image_transform = T
-        
+        d.dump()

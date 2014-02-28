@@ -133,18 +133,6 @@ def mean_seed_position(g):
     return pid,x,y
     
 
-@_node('key_point','descriptor')
-def detect_sift(image, verbose=True):
-    kp, desc = _descriptors.detect_sift(image)
-    
-    if desc.max()<256:
-        desc = _Image(desc)
-        desc.set_serializer(pil_format='PNG',ser_dtype='uint8',ser_scale=1,extension='.png')
-    elif verbose:
-        print '  descriptors cannot be serialized into png'
-        
-    return kp, desc
-
 
 def node_to_axe_distance(nodes,tree):
     """

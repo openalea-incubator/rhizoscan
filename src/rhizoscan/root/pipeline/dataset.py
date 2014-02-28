@@ -37,7 +37,10 @@ def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir='output', out_s
     
     :Outputs:
       - A list of `Mapping` object, one for each file found with suitable output
-        files configure (nothing is saved)
+        files configure (nothing is saved). Each contains the attributes:
+          - 'filename': the found file name
+          - 'metadata': constructed from the ini file
+          - '__key__':  an id key made from 'filename' with `data_dir` removed 
       - The list of files found but which could not be parsed
       - The base output directory to all item (see 'directories' below)
     
@@ -103,8 +106,14 @@ def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir='output', out_s
     # prepare metatata parser
     # -----------------------
     # meta data list and regular expression to parse file names
-    meta_parser = re.compile('(.*)'.join([fp.replace('*','.*') for fp in file_pattern[::2]]))
-    meta_list = [_Mapping(name=s[0],type=s[1]) for s in [m.split(':') for m in file_pattern[1::2]]]
+    group_re = dict(int='([0-9]*)', float='([-+]?[0-9]*\.?[0-9]+)')
+    ##meta_parser = re.compile('(.*)'.join([fp.replace('*','.*') for fp in file_pattern[::2]]))
+    meta_list = [m.split(':') for m in file_pattern[1::2]]
+    meta_list = [m if len(m)>1 else m+['str'] for m in meta_list]
+    meta_parser = file_pattern[:]
+    meta_parser[1::2] = [group_re.get(type,'(.*)') for name,type in meta_list]
+    meta_parser = re.compile(''.join(meta_parser))
+    meta_list = [_Mapping(name=name,type=type) for name,type in meta_list]
     date_pattern = ini['PARSING'].get('date','') ## to remove?
     
     types = dict(int=int,float=float,str=str)
@@ -155,8 +164,9 @@ def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir='output', out_s
             if rm_len>0: subf = f[rm_len+1:]
             else:        subf = f 
             subf = subf.replace('\\','/')   # for windows
-            out_store = pjoin(out_dir, splitext(subf)[0]) + out_suffix + '{}'
-            out_file  = pjoin(out_dir, splitext(subf)[0]) + '.namespace'
+            fkey = splitext(subf)[0]
+            out_store = pjoin(out_dir, fkey) + out_suffix + '{}'
+            out_file  = pjoin(out_dir, fkey) + '.namespace'
             meta_value = meta_parser.match(subf).groups()
             if verbose>1:
                 print '   ' + str(meta_value) + ' from ' + subf + str(rm_len)
@@ -171,7 +181,7 @@ def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir='output', out_s
                 else:
                     _add_multilevel_key_value(meta,field,value)
                 
-            ds_item = _Mapping(filename=f, metadata=meta)
+            ds_item = _Mapping(filename=f, metadata=meta, __key__=fkey)
             ds_item.__loader_attributes__ = ['filename','metadata']
             ds_item.set_map_storage(out_store)
             ds_item.set_file(out_file)

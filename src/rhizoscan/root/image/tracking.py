@@ -4,7 +4,8 @@ Module to track images of RSA
 import numpy as _np
 from scipy import ndimage as _nd
 
-from rhizoscan.workflow import node  as _node
+from rhizoscan.workflow import node      as _node
+from rhizoscan.workflow import pipeline  as _pipeline
 from rhizoscan.opencv   import descriptors as _descriptors
 ##from rhizoscan.geometry import translation as _translation
 

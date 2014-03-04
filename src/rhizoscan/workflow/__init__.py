@@ -581,6 +581,8 @@ class Pipeline(object):
         
         # execute nodes in pipeline
         for n in self._nodes_to_compute(compute, update, namespace):
+            if namespace.get('verbose',False):
+                print 'running:', n.__name__
             node.run(n, namespace=namespace, stored_data=stored_data, update=1)
                 
         return namespace

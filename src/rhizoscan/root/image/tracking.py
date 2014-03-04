@@ -69,7 +69,7 @@ def transformation_sequence(ds, reference=0, release_image=True, verbose=False):
     r_desc = r.descriptor
     for i,d in enumerate(ds):
         if i==reference:
-            d.image_transformation = _np.eye(3)
+            d.image_transform = _np.eye(3)
             continue
             
         d_kp   = d.key_point
@@ -77,6 +77,6 @@ def transformation_sequence(ds, reference=0, release_image=True, verbose=False):
         
         if verbose: 
             print 'find affine transfrom on item', d.__key__
-        T = _descriptors.affine_match(d_kp,d_desc, r_kp,r_desc, verbose=verbose-1)
+        T = _descriptors.affine_match(r_kp,r_desc, d_kp,d_desc, verbose=verbose-1)
         d.image_transform = T
         d.dump()

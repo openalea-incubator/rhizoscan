@@ -69,7 +69,7 @@ def match_bf(desc1, desc2, knn=2):
 @_node('image_transform')
 def affine_match(kp1, desc1, kp2, desc2, matching='FLANN', alpha=.75, verbose=False):
     """
-    Find affine transformation between 2 images from their descriptors
+    Find affine transformation between 2 set of image descriptors
     
     `kp1`:   keypoint list for 1st image
     `desc1`: descriptor array relative to `kp1`
@@ -78,7 +78,8 @@ def affine_match(kp1, desc1, kp2, desc2, matching='FLANN', alpha=.75, verbose=Fa
     `matching`: the descriptors matching method
     `alpha`:    coefficient for trusting a descriptor match ##
     
-    return the affine transformation as an array
+    return the affine transformation fitting kp/desc2 onto kp/desc2, as an array
+      i.e. kp1-point ~= T * kp2-point
     """
     # BFMatcher with default params
     if verbose: print 'descriptor matching with ' + matching
@@ -188,6 +189,17 @@ def wrapImage(img, T, shape, output_file=None):
     if output_file is not None:
         cv2.imwrite(output_file,dst)
     return dst
+    
+def stitch_images(img1,img2,T, shape):
+    """
+    merge img1 and img2 into a new image with shape `shape` (in img1's frame)
+    i.e. `T` map `img2` into `img1` frame
+    """
+    out = cv2.warpPerspective(img2,T,shape)
+    out[:img1.shape[0],:img1.shape[1]] = img1
+    
+    return out
+    
 
 def sequence_tracker(filenames, out_dir=None, matching='BF'):
     """

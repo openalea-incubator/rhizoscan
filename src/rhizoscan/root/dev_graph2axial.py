@@ -228,13 +228,22 @@ def merge_tree_path(incomming, out_going, top_order, path_elt, elt_path, priorit
     
     path_elt = path_elt[:]  # copy
     elt_path = [set(path_list) for path_list in elt_path]  # copy, and cvt to list of sets
+    
+    tmp = dict()
+    
     for e in top_order[::-1]:
-        if len(elt_path[e])==1: continue
+        if len(elt_path[e])==1: 
+            tmp[e] = 'unique path'
+            continue
 
         child_tip = [(path_tip[c],priority[path_tip[c]],c) for c in incomming[e] if path_tip.has_key(c)]
-        if len(child_tip)==0: continue
+        if len(child_tip)==0: 
+            tmp[e] = 'no ending path on incomming'
+            continue
         
-        free_path = [(path,priority[path]) for path in elt_path[c]]  # all path in e
+        tmp[e] = 'merging'  ## no free path/no-endind-on-incoming/merging-possible seems correctly detected
+        
+        free_path = [(path,priority[path]) for path in elt_path[e]]  # all path in e
         
         child_tip = sorted(child_tip, key=lambda x: x[1], reverse=True)
         free_path = sorted(free_path, key=lambda x: x[1], reverse=True)[1:] # keep "best" path
@@ -258,7 +267,7 @@ def merge_tree_path(incomming, out_going, top_order, path_elt, elt_path, priorit
     else:
         del_num = len([i for i,p in enumerate(path_elt) if p is None])
     
-    return path_elt, elt_path, del_num
+    return path_elt, elt_path, del_num, tmp
 
 def path_to_axes(graph, path, axe_selection=[('length',1),('min_tip_length',10)]):
     """
@@ -384,20 +393,21 @@ def path_to_axes(graph, path, axe_selection=[('length',1),('min_tip_length',10)]
 # -------------------------------------
 def make_axial_tree(graph, axe_selection=[('length',1),('min_tip_length',10)], verbose=False):
     seed = graph.segment.seed
-    seed[seed==254] = 0           ##bug with seed=254
     src  = (graph.segment.seed>0) 
-    cost = graph.segment.direction_difference
+    angle  = graph.segment.direction_difference
     length = graph.segment.length
     
-    graph.node.set_segment(graph.segment)     ## assert it is the case
+    graph.node.set_segment(graph.segment)     ## just in case
     
     # convert graph to DAG
+    # --------------------
     direction = _dg.segment_digraph(graph.segment)[0]
     digraph = graph.segment.digraph(direction)
     e_in, e_out = _dg.digraph_to_DAG(digraph[...,1], length[digraph[...,1]], source=src)[:2]
 
-    # create a path convering of "best" tree
-    parent = _dg.minimum_dag_branching(incomming=e_in, cost=cost, invalid=0)
+    # create a tree path convering from select "best" segment parent 
+    # --------------------------------------------------------------
+    parent = _dg.minimum_dag_branching(incomming=e_in, cost=angle, invalid=0)
     top_order = _dg.topsort(incomming=e_in, out_going=e_out, source=src)
     path,spath = tree_path(parent=parent, top_order=top_order, invalid=0)
     
@@ -407,7 +417,8 @@ def make_axial_tree(graph, axe_selection=[('length',1),('min_tip_length',10)], v
     #                                   node_order=node_order)
     m = len(path)
     pLength = _np.vectorize(lambda slist:graph.segment.length[slist].sum())(path)
-    path,spath,n = merge_tree_path(incomming=e_in, out_going=e_out, top_order=top_order, 
+    
+    path,spath,n,tmp = merge_tree_path(incomming=e_in, out_going=e_out, top_order=top_order, 
                                    path_elt=path, elt_path=spath, priority=pLength,
                                    clean_path=True)
     
@@ -420,10 +431,10 @@ def make_axial_tree(graph, axe_selection=[('length',1),('min_tip_length',10)], v
     graph.segment.parent = parent
     axe = path_to_axes(graph, path, axe_selection=axe_selection)
     
-    graph.segment.axe = axe.segment_axe
+    graph.segment.axe = axe.segment_axe                    
     t = _RootAxialTree(node=graph.node,segment=graph.segment, axe=axe)
     
-    return t
+    return t,tmp
 
 
 def segment_axe_list(axe, segment_number):

@@ -434,7 +434,7 @@ def make_axial_tree(graph, axe_selection=[('length',1),('min_tip_length',10)], v
     graph.segment.axe = axe.segment_axe                    
     t = _RootAxialTree(node=graph.node,segment=graph.segment, axe=axe)
     
-    return t,tmp
+    return t
 
 
 def segment_axe_list(axe, segment_number):

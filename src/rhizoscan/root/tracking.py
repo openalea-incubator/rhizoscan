@@ -92,11 +92,105 @@ def track_root(dseq, update=False, verbose=True, plot=False):
     # match axe 0
     # match axe i>0
     
+
+def axe_projection(tree, graph, transform):
+    """
+    *** IN DEVELOPEMENT ***
+    
+    Find/project axes in `tree` onto `graph`
+    
+    `tree` is a RootAxialTree
+    `graph` is a RootGraph
+    `transform` is a affine transformation mapping `graph` frame in `tree` frame
+    
+    return an AxeList for `graph`
+    """
+    from scipy.sparse import csr_matrix
+    from scipy.sparse.csgraph import dijkstra
+
+    graph_axes = {} # stores list of graph segments for each axe id
+    unmatch = {}    # store unmatched content
+    
+    # cost of matching graph segments on tree axes
+    # --------------------------------------------
+    #  cost is the approximate area between segments and axes
+    
+    # make a copy of g with transformed node position 
+    g = graph.copy()
+    g.node = g.node.copy()
+    g.node.position = _transform(T=transform, coordinates=graph.node.position)
+    g.segment = g.segment.copy()  # copy with transformed _node_list
+    g.segment._node_list = node   #    maybe not useful...
+
+    t = tree
+
+    # compute distances from node in g to segment in t
+    d,s,p = node_to_axe_distance(g.node.position, t)
+    g2t_area = segment_to_projection_area(g, p)        # shape (|gs|,|ta|)
+    
+    
+    # shortest path graph
+    # -------------------
+    #   compute a sparse matrix representation of connection between g's segments
+    #   it is used to compute shortest path for all axe matching
+    nbor = g.segment.neighbors
+    nbor = nbor.reshape(nbor.shape[0],-1)
+    I,J  = nbor.nonzero()
+    J    = nbor[I,J]
+    sp_graph = csr_matrix((np.ones_like(I),(I,J)))
+    
+    
+    # list of tree axes in priority order
+    # --------------------------------------
+    #   topological order <=> axe sorted by order <=> subaxe are after their parent
+    axe_list = np.argsort(d.tree.axe.order[1:])+1
+    ## todo sort by "branching" position, then length
+    
+    
+    # match seed of graph and tree
+    # ----------------------------
+    seed_match, unmatch_t, unmatch_g = match_seed(g,t)
+    seed_match = dict(seed_match)
+    unmatch['t_seed'] = unmatch_t
+    unmatch['g_seed'] = unmatch_g
+
+
+    # find/project all t axes into g
+    # ==============================
+    for axe in axe_list:
+        # find possible graph segment to start the projected axe
+        # ------------------------------------------------------
+        p_axe = t.axe.parent[axe]
+        if p_axe==0: # parent is a seed
+            starts = (g.segment.seed==t.axe.plant[axe]).nonzero()
+        else:
+            starts = graph_axes[p_axe]
+        
+        # compute shortestpath
+        # --------------------
+        sp_graph.data[:] = g2t_area[J,axe]
+        path_cost, predecessor = dijkstra(sp_graph, indices=starts, return_predecessors=True)
+        
+        # select best path
+        path = None
+        graph_axe[axe] = path
+        
+    # contruction AxeList
+    graph_axe = None ##
+    
+    
+    
 def match_seed(g1,g2):
     """
     Match seeds of graphs `g1` and `g2`
     
     The matching is simply matching the closest seed mean position
+    
+    :Outputs:
+      - the list match pairs [(i0,j0),(i1,j1),...]
+        where i,j are the seed ids in `g1` and `g2` respectively 
+      - the list of unmatch seed ids in `g1`
+      - the list of unmatch seed ids in `g2`
     """
     from rhizoscan.root.comparison import direct_matching
     
@@ -111,6 +205,11 @@ def match_seed(g1,g2):
     d  = ((x1-x2)**2 + (y1-y2)**2) #**.5 not necessary for matching
     
     match,unmatch1,unmatch2 = direct_matching(d)
+    
+    ## todo: map (un)match ids from [0,n1/2-1] to pid1/2
+    match = [(pid1[s1],pid2[s2]) for s1,s2 in match]
+    unmatch1 = [pid1[s1] for s1 in unmatch1]
+    unmatch2 = [pid2[s2] for s2 in unmatch2]
     
     return match, unmatch1,unmatch2
     

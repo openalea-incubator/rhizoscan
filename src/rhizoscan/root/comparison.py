@@ -254,7 +254,19 @@ class TreeCompareSequence(_Mapping):
         if save and self.get_file():
             self.dump()
 
-def plot_stat(vs, value='axe1_length', title=None, prefilter=None, split=None, legend=str, merge_unique=False, scale=1, cla=True, mask=None):
+    def compare_stat(self, save=True, verbose=False):
+        """
+        Call compare_stat of all TreeCompare in tc_list
+        """
+        for tc in self.tc_list: 
+            if verbose: print 'comparison of stats of:', tc.cmp.get_file().url
+            tc.compare_stat()
+        
+        if save and self.get_file():
+            self.dump()
+            
+            
+def plot_stat(vs, value='axe1_length', title=None, prefilter=None, split=None, legend=str, merge_unique=False, scale=1, cla=True, mask=None, clip=None):
     import matplotlib.pyplot as plt
     
     title = title if title is not None else value
@@ -290,6 +302,8 @@ def plot_stat(vs, value='axe1_length', title=None, prefilter=None, split=None, l
         print 'Average percentage error of ' + title+':', err.mean()
         ##return ((x-y)**2/x.size).sum()**.5 / (max(x.max(),y.max())-min(x.min(),y.min()))#'normalized RMS Error'
     
+    ref_val = np.clip(ref_val, 0, clip)
+    cmp_val = np.clip(cmp_val, 0, clip)
     ax = _plot_tc(tc=tc_flat,x=ref_val,y=cmp_val, plant_id=plantid,
                   title=title, xlabel='reference', ylabel='measurements',
                   split=split, legend=legend, cla=cla, print_fct=print_error)
@@ -539,8 +553,8 @@ def direct_matching(d, max_d=None):
     Return:
     
       - the list match pairs [(i0,j0),(i1,j1),...]
-      - the list of unmatch i
-      - the list of unmatch j
+      - the set of unmatch i
+      - the set of unmatch j
       
     example::
       

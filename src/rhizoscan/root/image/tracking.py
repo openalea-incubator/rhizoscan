@@ -11,8 +11,8 @@ from rhizoscan.image    import Image       as _Image
 ##from rhizoscan.geometry import translation as _translation
 
 
-@_node('key_point','descriptor')
-def detect_sift(image, mask=None, verbose=True):
+@_node('key_points','descriptors')
+def detect_sift(image, verbose=True):
     kp, desc = _descriptors.detect_sift(image)
     
     if desc.max()<256:
@@ -65,8 +65,8 @@ def transformation_sequence(ds, reference=0, release_image=True, verbose=False):
                 
     # image tracking
     r = ds[reference]
-    r_kp   = r.key_point
-    r_desc = r.descriptor
+    r_kp   = r.key_points
+    r_desc = r.descriptors
     for i,d in enumerate(ds):
         if i==reference:
             d.image_transform = _np.eye(3)

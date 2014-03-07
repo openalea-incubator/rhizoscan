@@ -334,6 +334,22 @@ class AxeList(GraphList):
             self.temporary_attribute.add('_AxeList__sparent')
         return self.__sparent
     @_property
+    def parent(self):                    ## change this attrib name?
+        """ 
+        ids of parent axe
+        
+        If not provided, contruct one as the 'main' axe of `sparent`
+        """
+        if not hasattr(self,'_parent'):
+            self._parent = self.segment_axe[self.sparent]
+            self.temporary_attribute.add('_parent')
+        return self._parent
+    @parent.setter
+    def parent(self, parent_list):
+        self._parent = _np.asarray(parent_list)
+        self.temporary_attribute.discard('_parent')
+        
+    @_property
     def insertion_angle(self):
         """ insertion angle axe """
         if not hasattr(self,'_AxeList__insertion_angle'):

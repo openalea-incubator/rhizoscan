@@ -233,36 +233,20 @@ class Data(object):
             return Data(file_object).loader()  ## if lookup in 'Data'base => equiv to return self
         
     @static_or_instance_method
-    def load(url_or_data, merge=False): ## remove merge option
+    def load(url_or_data, update_file=True):
         """ 
         Load the data serialized at `url_or_data` 
 
         This method can be used as
-          1. a static method with url:       Data.load(filename)
-          2. a static method with IO object: Data.load(IO_obj,merge=True) (*)
-          3. an instance method:             data_obj.load(merge=True)
+          1. a static method with url:         Data.load(filename)
+          2. a static method with data object: Data.load(data_obj)
+          3. an instance method:               data_obj.load()
         
-        (*) `IO_object`must have the "IO" API - see Data.has_IO_API()
-        
-        If the loaded object has the "store" api (such as Data objects) then 
+        If the loaded content has the "store" api (such as Data objects) then 
         this function return the output of the `__restore__` method.
         
-        In cases 2 & 3, `merge` can be False, 'dict' or True. If merge is not 
-        False, the loaded data is merged into the Data object:
-        
-          - it copies all its attributes (found in its `__dict__`) overwriting
-            existing attributes with same name 
-          - if the caller and loaded data are Data objects and if `merge` = True
-            it changes  the instance `__class__` attribute with the loaded one.
-          
-        If the output is a Data object, then its __file_object__ attribute is
-        set with the loaded url
-          
-        :Subclassing:
-        
-            If the merging behavior is not suitable, it might be necessary to 
-            override this methods. However the overriding method can call the 
-            static `Data.load` method (case 2) with merge=False.
+        If `update_file` is True and the loaded object has the IO api, then its
+        __file_object__ attribute is set to the loaded url. 
         """
         data = url_or_data  # for readibility
         
@@ -271,25 +255,20 @@ class Data(object):
         else:
             file_object = _FileObject(data)
             
-        d = file_object.load(serializer=Data.get_serializer(data))
+        data = file_object.load(serializer=Data.get_serializer(data))
         
-        if Data.has_store_API(d):
-            d = d.__restore__()
+        if Data.has_store_API(data):
+            data = data.__restore__()
             
-        if merge is not False and hasattr(data,'__dict__'):
-            data.__dict__.update(d.__dict__)
-            if merge==True and isinstance(d,Data) and isinstance(data,Data): 
-                data.__class__ = d.__class__
-        else:
-            data = d
-            
-        if Data.has_IO_API(data):  ## if hasattr(data,'__dict__'): ??
+        if update_file and Data.has_IO_API(data):
             data.set_file(file_object)
            
         if Data.is_loader(data):
             io_mode = getattr(data,'__io_mode__','').split(':')[-1]
-            if len(io_mode): data.__io_mode__ = io_mode
-            else:            del data.__io_mode__
+            if len(io_mode): 
+                data.__io_mode__ = io_mode
+            else:
+                del data.__io_mode__
         
         return data
        
@@ -598,7 +577,7 @@ class Mapping(Data):
         self.__map_storage__ = storage
         self.__map_keys__ = set(keys)
         
-    def load(self, filename=None, overwrite=True):
+    def load(self, filename=None, overwrite=True):##, auto_move=True):
         """
         Load data found in file 'filename' and merge it into the structure
 
@@ -612,11 +591,32 @@ class Mapping(Data):
           - overwrite: 
               If True, loaded item overwrite existing one with same key. 
               Otherwise, it don't. (same as for the `update` method)
+              
+          ##not implemented
+          ##  todo: should be some "container" stuff
+          ##        ex: container have a __base_dir_num__ that says how many 
+          ##            dir backward is the start of movable content....
+          ##- auto_move:  ## this is adhoc stuff
+          ##    If True, and the loaded object's data file is not the same as the 
+          ##    loaded filename, this detects the old and new directory and 
+          ##    applies this change to all externally stored attribute (*) if they 
+          ##    also have the same old directory.
+          ##    (*) see set_map_storage
                       
         :Output:
             return it-self
         """
-        loaded = Data.load(self if filename is None else filename)
+        if filename is None:
+            filename = self.get_file().url
+        loaded = Data.load(filename, update_file=True)
+        
+        ##old_file = loaded.get_file().url
+        ##if auto_move and old_file!=filename:
+        ##    import os
+        ##    old_dir = os.path.dirname(old_file)
+        ##    new_dir = os.path.dirname(filename)
+        ##    loaded._move_file(old_dir, new_dir)
+            
         self.update(loaded, overwrite=overwrite)
             
         return self
@@ -640,18 +640,34 @@ class Mapping(Data):
         
         if `verbose`, print a line for each applied correction
         """
-        from os.path import join
+        import os
         old_len = len(old_dir)
+        
+        def change_if_required(url):
+            if url[:old_len]==old_dir:
+                url_end = url[old_len:]
+                if url_end[0]==os.sep:
+                    url_end = url_end[1:]
+                new_url = os.path.join(new_dir,url_end)
+                return new_url
+            else:
+                return None
+            
         for k,v in self.__dict__.iteritems():
             if not Data.has_IO_API(v): continue
             f = v.get_file()
             if f is None: continue
-            url = f.url
+            new_url = change_if_required(f.url)
             
-            if url[:old_len]==old_dir:
-                new_url = join(new_dir,url[old_len:])
+            if new_url:
                 v.set_file(new_url)
                 if verbose: print 'moved',new_url
+        
+        # update __map_storage__ if required
+        if hasattr(self,'__map_storage__'):
+            new_gen = change_if_required(self.__map_storage__.url_generator)
+            if new_gen:
+                self.__map_storage__.url_generator = new_gen
                 
             
     # string representation of Mapping content

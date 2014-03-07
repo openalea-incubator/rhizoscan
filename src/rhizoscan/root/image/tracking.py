@@ -33,37 +33,18 @@ def _sift_pipeline():
     pass
 
 
-def transformation_sequence(ds, reference=0, release_image=True, verbose=False):
+def sequence_transformation(ds, reference=0, verbose=False):
     """
     Compute the affine transformation for all item in `ds` list
     
-    `ds` is a dataset list such as used in root.pipeline.dataset. However, their
-    'key_point' and 'descriptor' attribute should be related.
-    
-    The transformation is computed using the content stored in 'key_point' and 
-    'descriptor' attributes. If those are not found in some `ds` item, then 
-    `detect_sift` is called given the item 'image' attribute.
+    `ds` is a dataset list such as used in root.pipeline.dataset containing the 
+    attributes 'key_points' and 'descriptors' that store image descriptors 
     
     The transformation is done with respect to the `ds` item with index given by
     `reference` (i.e. `ds[reference]`). That means the transformation fit each
     item coordinate frame *into* the reference one:
-        `position-in-reference = T * position-in-item`
-    
-    If image are used and if `release_image` is True, then the item 'image' 
-    attribute is replace by its loader after use.
+        `matched-key-point-in-reference = T * matched-key-point-in-item`
     """
-    # check for key_point and descriptor in all ds elements, and compute missing  ## remove that?
-    for d in ds:
-        d.load()
-        if not d.has_key('key_point') or not d.has_key('descriptor'):
-            if verbose: 
-                print 'compute sift on item', d.__key__
-            kp, desc = detect_sift(d.image, verbose=verbose-1)
-    
-            if release_image:
-                d.image = d.image.loader()
-                
-    # image tracking
     r = ds[reference]
     r_kp   = r.key_points
     r_desc = r.descriptors
@@ -72,8 +53,8 @@ def transformation_sequence(ds, reference=0, release_image=True, verbose=False):
             d.image_transform = _np.eye(3)
             continue
             
-        d_kp   = d.key_point
-        d_desc = d.descriptor
+        d_kp   = d.key_points
+        d_desc = d.descriptors
         
         if verbose: 
             print 'find affine transfrom on item', d.__key__

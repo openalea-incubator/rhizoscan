@@ -235,4 +235,8 @@ def __static_data__(data={}):
     
 
 
-
+# misc
+# ----
+def argsort(x):
+    """ return the indices that sort list `x` """
+    return sorted(range(len(x)),key=x.__getitem__)

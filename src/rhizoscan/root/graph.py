@@ -549,7 +549,7 @@ class RootGraph(_Mapping):
         ##nxy  = _np.concatenate((self.node.x[:,None],self.node.y[:,None]),axis=-1)
         nxy = self.node.position
         if transform is not None:
-            nxy = _geo.normalize(_geo.dot(transform,_geo.homogeneous(nxy[::-1])))[1::-1]
+            nxy = _geo.normalize(_geo.dot(transform,_geo.homogeneous(nxy)))[:-1]#[::-1])))[1::-1]
         nxy = nxy.T
             
         if indices=='all':

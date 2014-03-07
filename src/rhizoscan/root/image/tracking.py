@@ -51,6 +51,7 @@ def sequence_transformation(ds, reference=0, verbose=False):
     for i,d in enumerate(ds):
         if i==reference:
             d.image_transform = _np.eye(3)
+            d.dump()
             continue
             
         d_kp   = d.key_points

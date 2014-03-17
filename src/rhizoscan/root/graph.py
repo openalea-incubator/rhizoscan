@@ -811,7 +811,7 @@ class RootAxialTree(RootGraph):
         # ==============
         # node sequence of each axe, node coordinates, ...
         node_list = self.axe.get_node_list()[0]
-        node_pos  = [(xi,0,-yi) for xi,yi in self.node.position.T]
+        node_pos  = [(xi,yi,0) for xi,yi in self.node.position.T]
         max_order = self.axe.order.max()
         
         # compute seed position
@@ -824,7 +824,7 @@ class RootAxialTree(RootGraph):
         seed_label = (seed_label[:,None]*_np.ones((1,2),dtype=int)).ravel()
         x = _nd.mean(seed_pos[0], labels=seed_label, index=seed_id)
         y = _nd.mean(seed_pos[1], labels=seed_label, index=seed_id)
-        seed_pos = _np.vstack((x,_np.zeros(x.size),-y)).T
+        seed_pos = _np.vstack((x,y,_np.zeros(x.size))).T
         seed_pos = dict(zip(seed_id,seed_pos))
 
         # create mtg tree
@@ -893,7 +893,10 @@ class RootAxialTree(RootGraph):
                 else:
                     parent_node = mtg_nid[node_0]
                     # add 1st and current axe
-                    parent_node,cur_axe = g.add_child_and_complex(parent_node, position=node_pos[nlist[1]], edge_type='+', **properties)
+                    position=node_pos[nlist[1]]
+                    parent_node,cur_axe = g.add_child_and_complex(parent_node, 
+                            position=position,
+                            edge_type='+', **properties)
                     g.node(parent_node).label='S'
                     g.node(cur_axe).label='A'
                     mtg_nid.setdefault(nlist[1],parent_node)

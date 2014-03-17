@@ -111,9 +111,9 @@ def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir='output', out_s
     meta_list = [m.split(':') for m in file_pattern[1::2]]
     meta_list = [m if len(m)>1 else m+['str'] for m in meta_list]
     meta_parser = file_pattern[:]
-    meta_parser[1::2] = [group_re.get(type,'(.*)') for name,type in meta_list]
+    meta_parser[1::2] = [group_re.get(mtype,'(.*)') for name,mtype in meta_list]
     meta_parser = re.compile(''.join(meta_parser))
-    meta_list = [_Mapping(name=name,type=type) for name,type in meta_list]
+    meta_list = [_Mapping(name=name,type=mtype) for name,mtype in meta_list]
     date_pattern = ini['PARSING'].get('date','') ## to remove?
     
     types = dict(int=int,float=float,str=str)

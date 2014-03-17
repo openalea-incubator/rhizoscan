@@ -87,7 +87,7 @@ setup(
     author_email    = metadata['authors_email'],
     url             = metadata['url'],
     license         = metadata['license'],
-    keywords        = metadata.get('url',''),	
+    keywords        = metadata.get('keywords',''),
 
     # package installation
     packages=    packages,	

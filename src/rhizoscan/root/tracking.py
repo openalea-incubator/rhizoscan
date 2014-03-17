@@ -119,8 +119,8 @@ def axe_projection(tree, graph, transform):
     g = graph.copy()
     g.node = g.node.copy()
     g.node.position = _transform(T=transform, coordinates=graph.node.position)
-    g.segment = g.segment.copy()  # copy with transformed _node_list
-    g.segment._node_list = node   #    maybe not useful...
+    g.segment = g.segment.copy()    # copy with transformed _node_list
+    g.segment._node_list = g.node   #    maybe not useful...
 
     t = tree
 
@@ -137,13 +137,13 @@ def axe_projection(tree, graph, transform):
     nbor = nbor.reshape(nbor.shape[0],-1)
     I,J  = nbor.nonzero()
     J    = nbor[I,J]
-    sp_graph = csr_matrix((np.ones_like(I),(I,J)))
+    sp_graph = csr_matrix((_np.ones_like(I),(I,J)))
     
     
     # list of tree axes in priority order
     # --------------------------------------
     #   topological order <=> axe sorted by order <=> subaxe are after their parent
-    axe_list = np.argsort(d.tree.axe.order[1:])+1
+    axe_list = _np.argsort(t.axe.order[1:])+1
     ## todo sort by "branching" position, then length
     
     
@@ -157,12 +157,13 @@ def axe_projection(tree, graph, transform):
 
     # find/project all t axes into g
     # ==============================
+    axe_list = axe_list[:5] ##DEBUG: order 1 only
     for axe in axe_list:
         # find possible graph segment to start the projected axe
         # ------------------------------------------------------
         p_axe = t.axe.parent[axe]
         if p_axe==0: # parent is a seed
-            starts = (g.segment.seed==t.axe.plant[axe]).nonzero()
+            starts = (g.segment.seed==t.axe.plant[axe]).nonzero()[0]
         else:
             starts = graph_axes[p_axe]
         
@@ -171,10 +172,35 @@ def axe_projection(tree, graph, transform):
         sp_graph.data[:] = g2t_area[J,axe]
         path_cost, predecessor = dijkstra(sp_graph, indices=starts, return_predecessors=True)
         
-        # select best path
-        path = None
-        graph_axe[axe] = path
+        # compute length of path
+        p_mask = predecessor>0
+        _i = p_mask.max(axis=0).nonzero()[0]
+        _j = predecessor[p_mask]
+        len_graph = csr_matrix((g.segment.length[_i],(_i,_j)),shape=(g.segment.number,)*2)
+        path_len = dijkstra(len_graph, indices=starts,directed=False)
         
+        # select best path tip
+        path_len[_np.isinf(path_len)] = 2**-10
+        v = (path_cost/path_len).ravel()
+        v[starts] = _np.nanmax(v)
+        best_tip = v.argmin()
+        
+        # retrieve the path
+        start_ind = predecessor[:,best_tip].argmin()
+        parent = predecessor[start_ind]
+        
+        path  = [best_tip]
+        start = starts[start_ind]
+        p     = parent[best_tip]
+        while p!=start:
+            path.append(p)
+            p = parent[p]
+        path = path[::-1]
+        
+        # store found path
+        graph_axes[axe] = path
+        
+    return graph_axes
     # contruction AxeList
     graph_axe = None ##
     

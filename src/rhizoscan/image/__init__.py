@@ -491,7 +491,7 @@ class PILSerializer(object):
         img = imconvert(img, color=self.img_color,      dtype=self.img_dtype,
                               from_color=self.ser_color, scale=self.img_scale)
         
-        if self.post_op is not None:  ### dangerous hack?!?
+        if hasattr(self,'post_op') and self.post_op is not None:  ### dangerous hack?!?
             import operator
             image= img
             for op in self.post_op:

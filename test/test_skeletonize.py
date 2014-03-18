@@ -11,4 +11,4 @@ def test_skeletonize():
     m2 = (m>3)&(m<6)
     
     slices = [slice(1,-1)]*2
-    assert (skeletonize(m1)[slices]==m2[slices]).all()
+    assert (skeletonize(m1)==m2)[slices].all(), 'skeletonize did not return the expected value'

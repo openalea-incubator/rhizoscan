@@ -121,60 +121,60 @@ def vesselness(image,sigmas=[2.0],beta=2.0,c=200.0):
     ##TODO doc...
     
     Author: Guillaume Cerutti
-	"""
-	vesselness = []
-
-	for s,sigma in enumerate(sigmas):
-		# --> Computing Gradient"
-		gaussian_img = _nd.gaussian_filter(_np.array(image,_np.float32),sigma)
-		gradient_x_img = _nd.sobel(gaussian_img,axis=0)
-		gradient_y_img = _nd.sobel(gaussian_img,axis=1)
-
-		# --> Computing Hessian
-		hessian_xx_img = _nd.sobel(gradient_x_img,axis=0)
-		hessian_xy_img = _nd.sobel(gradient_x_img,axis=1)
-		hessian_yx_img = _nd.sobel(gradient_y_img,axis=0)
-		hessian_yy_img = _nd.sobel(gradient_y_img,axis=1)
-
-		# Computing Vesselness
-		# --------------------
-		#   Computing Hessian Eigenvalues"
-		hessian_xx = hessian_xx_img.ravel()
-		hessian_xy = hessian_xy_img.ravel()
-		hessian_yx = hessian_yx_img.ravel()
-		hessian_yy = hessian_yy_img.ravel()
-
-		hessian_trace = hessian_xx+hessian_yy
-		delta = _np.sqrt(_np.power(hessian_yy-hessian_xx,2.0) + 4.0*hessian_xy*hessian_yx)  
-		
-		eigval = _np.tile((hessian_trace/2.0)[:,_np.newaxis],(1,2))
-		eigval[:,0] += delta/2.0
-		eigval[:,1] -= delta/2.0
-
-		lambdas_img = eigval.reshape(image.shape+(2,))
-		hessian_norm_img = _np.sqrt(_np.power(lambdas_img[...,0],2.0) + _np.power(lambdas_img[...,1],2.0))
-
-		#   Computing Vesselness
-		sorted_lambdas_img = _np.sort(abs(eigval)).reshape(image.shape+(2,))
-		max_lambdas = _np.argmax(abs(eigval),axis=1)
-		max_lambdas_img = _np.select([max_lambdas,1-max_lambdas],[eigval[:,1],eigval[:,0]]).reshape(image.shape)
-
-		lambdas_1 = sorted_lambdas_img[...,0]
-		lambdas_2 = sorted_lambdas_img[...,1]
-
-		if isinstance(c,list) or isinstance(c,_np.ndarray):
-			vesselness_img = _np.exp(-(_np.power(lambdas_1/lambdas_2,2.0))/(2.0*_np.power(beta,2.0)))*(1-_np.exp(-_np.power(hessian_norm_img,2.0)/(2.0*(_np.power(c[s],2.0)))))
-		else:
-			vesselness_img = _np.exp(-(_np.power(lambdas_1/lambdas_2,2.0))/(2.0*_np.power(beta,2.0)))*(1-_np.exp(-_np.power(hessian_norm_img,2.0)/(2.0*_np.power(c,2.0))))
-
-		vesselness_img[_np.where(_np.isnan(vesselness_img))] = 0
-		vesselness_img[_np.where(max_lambdas_img>0)] = 0
-
-		vesselness.append(vesselness_img)
-
-	fused_vesselness_img = _np.max(_np.array(vesselness),axis=0)
-
-	return fused_vesselness_img, vesselness
+    """
+    vesselness = []
+        
+    for s,sigma in enumerate(sigmas):
+        # --> Computing Gradient"
+        gaussian_img = _nd.gaussian_filter(_np.array(image,_np.float32),sigma)
+        gradient_x_img = _nd.sobel(gaussian_img,axis=0)
+        gradient_y_img = _nd.sobel(gaussian_img,axis=1)
+    
+        # --> Computing Hessian
+        hessian_xx_img = _nd.sobel(gradient_x_img,axis=0)
+        hessian_xy_img = _nd.sobel(gradient_x_img,axis=1)
+        hessian_yx_img = _nd.sobel(gradient_y_img,axis=0)
+        hessian_yy_img = _nd.sobel(gradient_y_img,axis=1)
+    
+        # Computing Vesselness
+        # --------------------
+        #   Computing Hessian Eigenvalues"
+        hessian_xx = hessian_xx_img.ravel()
+        hessian_xy = hessian_xy_img.ravel()
+        hessian_yx = hessian_yx_img.ravel()
+        hessian_yy = hessian_yy_img.ravel()
+    
+        hessian_trace = hessian_xx+hessian_yy
+        delta = _np.sqrt(_np.power(hessian_yy-hessian_xx,2.0) + 4.0*hessian_xy*hessian_yx)  
+        
+        eigval = _np.tile((hessian_trace/2.0)[:,_np.newaxis],(1,2))
+        eigval[:,0] += delta/2.0
+        eigval[:,1] -= delta/2.0
+    
+        lambdas_img = eigval.reshape(image.shape+(2,))
+        hessian_norm_img = _np.sqrt(_np.power(lambdas_img[...,0],2.0) + _np.power(lambdas_img[...,1],2.0))
+    
+        #   Computing Vesselness
+        sorted_lambdas_img = _np.sort(abs(eigval)).reshape(image.shape+(2,))
+        max_lambdas = _np.argmax(abs(eigval),axis=1)
+        max_lambdas_img = _np.select([max_lambdas,1-max_lambdas],[eigval[:,1],eigval[:,0]]).reshape(image.shape)
+    
+        lambdas_1 = sorted_lambdas_img[...,0]
+        lambdas_2 = sorted_lambdas_img[...,1]
+    
+        if isinstance(c,list) or isinstance(c,_np.ndarray):
+            vesselness_img = _np.exp(-(_np.power(lambdas_1/lambdas_2,2.0))/(2.0*_np.power(beta,2.0)))*(1-_np.exp(-_np.power(hessian_norm_img,2.0)/(2.0*(_np.power(c[s],2.0)))))
+        else:
+            vesselness_img = _np.exp(-(_np.power(lambdas_1/lambdas_2,2.0))/(2.0*_np.power(beta,2.0)))*(1-_np.exp(-_np.power(hessian_norm_img,2.0)/(2.0*_np.power(c,2.0))))
+    
+        vesselness_img[_np.where(_np.isnan(vesselness_img))] = 0
+        vesselness_img[_np.where(max_lambdas_img>0)] = 0
+    
+        vesselness.append(vesselness_img)
+    
+    fused_vesselness_img = _np.max(_np.array(vesselness),axis=0)
+    
+    return fused_vesselness_img, vesselness
 
 def ridge_2d(image):
     """
@@ -257,7 +257,7 @@ def frangi_2d(image, b=1, c=1):
     # compute the eigenvalue of the hessian
     eigval = hessian_value_2d((Ixx,Ixy,Iyy), sort=lambda L1,L2: _np.abs(L1) < _np.abs(L2))
     
-
+  
     # compute the Frangi vesselness measure (stored in array V)
     shape = eigval.shape[0:-1]
     eigval.shape = _np.prod(shape) ,2

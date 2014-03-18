@@ -1,4 +1,6 @@
 import numpy as _np
+from scipy import ndimage as _nd
+
 from ..ndarray import second_derivatives as _2nd_derivatives
 
 from rhizoscan.workflow import node as _node # to declare workflow nodes
@@ -109,17 +111,80 @@ def eigenvalue_2d(a,b,c,d, sort='descend'):
     
     eigval.shape = shape + (2,)
     return eigval    
+   
+   
+@_node('vesselness','vesselness_image_list')
+def vesselness(image,sigmas=[2.0],beta=2.0,c=200.0):
+    """
+    Compute vesselness of given `image`
     
+    ##TODO doc...
+    
+    Author: Guillaume Cerutti
+	"""
+	vesselness = []
 
-def ridge_2d(img):
+	for s,sigma in enumerate(sigmas):
+		# --> Computing Gradient"
+		gaussian_img = _nd.gaussian_filter(_np.array(image,_np.float32),sigma)
+		gradient_x_img = _nd.sobel(gaussian_img,axis=0)
+		gradient_y_img = _nd.sobel(gaussian_img,axis=1)
+
+		# --> Computing Hessian
+		hessian_xx_img = _nd.sobel(gradient_x_img,axis=0)
+		hessian_xy_img = _nd.sobel(gradient_x_img,axis=1)
+		hessian_yx_img = _nd.sobel(gradient_y_img,axis=0)
+		hessian_yy_img = _nd.sobel(gradient_y_img,axis=1)
+
+		# Computing Vesselness
+		# --------------------
+		#   Computing Hessian Eigenvalues"
+		hessian_xx = hessian_xx_img.ravel()
+		hessian_xy = hessian_xy_img.ravel()
+		hessian_yx = hessian_yx_img.ravel()
+		hessian_yy = hessian_yy_img.ravel()
+
+		hessian_trace = hessian_xx+hessian_yy
+		delta = _np.sqrt(_np.power(hessian_yy-hessian_xx,2.0) + 4.0*hessian_xy*hessian_yx)  
+		
+		eigval = _np.tile((hessian_trace/2.0)[:,_np.newaxis],(1,2))
+		eigval[:,0] += delta/2.0
+		eigval[:,1] -= delta/2.0
+
+		lambdas_img = eigval.reshape(image.shape+(2,))
+		hessian_norm_img = _np.sqrt(_np.power(lambdas_img[...,0],2.0) + _np.power(lambdas_img[...,1],2.0))
+
+		#   Computing Vesselness
+		sorted_lambdas_img = _np.sort(abs(eigval)).reshape(image.shape+(2,))
+		max_lambdas = _np.argmax(abs(eigval),axis=1)
+		max_lambdas_img = _np.select([max_lambdas,1-max_lambdas],[eigval[:,1],eigval[:,0]]).reshape(image.shape)
+
+		lambdas_1 = sorted_lambdas_img[...,0]
+		lambdas_2 = sorted_lambdas_img[...,1]
+
+		if isinstance(c,list) or isinstance(c,_np.ndarray):
+			vesselness_img = _np.exp(-(_np.power(lambdas_1/lambdas_2,2.0))/(2.0*_np.power(beta,2.0)))*(1-_np.exp(-_np.power(hessian_norm_img,2.0)/(2.0*(_np.power(c[s],2.0)))))
+		else:
+			vesselness_img = _np.exp(-(_np.power(lambdas_1/lambdas_2,2.0))/(2.0*_np.power(beta,2.0)))*(1-_np.exp(-_np.power(hessian_norm_img,2.0)/(2.0*_np.power(c,2.0))))
+
+		vesselness_img[_np.where(_np.isnan(vesselness_img))] = 0
+		vesselness_img[_np.where(max_lambdas_img>0)] = 0
+
+		vesselness.append(vesselness_img)
+
+	fused_vesselness_img = _np.max(_np.array(vesselness),axis=0)
+
+	return fused_vesselness_img, vesselness
+
+def ridge_2d(image):
     """
     :todo: develop, make doc and OA wrapper,... or maybe delete
     """
-    x_prev = img[2:-1,2:-1] > img[2:-1,1:-2]
-    x_next = img[2:-1,2:-1] > img[2:-1,3:]
-    y_prev = img[2:-1,2:-1] > img[1:-2,2:-1]
-    y_next = img[2:-1,2:-1] > img[3:  ,2:-1]
-    ridge = _np.zeros(img.shape,dtype='bool')
+    x_prev = image[2:-1,2:-1] > image[2:-1,1:-2]
+    x_next = image[2:-1,2:-1] > image[2:-1,3:]
+    y_prev = image[2:-1,2:-1] > image[1:-2,2:-1]
+    y_next = image[2:-1,2:-1] > image[3:  ,2:-1]
+    ridge = _np.zeros(image.shape,dtype='bool')
     ridge[2:-1,2:-1] = (x_prev & x_next) | (y_prev & y_next)
     
     return ridge

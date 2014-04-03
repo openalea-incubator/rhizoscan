@@ -16,7 +16,7 @@ Module description
     :Version: |version|
     :Release: |release|
     :Date: |today|
-    :Author: Julien Diener
+    :Author: See `Authors`_ section
     :ChangeLog: See `ChangeLog`_ section
 
 .. topic:: Overview

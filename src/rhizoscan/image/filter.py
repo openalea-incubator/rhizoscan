@@ -1,6 +1,7 @@
 import numpy as _np
 from scipy import ndimage as _nd
 
+from . import Image as _Image
 from ..ndarray import second_derivatives as _2nd_derivatives
 
 from rhizoscan.workflow import node as _node # to declare workflow nodes
@@ -126,7 +127,7 @@ def vesselness(image,sigmas=[2.0],beta=2.0,c=200.0):
         
     for s,sigma in enumerate(sigmas):
         # --> Computing Gradient"
-        gaussian_img = _nd.gaussian_filter(_np.array(image,_np.float32),sigma)
+        gaussian_img = _nd.gaussian_filter(_Image(image,dtype='f'),sigma)
         gradient_x_img = _nd.sobel(gaussian_img,axis=0)
         gradient_y_img = _nd.sobel(gaussian_img,axis=1)
     

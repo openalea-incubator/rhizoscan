@@ -296,14 +296,16 @@ def plot_stat(vs, value='axe1_length', title=None, prefilter=None, split=None, l
     ref_val  = np.array(ref_val)*scale
     
     def print_error(title, x,y):
+        return
         err = (abs(x-y)/np.maximum(x,y))
         siz = err.size
         err = np.sort(err)[.1*siz:-.1*siz]
         print 'Average percentage error of ' + title+':', err.mean()
         ##return ((x-y)**2/x.size).sum()**.5 / (max(x.max(),y.max())-min(x.min(),y.min()))#'normalized RMS Error'
     
-    ref_val = np.clip(ref_val, 0, clip)
-    cmp_val = np.clip(cmp_val, 0, clip)
+    if clip:
+        ref_val = np.clip(ref_val, 0, clip)
+        cmp_val = np.clip(cmp_val, 0, clip)
     ax = _plot_tc(tc=tc_flat,x=ref_val,y=cmp_val, plant_id=plantid,
                   title=title, xlabel='reference', ylabel='measurements',
                   split=split, legend=legend, cla=cla, print_fct=print_error)

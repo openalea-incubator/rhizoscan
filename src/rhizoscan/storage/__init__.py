@@ -279,8 +279,8 @@ class FileObject(object):
     def load(self, serializer=None):
         """
         open, read and return the object entry
-         """
-        stream = self.entry.open(mode='r')
+        """
+        stream = self.entry.open(mode='rb')
         if serializer is None:
             serializer = self.get_metadata().get('serializer',PickleSerializer)
         data = serializer.load(stream)
@@ -289,13 +289,14 @@ class FileObject(object):
         return data
             
     def save(self,data, serializer=None):
-        stream = _TempFile()
+        stream = _TempFile(mode='w+b')
         if serializer is None:
             serializer = PickleSerializer
         serializer.dump(data, stream)
-        with self.entry.open(mode='w') as f:
+        with self.entry.open(mode='wb') as f:
             stream.seek(0)
             f.write(stream.read())
+        f.close()
         
         if serializer is not PickleSerializer:
             self.set_metadata(dict(serializer=serializer)) ## what if write fails?
@@ -352,11 +353,11 @@ class FileObject(object):
     def _read_metadata_file(meta_file):
         if meta_file.exists():
             try:
-                f = meta_file.open(mode='r')
+                f = meta_file.open(mode='rb')
                 meta_head = _cPickle.load(f)
                 f.close()
             except EOFError:
-                print '\033]31mFileEntry: invalid content in metadata file ' + meta_file + '\033]30m'
+                raise EOFError('FileEntry: invalid content in metadata file ' + meta_file.url)
                 meta_head = dict()
         else:
             meta_head = dict()

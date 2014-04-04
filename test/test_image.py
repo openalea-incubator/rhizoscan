@@ -6,8 +6,9 @@ def image_io(format, ser_dtype, ser_scale):
     import numpy as np
     from rhizoscan.image import Image
     
-    fname = tempfile.mkstemp(suffix='.'+format.lower())[1]
-    
+    fid, fname = tempfile.mkstemp(suffix='.'+format.lower())
+    os.close(fid)
+ 
     img = Image(np.arange(10*18,dtype='uint8').reshape(10,18))
     img.set_serializer(pil_format=format, ser_dtype=ser_dtype, ser_scale=ser_scale)
     img.set_file(fname)

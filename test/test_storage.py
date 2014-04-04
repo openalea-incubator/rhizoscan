@@ -1,4 +1,11 @@
 
+def test_write_delete_tempfile():
+    from tempfile import mkstemp
+    fid, fname = mkstemp()
+    import os
+    os.close(fid)
+    os.unlink(fname)    
+
 def test_mapping_io():
     from rhizoscan.datastructure import Mapping
     from tempfile import mkstemp
@@ -20,4 +27,6 @@ def test_mapping_io():
     #todo: check private attributes are suitable
     
     import os
-    os.remove(fname)
+    os.close(fid)
+    os.unlink(fname)
+

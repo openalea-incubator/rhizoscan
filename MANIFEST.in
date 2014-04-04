@@ -1,5 +1,5 @@
 graft test
-recursive-include doc *.rst *.bat *.py Makefile
+recursive-include doc test *.png *.rst *.bat *.py Makefile
 include *.txt *.ini *.html
 global-exclude *~
 global-exclude *.pyc

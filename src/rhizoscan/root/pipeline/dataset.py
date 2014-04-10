@@ -12,21 +12,27 @@ from . import _print_state, _print_error, _param_eval
 
 class Dataset(list, _Data):
     """ 
-    Data subclasses which implement a list of (Mapping) objects 
+    Data subclasses which implement a list of dataset items 
     
-    Dataset objects are traditional `list` with additional methods:
+    Dataset are traditional `list` with additional methods:
       - from the Data class: set/get_file, etc...
       - specialized to access "dataset" item:
-        `key_get`, `key_sort`, `key_index`
+        `key_get`, `key_sort`, `key_index`, `iteritems`
         
-    Dataset item are expected to be Mapping object with a '__key__' attribute
+    Dataset items are expected to be object with a '__key__' attribute
     that is unique inside the dataset.
     
-    Use `make_dataset` to create a Dataset from a suitable '.ini' file.
+    A Dataset can be generated from a suitable '.ini' file using `make_dataset`.
     """
+    def __init__(self, item_list=None, key=None):
+        """ Create a Dataset object """
+        if item_list:
+            self.extend(item_list)
+        self.__key__ = key
+            
     def keys(self):
         """ return the list of item keys """
-        return [item.get('__key__') for item in self]
+        return [getattr(item,'__key__',None) for item in self]
         
     def key_index(self, key, default=None):
         """ 
@@ -48,6 +54,79 @@ class Dataset(list, _Data):
         """ inplace sort by item's '__key__' attribute """
         self.sort(key=lambda item: (item.get('__key__'),item))
         
+    def __getslice__(self, i, j):
+        """ Return the sub-dataset from item `i` to `j` """
+        return Dataset(list.__getslice__(self,i,j))
+
+    def iteritems(self):
+        """ Return an iterator on (item.__key__,item) for all Dataset items """
+        return ((item.__key__, item) for item in self)
+        
+    def __repr__(self):
+        return list.__repr__(self)
+    def __str__(self):
+        return list.__str__(self)
+
+    def group_by(self, key, key_base=None):
+        """ group item having the same value of their `key` attribute 
+        
+        :Outputs:
+            Return a Dataset of Dataset objects.
+            If `keys` is a string: the new Dataset items __key__ attribute are 
+            equal the (common) values of its items `key` attributes.
+            If `key` is a list, its it equal to the tuple of all the keys values
+        
+        :Inputs:
+          - `key`:
+              The item attribute(s) that are used to cluster Dataset items.
+              It can contain '.' (ex: 'attr.subattr') meaning to process 
+              sub-attribute.
+              It can be a list of keys, meaning to cluster by the (unique) set 
+              of those keys value. The output depends on given `flat` value.
+          - `key_base`:
+              Common suffix to append to all `key`
+              Eg: (key=['b','c'], key_base='a') is the same as key=['a.b','a.c']
+        """
+        if isinstance(key, basestring):
+            key = [key]
+            
+        if key_base:
+            key = [key_base+'.'+k for k in key]
+        
+        key = [k.split('.') for k in key]
+        
+        def mget(d,key):
+            """ recursive getattr for given list of attributes `key`"""
+            return reduce(lambda x,f: getattr(x,f,None),[d]+key)
+            
+        group = {}
+        for item in self:
+            if len(key)==1: key_value = mget(item,key[0])
+            else:           key_value = tuple(mget(item,k) for k in key)
+            group.setdefault(key_value,Dataset(key=key_value)).append(item)
+            
+        return Dataset(group.values())
+        
+## Dataset tests:
+## --------------
+_test_len = 6
+def _test_Dataset_constructor():
+    ds = Dataset(_Mapping(a=i/2,b=i/3,__key__=i) for i in range(_test_len))
+    assert len(ds)==_test_len, 'incorrect item number (%d/%d)' % (len(ds),_test_len)
+    return ds
+
+def _test_Dataset_keys():
+    ds = _test_Dataset_constructor()
+    keys = range(_test_len)
+    assert ds.keys()==keys, 'incorrect Dataset keys: '+str(ds.keys())+' instead of '+str(keys)
+
+def _test_Dataset_group_by():
+    ds  = _test_Dataset_constructor()
+    cds = ds.group_by('a')
+    assert cds.keys()==range(3), 'failed single key group_by'
+    cds = ds.group_by(['a','b'])
+    assert cds.keys()==[(1, 0), (0, 0), (1, 1), (2, 1)], 'failed multi-key group_by'
+
 
 @_node('image_list', 'invalid_file', 'output_directory', OA_hide=['verbose'])
 def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir=None, out_suffix='_', verbose=False):

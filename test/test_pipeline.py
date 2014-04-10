@@ -1,6 +1,6 @@
 import os
 
-image_file = 'test/data/pipeline/test_arabido.png'
+image_file = 'test/data/pipeline/arabido.png'
 project_file = 'test/data/pipeline/arabidopsis/database.ini'
 
 def test_arabidopsis_pipeline():

@@ -10,9 +10,47 @@ from rhizoscan.datastructure import Data    as _Data
 
 from . import _print_state, _print_error, _param_eval 
 
+class Dataset(list, _Data):
+    """ 
+    Data subclasses which implement a list of (Mapping) objects 
+    
+    Dataset objects are traditional `list` with additional methods:
+      - from the Data class: set/get_file, etc...
+      - specialized to access "dataset" item:
+        `key_get`, `key_sort`, `key_index`
+        
+    Dataset item are expected to be Mapping object with a '__key__' attribute
+    that is unique inside the dataset.
+    
+    Use `make_dataset` to create a Dataset from a suitable '.ini' file.
+    """
+    def keys(self):
+        """ return the list of item keys """
+        return [item.get('__key__') for item in self]
+        
+    def key_index(self, key, default=None):
+        """ 
+        Return the index of the (1st) item with __key__ attribute equal to `key` 
+        Return 'default' if 'key' is not found
+        """
+        try:
+            return self.keys().index(key)
+        except ValueError:
+            return default
+        
+    def key_get(self, key, default=None):
+        """ Return the (1st) item with attribute '__key__' equal to given `key` """
+        index = self.index(key)
+        if index: return self[index]
+        else:     return default
+        
+    def key_sort(self):
+        """ inplace sort by item's '__key__' attribute """
+        self.sort(key=lambda item: (item.get('__key__'),item))
+        
 
 @_node('image_list', 'invalid_file', 'output_directory', OA_hide=['verbose'])
-def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir='output', out_suffix='_', verbose=False):
+def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir=None, out_suffix='_', verbose=False):
     """
     Return a list of dataset item following parsing rules found in `ini_file`
     
@@ -25,10 +63,11 @@ def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir='output', out_s
           If not given, use the directory of given `ini_file`
       - `data_dir`:
           Directories to look for data inputs         (see 'ini format' below)
-          If not given, use the `base_dir`
+          If not given, use the value in the ini file, or `base_dir`
           If it is not an absolute path, preppend it with `base_dir`
       - `out_dir`:
           Directories to set output into              (see 'directories' below)
+          If not given, use the value in the ini file, or `base_dir`
           If it is not an absolute path, preppend it with `base_dir`
       - `out_suffix':
           String to append to output files            (see 'directories' below)
@@ -83,9 +122,19 @@ def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir='output', out_s
         print ini.multilines_str(tab=1)
         
     # directory variable
-    if base_dir is None: base_dir = dirname(abspath(ini_file))
-    if data_dir is None: data_dir = base_dir
-    else:                data_dir = abspath(data_dir, base_dir)
+    if base_dir is None:
+        base_dir = dirname(abspath(ini_file))
+        
+    if data_dir is None: 
+        data_dir = ini['PARSING'].get('data_dir')
+        if not data_dir: 
+            data_dir = base_dir
+    data_dir = abspath(data_dir, base_dir)
+        
+    if out_dir is None: 
+        out_dir = ini['PARSING'].get('out_dir')
+        if not out_dir: 
+            out_dir = base_dir
     out_dir = abspath(out_dir, base_dir)
     
     # find all files that fit pattern given in ini_file
@@ -156,7 +205,7 @@ def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir='output', out_s
         
     # parse all image files, set metadata and remove invalid
     # ------------------------------------------------------
-    img_list = []
+    img_list = Dataset()
     invalid  = []
     rm_len = len(data_dir)  ## imply images are in base_dir. is there a more general way
     for ind,f in enumerate(file_list):
@@ -248,56 +297,27 @@ def _load_ini_file(ini_file):
             _add_multilevel_key_value(m[s],k,_param_eval(v)) 
     return m 
    
-@_node('filename', 'metadata', 'output')
-def split_item(db_item):
-    return db_item.filename, db_item.metadata, db_item.output
-    
-@_node('to_update')
-def to_update(db, suffix='.tree'):
-    from os.path import exists
-    return [d for d in db if not exists(d.output+suffix)],
-
-@_node('db_data')
-def retrieve_data_file(db, name='tree', suffix='.tree'):
-    """
-    Add the data filename to all db element as attribute 'name'
-    """
-    for d in db: d[name] = d.output+suffix
-    return db,
-    
-@_node('db_column')
-def get_column(db, suffix, missing=None):
-    """
-    Retrieve the dataset column related to 'suffix'
-    """
-    def load(d):
-        try:
-            return _Data.load(d.output+suffix)
-        except:
-            return missing
-            
-    return [load(d) for d in db]
     
 @_node('filtered_db')
-def filter(db, key='', value='', metadata=True):
+def filter(ds, key='', value='', metadata=True):
     """
-    Return the subset of db that has its key attribute equal to value
+    Return the subset of dataset `ds` that has `key` attribute equal to `value`
     
     :Input:
       - key:    (*)
-        key to filter db by. Can contains dot, eg. genotype.base
+        key to filter `ds` by. Can contains dot, eg. 'attr.subattr'
       - value:  (*)
-        The value the key must have
+        The value the attribute `key` must be equal to
       - metadata:
         if True, look for key in the 'metadata' attribute
-        Same as filter(db,'metadata.'+key,value, metadata=False) 
+        Same as filter(ds,'metadata.'+key,value, metadata=False) 
         
-      (*)if key or value is empty, return the full (unfiltered) db
+      (*) if `key` or `value` is empty, return the full (unfiltered) `ds`
     """
-    if not key or not value: return db
+    if not key or not value: return ds
     
     if metadata: key = 'metadata.'+key
-    return [d for d in db if reduce(lambda x,f: getattr(x,f,None),[d]+key.split('.'))==value],
+    return [d for d in ds if reduce(lambda x,f: getattr(x,f,None),[d]+key.split('.'))==value],
     
 @_node('metadata_name')
 def get_metadata(db):

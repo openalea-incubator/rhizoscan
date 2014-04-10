@@ -503,7 +503,6 @@ def make_tree_compare(reference, compared, keys=None, file_object=None, verbose=
     `keys` is a list of the metadata attributes used to match dataset elements
     if None, use all metadata
     """
-    from .pipeline.dataset import get_column
     # remove extra element of 'compared'
     if keys:
         def multiget(x,multiattr): 

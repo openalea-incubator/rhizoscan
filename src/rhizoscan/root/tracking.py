@@ -93,7 +93,7 @@ def track_root(dseq, update=False, verbose=True, plot=False):
     # match axe i>0
     
 
-def axe_projection(tree, graph, transform):
+def axe_projection(tree, graph, transform, plot=False):
     """
     *** IN DEVELOPEMENT ***
     
@@ -137,7 +137,7 @@ def axe_projection(tree, graph, transform):
     nbor = nbor.reshape(nbor.shape[0],-1)
     I,J  = nbor.nonzero()
     J    = nbor[I,J]
-    sp_graph = csr_matrix((_np.ones_like(I),(I,J)))
+    sp_graph = csr_matrix((_np.ones_like(I),(I,J)), shape=(g.segment.number,)*2)
     
     
     # list of tree axes in priority order
@@ -157,7 +157,7 @@ def axe_projection(tree, graph, transform):
 
     # find/project all t axes into g
     # ==============================
-    axe_list = axe_list[:5] ##DEBUG: order 1 only
+    axe_list = axe_list[1:5] ##DEBUG: order 1 only
     for axe in axe_list:
         # find possible graph segment to start the projected axe
         # ------------------------------------------------------
@@ -179,10 +179,25 @@ def axe_projection(tree, graph, transform):
         len_graph = csr_matrix((g.segment.length[_i],(_i,_j)),shape=(g.segment.number,)*2)
         path_len = dijkstra(len_graph, indices=starts,directed=False)
         
+        if plot:
+            from matplotlib import pyplot as plt
+            plt.subplot(1,2,1)
+            g.plot()
+            
+            plt.subplot(1,2,2)
+            mask = path_cost<_np.inf
+            pc = path_cost[mask]
+            pl = path_len[mask]
+            plt.plot(pl, pc ,'.')
+            plt.plot([t.axe.length[axe]]*2, [0,pc.max()])
+            k = raw_input('>')
+            if k=='q':
+                return
+        
         # select best path tip
         path_len[_np.isinf(path_len)] = 2**-10
         v = (path_cost/path_len).ravel()
-        v[starts] = _np.nanmax(v)
+        v[starts] = _np.nanmax(v)  ## not if path contains only 'starts'
         best_tip = v.argmin()
         
         # retrieve the path

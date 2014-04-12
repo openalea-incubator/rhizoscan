@@ -336,95 +336,10 @@ class NJ_loader(Mapping):
           ## this might not induce bugs: seed are usually not part of axe
         seed = np.zeros(segment.number,dtype='uint8')
         axe1 = axe.order==1
-        seed[axe.segment1[axe1]] = np.arange(1,np.sum(axe1)+1).astype('uint8')
+        seed[axe.first_segment[axe1]] = np.arange(1,np.sum(axe1)+1).astype('uint8')
         segment.add_property('seed', seed)
           
         return RootAxialTree(node=node, segment=segment, axe=axe)
-
-    def to_tree_0(self, scale=1):
-        """
-        ###OLD STUFF: not used anymore
-        replaced by `to_tree` (called by constructor) and `make_axial_tree`
-        """
-        from rhizoscan.root.graph import SegmentList, NodeList, RootGraph, RootAxialTree
-        ##from rhizoscan.root.graph import _UNSET, _SEED, _UNREACHABLE
-        ##  should not do it like that anymore...
-        _UNREACHABLE = -2  ##                 
-        _SEED        = -1  ##
-        
-        # find axes order
-        t_type  = [t.type for t in self.tracing]
-        max_order = max(t_type)-2
-        for t in self.tracing:
-            t.order = t.type-2
-            if t.order<1:                
-                print 'Tracing #%d has invalid order: %d. Replaced by %d' % (t.id, t.order,max_order)
-                t.order = max_order
-        
-        # find cluster ids and make suitable "seed" nodes (and bg)
-        cplant = set([t.cluster for t in self.tracing])
-        cplant.add(0)
-        cplant = np.array(sorted(cplant))
-        corder = np.ones(cplant.size)*_SEED
-        corder[0] = _UNREACHABLE
-        cnode  = np.zeros((cplant.size,2))
-        for p,n in zip(cplant[1:],cnode[1:]):
-            n[:] = [t for t in self.tracing if t.order==1 and t.cluster==p][0]['node'][0]
-        
-        # nodes position, id of the plant, order of their axe, 
-        #   id of their axe and index of the 1st node per axe
-        node   = np.concatenate([cnode] +[t.node for t in self.tracing]).T
-        nplant = np.concatenate([cplant]+[[t.cluster]*len(t.node) for t in self.tracing])
-        norder = np.concatenate([corder]+[[t.type-2] *len(t.node) for t in self.tracing])
-        astart = np.cumsum([0]+[len(t.segment)+1 for t in self.tracing])[:-1]+cplant.size
-        
-        # make segment list
-        #   > add bg segment, and one default branching segment to each axe
-        segment = [[[[-1,st]],t.segment+st] for t,st in zip(self.tracing,astart)]
-        segment = np.concatenate([[[0,0]]]+[sij for si in segment for sij in si])
-        #   > fix branching segments
-        for sid in np.any(segment==-1,axis=1).nonzero()[0]:
-            sn0 = segment[sid,1]
-            # find best branching node of parent axe (ie. order-1 & same plant)
-            ##  best=closest node > to be improved
-            p_order = norder[sn0]-1
-            if p_order<1: p_order = _SEED 
-            n = ((norder==p_order)&(nplant==nplant[sn0])).nonzero()[0]
-            d = np.sum((node[:,n] - node[:,[sn0]])**2,axis=0)**.5
-            segment[sid,0] = n[np.argmin(d)]
-        
-        # compute tree related data
-        sparent = segment[:,0]-cplant.size+1  # +1: bg segment
-        sparent[sparent<0] = 0
-
-        nseed = nplant*(norder==_SEED)
-        sseed = nseed[segment[:,0]]
-
-        naxe   = np.zeros(node.shape[1],dtype=int)
-        naxe[astart] = 1
-        naxe = np.cumsum(naxe)
-        naxe[naxe==0] = _SEED
-        naxe[0] = _UNREACHABLE
-        saxe = naxe[segment[:,1]]
-        saxe[sseed>0] = _SEED
-        saxe[0] = _UNREACHABLE
-        
-        # construct node ans segment list
-        n = NodeList(position=node*scale)
-        s = SegmentList(node_id=segment, node_list=n)
-        n.set_segment(s)
-        s.seed = sseed
-        
-        # construct axe list
-        a_seg = [[] for i in xrange(saxe.max()+1)]
-        for sid,aid in enumerate(saxe):
-            if aid>=0: a_seg[aid].append(sid)
-        
-        return n,s,saxe,sparent,norder
-        t = RootAxialTree(node=n, segment=s)         
-        
-        ##t.set_axes(s_axe=saxe,s_parent=sparent)
-        ##return n, segment, saxe, sparent, t
         
     def plot(self,bg=None, scale=1):
         from matplotlib import pyplot as plt

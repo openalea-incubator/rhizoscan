@@ -171,7 +171,7 @@ def ramification_length(tree, mask=None):
         ax_mask &= mask(tree)
     pl_id  = np.unique(tree.axe.plant[ax_mask])
     
-    branch = tree.axe.sparent[tree.axe.order==2]
+    branch = tree.axe.parent_segment[tree.axe.order==2]
     plant  = tree.axe.plant[tree.segment.axe[branch]]
     bdist  = tree.segment.axelength[branch]
     

@@ -106,26 +106,6 @@ class Dataset(list, _Data):
             group.setdefault(key_value,Dataset(key=key_value)).append(item)
             
         return Dataset(group.values())
-        
-## Dataset tests:
-## --------------
-_test_len = 6
-def _test_Dataset_constructor():
-    ds = Dataset(_Mapping(a=i/2,b=i/3,__key__=i) for i in range(_test_len))
-    assert len(ds)==_test_len, 'incorrect item number (%d/%d)' % (len(ds),_test_len)
-    return ds
-
-def _test_Dataset_keys():
-    ds = _test_Dataset_constructor()
-    keys = range(_test_len)
-    assert ds.keys()==keys, 'incorrect Dataset keys: '+str(ds.keys())+' instead of '+str(keys)
-
-def _test_Dataset_group_by():
-    ds  = _test_Dataset_constructor()
-    cds = ds.group_by('a')
-    assert cds.keys()==range(3), 'failed single key group_by'
-    cds = ds.group_by(['a','b'])
-    assert cds.keys()==[(1, 0), (0, 0), (1, 1), (2, 1)], 'failed multi-key group_by'
 
 
 @_node('image_list', 'invalid_file', 'output_directory', OA_hide=['verbose'])

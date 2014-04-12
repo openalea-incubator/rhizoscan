@@ -92,8 +92,20 @@ def track_root(dseq, update=False, verbose=True, plot=False):
     # match axe 0
     # match axe i>0
     
+def load_test_ds():
+    """ return tracking dataset for testing purpose """
+    from rhizoscan.root.pipeline.dataset import make_dataset
+    ds,inv,out = make_dataset('/Users/diener/root_data/nacry/AR570/pando/pando_rsa.ini')
+    ds = ds.group_by(['genotype.name','nitrate','plate'],key_base='metadata')[0]
+    ds[0].load()
+    ds[1].load()
+    return ds
+    
+def test_axe_proj(ds):
+    """ call axe_projection on dataset items in ds - for dev purpose - """
+    return axe_projection(ds[0].tree, ds[1].graph, ds[1].image_transform)#, interactive=True)
 
-def axe_projection(tree, graph, transform, plot=False):
+def axe_projection(tree, graph, transform, interactive=False):
     """
     *** IN DEVELOPEMENT ***
     
@@ -103,19 +115,27 @@ def axe_projection(tree, graph, transform, plot=False):
     `graph` is a RootGraph
     `transform` is a affine transformation mapping `graph` frame in `tree` frame
     
-    return an AxeList for `graph`
+    return a RootAxialTree base on `graph` with added axe property
     """
     from scipy.sparse import csr_matrix
     from scipy.sparse.csgraph import dijkstra
+    from scipy.sparse.csgraph import depth_first_order
+    
+    from rhizoscan.root.graph import neighbor_array
+    from rhizoscan.root.graph import AxeList
+    from rhizoscan.root.graph import RootAxialTree
 
-    graph_axes = {} # stores list of graph segments for each axe id
-    unmatch = {}    # store unmatched content
+    graph_axes   = {} # list of graph segments for each axe id
+    axes_sparent = {} # parent segment if of each of these axes
+    axes_plant   = {} # plant id of each of these axes
+    axes_order   = {} # order of each of these axes
+    unmatch = {}      # store unmatched content
     
     # cost of matching graph segments on tree axes
     # --------------------------------------------
-    #  cost is the approximate area between segments and axes
+    #  cost is the (approximate) area between g.segments and t.axes
     
-    # make a copy of g with transformed node position 
+    # make a copy of g with node position transformed in t frame
     g = graph.copy()
     g.node = g.node.copy()
     g.node.position = _transform(T=transform, coordinates=graph.node.position)
@@ -123,6 +143,10 @@ def axe_projection(tree, graph, transform, plot=False):
     g.segment._node_list = g.node   #    maybe not useful...
 
     t = tree
+
+    # get the list of segment-to-segment connections
+    g_sedges = neighbor_array(g.node.segment,g.segment.node,seed=g.segment.seed,output='list')
+    g_sedges = [sedge[0].union(sedge[1]) for sedge in g_sedges]
 
     # compute distances from node in g to segment in t
     d,s,p = node_to_axe_distance(g.node.position, t)
@@ -141,7 +165,7 @@ def axe_projection(tree, graph, transform, plot=False):
     
     
     # list of tree axes in priority order
-    # --------------------------------------
+    # -----------------------------------
     #   topological order <=> axe sorted by order <=> subaxe are after their parent
     axe_list = _np.argsort(t.axe.order[1:])+1
     ## todo sort by "branching" position, then length
@@ -153,72 +177,164 @@ def axe_projection(tree, graph, transform, plot=False):
     seed_match = dict(seed_match)
     unmatch['t_seed'] = unmatch_t
     unmatch['g_seed'] = unmatch_g
+    
+    # find axe tip node
+    # -----------------
+    anodes, inv = t.axe.get_node_list()
+    tip = [nodes[-1] if len(nodes) else None for nodes in anodes]
 
 
     # find/project all t axes into g
     # ==============================
-    axe_list = axe_list[1:5] ##DEBUG: order 1 only
+    ##axe_list = axe_list[:5] ##DEBUG: order 1 only
     for axe in axe_list:
         # find possible graph segment to start the projected axe
         # ------------------------------------------------------
         p_axe = t.axe.parent[axe]
         if p_axe==0: # parent is a seed
-            starts = (g.segment.seed==t.axe.plant[axe]).nonzero()[0]
+            plant_id = t.axe.plant[axe]
+            starts = (g.segment.seed==plant_id).nonzero()[0]
+            start_parent = [0]*len(starts)
         else:
-            starts = graph_axes[p_axe]
+            starts,start_parent = branch_segment(g_sedges, graph_axes[p_axe])
+            plant_id = axes_plant[p_axe]
         
         # compute shortestpath
         # --------------------
+            # shortest path with multiple possible starts
         sp_graph.data[:] = g2t_area[J,axe]
         path_cost, predecessor = dijkstra(sp_graph, indices=starts, return_predecessors=True)
         
-        # compute length of path
-        p_mask = predecessor>0
-        _i = p_mask.max(axis=0).nonzero()[0]
-        _j = predecessor[p_mask]
-        len_graph = csr_matrix((g.segment.length[_i],(_i,_j)),shape=(g.segment.number,)*2)
-        path_len = dijkstra(len_graph, indices=starts,directed=False)
+            # keep only "best" parent (with lowest cost) for each segment
+            #   referenced below as 'spt' for shortest path tree
+        path_start = path_cost.argmin(axis=0)       # (lowest cost) path start
+        ind    = _np.arange(path_cost.shape[1])
+        parent = predecessor[path_start,ind]        # segment parent on spt
+        cost   = path_cost[path_start,ind]          # path cost on spt 
+        mask = _np.isinf(cost)==False               # reachable segments
         
-        if plot:
+            # start parent are set to vertex 0 => unique start to all path
+        parent[(parent<0)&mask]=0
+        has_parent = parent>=0
+        
+            # construct the length graph on spt
+        i = has_parent.nonzero()[0]                     # node with parent
+        j = parent[has_parent]                          # their parent
+        len_graph = csr_matrix((g.segment.length[i],(j,i)), shape=(g.segment.number,)*2)
+        ##order = depth_first_order(spt,0,True,False)     # partial order
+        
+        # select "best" path
+        # ------------------
+            # compute path length (by segments)
+        plength = dijkstra(len_graph, indices=0,directed=False)
+        
+            # compute cost to minimize as path-cost/path-length
+        dcost = cost.copy()
+        dcost[parent>0] /= plength[parent>0]       
+        
+            # compute distance to axe tip
+        tip_pos = t.node.position[:,tip[axe]]
+        snode = g.node.position[:,g.segment.node]
+        dtip  = (((tip_pos[:,None,None]-snode)**2).sum(axis=0)).mean(axis=1)
+
+            # find best tip
+        best_tip = (dcost**2+dtip**2).argmin() ##+(plength-t.axe.length[axe])**2).argmin()
+        
+            # construct path to best_tip      
+        cur_node = best_tip
+        cur_parent = parent[cur_node]
+        path  = [cur_node]
+        while cur_parent:
+            cur_node = cur_parent
+            cur_parent = parent[cur_node]
+            path.append(cur_node)
+        path = path[::-1]
+
+        if interactive:
             from matplotlib import pyplot as plt
-            plt.subplot(1,2,1)
-            g.plot()
             
-            plt.subplot(1,2,2)
-            mask = path_cost<_np.inf
-            pc = path_cost[mask]
-            pl = path_len[mask]
-            plt.plot(pl, pc ,'.')
-            plt.plot([t.axe.length[axe]]*2, [0,pc.max()])
+            sc = _np.zeros(g.segment.number, dtype=int)
+            sc[mask] = 1
+            sc[path] = 2
+            sc[best_tip] = 3
+            plt.subplot2grid((1,3),(0,0),colspan=2)
+            plt.cla()
+            t.plot(ac=(_np.arange(t.axe.number)==axe)*7, linewidth=2, linestyle=":")
+            g.plot(bg=None, sc=sc)
+            plt.plot(tip_pos[0],tip_pos[1],'or')
+            
+            plt.subplot2grid((1,3),(0,2))
+            plt.cla()
+            x = dtip**.5#plength
+            y = dcost
+            p = parent
+            plt.plot(x, y ,'.')
+            plt.plot([x[p>0],x[p[p>0]]],[y[p>0],y[p[p>0]]],'b')
+            plt.plot(x[best_tip],y[best_tip],'or')
+            plt.plot([t.axe.length[axe]]*2, [0,y[mask].max()])
+            
             k = raw_input('>')
             if k=='q':
                 return
         
-        # select best path tip
-        path_len[_np.isinf(path_len)] = 2**-10
-        v = (path_cost/path_len).ravel()
-        v[starts] = _np.nanmax(v)  ## not if path contains only 'starts'
-        best_tip = v.argmin()
-        
-        # retrieve the path
-        start_ind = predecessor[:,best_tip].argmin()
-        parent = predecessor[start_ind]
-        
-        path  = [best_tip]
-        start = starts[start_ind]
-        p     = parent[best_tip]
-        while p!=start:
-            path.append(p)
-            p = parent[p]
-        path = path[::-1]
-        
         # store found path
-        graph_axes[axe] = path
+        graph_axes[axe]   = path
+        axes_plant[axe]  = plant_id
+        axes_sparent[axe] = start_parent[path_start[best_tip]]
+        axes_order[axe]  = t.axe.order[axe]
         
-    return graph_axes
-    # contruction AxeList
-    graph_axe = None ##
+    # contruction tree
+    # ================
+    # convert axe proerty to array
+    def to_list(axe_dict, default):
+        for aid in range(max(axe_dict.keys())):
+            axe_dict.setdefault(aid, default)
+        return [item for aid,item in sorted(axe_dict.iteritems())]
     
+    graph_axes = to_list(graph_axes, [])
+    axes_plant   = _np.array(to_list(axes_plant  , 0))
+    axes_sparent = _np.array(to_list(axes_sparent, 0))
+    axes_order   = _np.array(to_list(axes_order  , 0))
+
+    # create axe then tree structure
+    graph_axe = AxeList(axes=graph_axes, order=axes_order, plant=axes_plant, 
+                        segment_list=graph.segment, segment_parent=axes_sparent)
+    
+    tree = RootAxialTree(node=graph.node, segment=graph.segment, axe=graph_axe)
+    
+    return tree
+    
+    
+def branch_segment(segment_graph, axe_segment):
+    """ 
+    Find the all branch segments of given axe
+    
+    :Inputs:
+      - `segment_graph`:
+          the graph of connection between segments as a list (for all segments)
+          of the sets of their connected segments
+      - `axe_segment`:
+          The list of segment ids of given axe
+          
+    :Outputs:
+      - the list of branch segment ids
+      - their associated parent segment: the first segment in `axe_segment` that
+        is connected to the branch.
+    """
+    
+    # segments connected to axe segment but not in axe 
+    axe_set = set(axe_segment)
+    branch = [segment_graph[sid].difference(axe_set) for sid in axe_segment]
+    
+    # convert to a list of (branch-segment-id, parent-index-in-axe_segment)
+    branch = [(sid,pid) for pid,slist in enumerate(branch) for sid in slist]
+
+    # keep the occurance of branch segment connected to first axe segment
+    branch.sort(reverse=True)
+    branch = dict(branch).items()
+    
+    # replace index in axe_segment by (parent) segment id
+    return zip(*((sid,axe_segment[pid]) for sid,pid in branch))
     
     
 def match_seed(g1,g2):

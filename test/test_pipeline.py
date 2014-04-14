@@ -29,20 +29,30 @@ def test_arabidopsis_pipeline():
     assert (np.unique(t.axe.plant)==[0,1,2]).all(), "not the correct number of plants"
     
 def test_load_dataset():
+    from rhizoscan.tool.path import abspath
     from rhizoscan.root.pipeline.dataset import make_dataset
+    
     pfile = os.path.abspath(project_file)
+    pdir  = os.path.dirname(pfile)
     
     assert os.path.exists(pfile), "could not find test project file:"+pfile 
     
-    db, invalid, output = make_dataset(ini_file=pfile, out_dir='output', verbose=0)
-    
-    assert len(db)==4, "invalid number of image file in test project"
-    assert len(invalid)==1, "invalid number of invalid file in test project"
-    assert hasattr(db[0], 'filename'), "dataset item has not 'filename' attribute"
-    assert hasattr(db[0], 'metadata'), "dataset item has not 'metadata' attribute"
-    assert hasattr(db[0], '__map_storage__'), "dataset item has not output map storage set"
-    
-    return db
+    def test_loaded_dataset(ds,invalid,out,exp_out):
+        assert len(ds)==4, "invalid number of image file in test project"
+        assert len(invalid)==1, "invalid number of invalid file in test project"
+        assert hasattr(ds[0], 'filename'), "dataset item has not 'filename' attribute"
+        assert hasattr(ds[0], 'metadata'), "dataset item has not 'metadata' attribute"
+        assert hasattr(ds[0], '__map_storage__'), "dataset item has not output map storage set"
+        
+        assert out==exp_out
+
+    ds, invalid, output = make_dataset(ini_file=pfile, out_dir='test_out', verbose=0)
+    test_loaded_dataset(ds,invalid,output, os.path.join(pdir,'test_out'))
+
+    ds, invalid, output = make_dataset(ini_file=pfile, verbose=0)
+    test_loaded_dataset(ds,invalid,output, os.path.join(pdir,'outputs'))
+        
+    return ds
     
 
 

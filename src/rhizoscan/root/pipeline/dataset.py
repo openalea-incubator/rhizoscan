@@ -139,7 +139,7 @@ class Dataset(list, _Data):
 def _mget(item,key, default=None):
     """ recursive getattr for given list of attributes `key`"""
     value = reduce(lambda x,f: getattr(x,f,'__MISSING_ATTR'),[item]+key)
-    if value=='__MISSING_ATTR': 
+    if value is '__MISSING_ATTR': 
         return default
     else: 
         return value

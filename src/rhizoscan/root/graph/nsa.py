@@ -335,22 +335,22 @@ class AxeList(GraphList):
     @_property
     def first_segment(self):                    ## change this attrib name?
         """ first segment of axe """
-        if not hasattr(self,'_AxeList__segment1'):
+        if not hasattr(self,'_segment1'):
             segment1 = _np.array([sl[0] if len(sl) else 0 for sl in self.segment])
-            self.__segment1 = segment1
-            self.temporary_attribute.add('_AxeList__segment1')
-        return self.__segment1
+            self._segment1 = segment1
+            self.temporary_attribute.add('_segment1')
+        return self._segment1
     @_property
     def sparent(self):                    ## change this attrib name?
         """ compute axe parent segment from segment_list parent property 
         DEPRECATED - should be remove
         """
         DeprecationWarning("AxeList.sparent property => should use 'parent_segment' attribute")
-        if not hasattr(self,'_AxeList__parent_segment'):
+        if not hasattr(self,'_parent_segment'):
             sparent = self._segment_parent[self.first_segment]
-            self.__parent_segment = sparent
-            self.temporary_attribute.add('_AxeList__parent_segment')
-        return self.__parent_segment
+            self._parent_segment = sparent
+            self.temporary_attribute.add('_parent_segment')
+        return self._parent_segment
     
     
     @_property
@@ -369,11 +369,11 @@ class AxeList(GraphList):
     @_property
     def insertion_angle(self):
         """ insertion angle axe """
-        if not hasattr(self,'_AxeList__insertion_angle'):
+        if not hasattr(self,'_insertion_angle'):
             insertion_angle = self._segment_list.direction_difference[self.first_segment,self.parent_segment]
-            self.__insertion_angle = insertion_angle
-            self.temporary_attribute.add('_AxeList__insertion_angle')
-        return self.__insertion_angle
+            self._insertion_angle = insertion_angle
+            self.temporary_attribute.add('_insertion_angle')
+        return self._insertion_angle
     
     def get_node_list(self):
         """

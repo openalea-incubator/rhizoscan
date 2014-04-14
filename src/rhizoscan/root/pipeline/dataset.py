@@ -95,21 +95,17 @@ class Dataset(list, _Data):
         
         key = [k.split('.') for k in key]
         
-        def mget(d,key):
-            """ recursive getattr for given list of attributes `key`"""
-            return reduce(lambda x,f: getattr(x,f,None),[d]+key)
-            
         group = {}
         for item in self:
-            if len(key)==1: key_value = mget(item,key[0])
-            else:           key_value = tuple(mget(item,k) for k in key)
+            if len(key)==1: key_value = _mget(item,key[0])
+            else:           key_value = tuple(_mget(item,k) for k in key)
             group.setdefault(key_value,Dataset(key=key_value)).append(item)
             
         return Dataset(group.values())
 
     def get_column(self, name, default=None):
         """ return the list of item's `name` attribute, or default """
-        return [getattr(item,name,default) for item in self]
+        return [_mget(item,name,default) for item in self]
 
     def __change_dir__(self, old_dir, new_dir, load=False, verbose=False, _base=''):
         """
@@ -139,6 +135,15 @@ class Dataset(list, _Data):
                 if load>=2 and v.get_file():
                     v.dump()
 
+
+def _mget(item,key, default=None):
+    """ recursive getattr for given list of attributes `key`"""
+    value = reduce(lambda x,f: getattr(x,f,'__MISSING'),[item]+key)
+    if value=='__MISSING': 
+        return default
+    else: 
+        return value
+        
 @_node('image_list', 'invalid_file', 'output_directory', OA_hide=['verbose'])
 def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir=None, out_suffix='_', verbose=False):
     """

@@ -52,7 +52,7 @@ class RootEditorWidget(_TreeEditorWidget):
             return
             
         item = self.edited_item
-        _arabido_pl.run(namespace=item, verbose=True)
+        _arabido_pl.run(namespace=item, compute='all', verbose=True)
         self._update_tree()
         
 

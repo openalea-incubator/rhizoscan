@@ -4,19 +4,16 @@ from   scipy   import ndimage       as _nd
 from rhizoscan         import geometry      as _geo
 from rhizoscan.ndarray import reshape       as _reshape
 from rhizoscan.image.measurements   import color_label as _color_label
-from rhizoscan.datastructure        import Data    as _Data
 from rhizoscan.datastructure        import Mapping as _Mapping
 
-##from rhizoscan.ndarray.graph import ArrayGraph as _ArrayGraph # used by SegmentGraph
-
-from rhizoscan.tool import _property    
+from rhizoscan.tool import _property
 from rhizoscan.workflow import node as _node # to declare workflow nodes
 
 """
-##TODO:
+TODO?
   - Node/Segment/AxeList: (required) set_node/segment/axe_list setter?
-  - RootGraph also, making sure node.segment, segment.node, axe.segment, 
-                    segment.axe link well
+  - RootGraph/Tree making sure node.segment, segment.node, axe.segment, 
+                    segment.axe link correctly
 """
 
 from rhizoscan.root.graph.nsa import NodeList, SegmentList, AxeList

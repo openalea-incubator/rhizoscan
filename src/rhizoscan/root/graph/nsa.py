@@ -352,22 +352,6 @@ class AxeList(GraphList):
             self.temporary_attribute.add('_AxeList__parent_segment')
         return self.__parent_segment
     
-    ##@_property
-    ##def parent(self):
-    ##    """ 
-    ##    ids of parent axe
-    ##    
-    ##    If not provided, contruct one as the 'main' axe of `sparent`
-    ##    """
-    ##    if not hasattr(self,'_parent'):
-    ##        self._parent = self.segment_axe[self.sparent]
-    ##        self.temporary_attribute.add('_parent')
-    ##    return self._parent
-    ##    
-    ##@parent.setter
-    ##def parent(self, parent_list):
-    ##    self._parent = _np.asarray(parent_list)
-    ##    self.temporary_attribute.discard('_parent')
     
     @_property
     def order(self):
@@ -391,22 +375,6 @@ class AxeList(GraphList):
             self.temporary_attribute.add('_AxeList__insertion_angle')
         return self.__insertion_angle
     
-    ##def _compute_length_properties(self):
-    ##    # compute the axe length and arc length of segment w.r.t their axe
-    ##    arc_length = _np.array([[] for i in xrange(len(self.segment))])
-    ##    axe_length = _np.zeros(len(self.segment))
-    ##    segment_number = _np.zeros(len(self.segment),dtype=int)
-    ##    for i,slist in enumerate(self.segment):
-    ##        if len(slist)==0: continue
-    ##        slist = _np.asarray(slist)
-    ##        arcL  = _np.cumsum(self._segment_list.length[slist])
-    ##        arc_length[i] = arcL
-    ##        main_axe = self._segment_list.axe[slist]==i         # if axis are overloaping, update
-    ##        arc_length[slist[main_axe]] = arcL[main_axe]        # arc length if axe i is the segment "main" axe 
-    ##        axe_length[i] = arcL[-1]
-    ##        segment_number[i] = len(arcL)
-    ##    self.segment.add_property('axelength',arc_length)
-        
     def get_node_list(self):
         """
         Return list of axes as a list of node

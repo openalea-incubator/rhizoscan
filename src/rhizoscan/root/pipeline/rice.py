@@ -12,9 +12,9 @@ from . import _normalize_image
 from ..image import segment_root_in_circle_frame as _segment_root
 from ..image.seed import detect_seeds            as _detect_seeds
 from ..image.to_graph import linear_label        as _linear_label
-from ..image.to_graph import image_graph                 as _image_graph
-from ..image.to_graph import line_graph                  as _line_graph
-from ..graph          import RootAxialTree               as _RootAxialTree 
+from ..image.to_graph import image_graph         as _image_graph
+from ..image.to_graph import line_graph          as _line_graph
+from ..graph          import RootTree            as _RootTree 
 
 @_node('failed_files')
 def process(ini_file, indices=None, **kargs):
@@ -164,7 +164,7 @@ def image_pipeline(image, seed_min_radius, circle_number, pixel_size, min_dimens
     
     if tree is None:
         _print_state(verbose,'extract axial tree')
-        tree = _RootAxialTree(node=pl_graph.node, segment=pl_graph.segment, to_tree=to_tree, to_axe=to_axe, single_order1_axe=False)
+        tree = _RootTree(node=pl_graph.node, segment=pl_graph.segment, to_tree=to_tree, to_axe=to_axe, single_order1_axe=False)
 
         if metadata is not None: tree.metadata = metadata
         if output is not None:   tree.dump(out_tree)

@@ -1,5 +1,5 @@
 """
-Provide some analysis tools for RootAxialTree
+Provide some analysis tools for RootTree
  -- obsolete --
 """
 import numpy as np

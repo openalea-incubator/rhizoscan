@@ -33,7 +33,7 @@ import numpy as _np
 
 from . import dev_graph as _dg
 from .graph import AxeList as _AxeList
-from .graph import RootAxialTree as _RootAxialTree
+from .graph import RootTree as _RootTree
 
 # robust graph: virtually remove/add "little" segments
 # ----------------------------------------------------
@@ -391,7 +391,7 @@ def path_to_axes(graph, path, axe_selection=[('length',1),('min_tip_length',10)]
 
 # general rgraph to axial tree function
 # -------------------------------------
-def make_axial_tree(graph, axe_selection=[('length',1),('min_tip_length',10)], verbose=False):
+def make_root_tree(graph, axe_selection=[('length',1),('min_tip_length',10)], verbose=False):
     seed = graph.segment.seed
     src  = (graph.segment.seed>0) 
     angle  = graph.segment.direction_difference
@@ -432,7 +432,7 @@ def make_axial_tree(graph, axe_selection=[('length',1),('min_tip_length',10)], v
     axe = path_to_axes(graph, path, axe_selection=axe_selection)
     
     graph.segment.axe = axe.segment_axe                    
-    t = _RootAxialTree(node=graph.node,segment=graph.segment, axe=axe)
+    t = _RootTree(node=graph.node,segment=graph.segment, axe=axe)
     
     return t
 

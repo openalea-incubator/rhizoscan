@@ -20,7 +20,6 @@ from ..image.seed import detect_leaves           as _detect_leaves
 from ..image.to_graph import linear_label        as _linear_label
 from ..image.to_graph import image_graph         as _image_graph
 from ..image.to_graph import line_graph          as _line_graph
-from ..graph          import RootAxialTree       as _RootAxialTree 
 
 
 ##class Test(object):

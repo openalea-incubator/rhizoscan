@@ -111,11 +111,11 @@ def axe_projection(tree, graph, transform, interactive=False):
     
     Find/project axes in `tree` onto `graph`
     
-    `tree` is a RootAxialTree
+    `tree` is a RootTree
     `graph` is a RootGraph
-    `transform` is a affine transformation mapping `graph` frame in `tree` frame
+    `transform` is a affine transformation from `graph` frame into `tree` frame
     
-    return a RootAxialTree base on `graph` with added axe property
+    return a RootTree contructed from `graph` with added axe property
     """
     from scipy.sparse import csr_matrix
     from scipy.sparse.csgraph import dijkstra
@@ -123,7 +123,7 @@ def axe_projection(tree, graph, transform, interactive=False):
     
     from rhizoscan.root.graph import neighbor_array
     from rhizoscan.root.graph import AxeList
-    from rhizoscan.root.graph import RootAxialTree
+    from rhizoscan.root.graph import RootTree
 
     graph_axes   = {} # list of graph segments for each axe id
     axes_sparent = {} # parent segment if of each of these axes
@@ -300,7 +300,7 @@ def axe_projection(tree, graph, transform, interactive=False):
     graph_axe = AxeList(axes=graph_axes, order=axes_order, plant=axes_plant, 
                         segment_list=graph.segment, segment_parent=axes_sparent)
     
-    tree = RootAxialTree(node=graph.node, segment=graph.segment, axe=graph_axe)
+    tree = RootTree(node=graph.node, segment=graph.segment, axe=graph_axe)
     
     return tree
     
@@ -399,7 +399,7 @@ def node_to_axe_distance(nodes,tree):
           [k]x[n] array of `n` nodes in `k` dimensional coordinates such as the 
           the  `position` attribute of NodeList (i.e. RootGraph.node)
       - `tree`:
-          a RootAxialTreeGraph object, containing a NodeList `node`,
+          a RootTree object, containing a NodeList `node`,
           a SegmentList `segment` and an AxeList `axe` attributes
           
     :Outputs:
@@ -414,7 +414,7 @@ def node_to_axe_distance(nodes,tree):
     
       >>> from matplotlib import pyplot as plt
       >>>
-      >>> # let g be a RootGraph object and t a RootAxialTree
+      >>> # let g be a RootGraph object and t a RootTree
       >>>
       >>> d,s,p = node_to_axe_distance(g.node.position,t)
       >>> 
@@ -500,7 +500,7 @@ def segment_to_projection_area(graph, node_projection):
       (|gs|,|a|), where |gs| is the number of segments and |a| of projections
     """
     # For detail on the algorithm, see rhizoscan-technical.pdf, section:
-    #  "Computing distance from RootGraph to RootAxialTree
+    #  "Computing distance from RootGraph to RootTree
     
     # var used in comments on array shape
     #    k:   number of coordinates

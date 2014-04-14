@@ -593,10 +593,10 @@ def hist_cmp(a, b, bins=10, subplot=None, ac='g', bc='b', log=False):
 
 @_node('property')
 def get_axes_property(t,property_name, mask=None, order=None, per_plant=True, scale=None):
-    """ Retrieve the property value for all axes in RootAxialTree t
+    """ Retrieve the property value for all axes in RootTree t
     
     :Input:
-        t: a RootAxialTree 
+        t: a RootTree 
         property_name: the name of the property to retrieve
         mask:  a mask indicating which axes to retrieve value from
         order: restrict retrieval to axe with this order 

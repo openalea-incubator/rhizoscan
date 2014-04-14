@@ -262,9 +262,9 @@ class NJ_loader(Mapping):
     
     def make_axial_tree(self,scale=1):
         """
-        Construct a RootAxialTree from this object
+        Construct a RootTree from this object
         """
-        from rhizoscan.root.graph import NodeList, SegmentList, AxeList, RootAxialTree, RootGraph
+        from rhizoscan.root.graph import NodeList, SegmentList, AxeList, RootTree, RootGraph
         
         def first_id(list_length):
             ids = np.cumsum(list_length)+1   # +1: dummy elements
@@ -339,7 +339,7 @@ class NJ_loader(Mapping):
         seed[axe.first_segment[axe1]] = np.arange(1,np.sum(axe1)+1).astype('uint8')
         segment.add_property('seed', seed)
           
-        return RootAxialTree(node=node, segment=segment, axe=axe)
+        return RootTree(node=node, segment=segment, axe=axe)
         
     def plot(self,bg=None, scale=1):
         from matplotlib import pyplot as plt

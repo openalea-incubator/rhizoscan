@@ -333,6 +333,20 @@ class RootTree(RootGraph):
     def __repr__(self): 
         return self.__str__()  ## for ipython of RootGraph obj...
 
+    # check version at reload
+    def __restore__(self):
+        """ update axe version, just in case """
+        self.axe._update_version()
+        return self
+
+
+class RootAxialTree(RootTree):
+    """ Deprecated class kept for backward compatibility - use RootTree instead """
+    def __restore__(self):
+        """ update to RootTree objects """
+        self.__class__ = RootTree
+        return self.__restore__()
+
 
 ## tests
 def test_to_mtg(t):

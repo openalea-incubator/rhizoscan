@@ -121,9 +121,9 @@ def axe_projection(tree, graph, transform, interactive=False):
     from scipy.sparse.csgraph import dijkstra
     from scipy.sparse.csgraph import depth_first_order
     
-    from rhizoscan.root.graph import neighbor_array
-    from rhizoscan.root.graph import AxeList
-    from rhizoscan.root.graph import RootTree
+    from rhizoscan.root.graph.nsa import neighbor_array
+    from rhizoscan.root.graph.nsa import AxeList
+    from rhizoscan.root.graph     import RootTree
 
     graph_axes   = {} # list of graph segments for each axe id
     axes_sparent = {} # parent segment if of each of these axes
@@ -298,7 +298,7 @@ def axe_projection(tree, graph, transform, interactive=False):
 
     # create axe then tree structure
     graph_axe = AxeList(axes=graph_axes, order=axes_order, plant=axes_plant, 
-                        segment_list=graph.segment, segment_parent=axes_sparent)
+                        segment_list=graph.segment, parent_segment=axes_sparent)
     
     tree = RootTree(node=graph.node, segment=graph.segment, axe=graph_axe)
     

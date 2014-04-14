@@ -6,6 +6,18 @@ def test_write_delete_tempfile():
     os.close(fid)
     os.unlink(fname)    
 
+def test_mapping_read():
+    import os
+    from rhizoscan.datastructure import Mapping
+    
+    filename = os.path.abspath('test/data/zen.map')
+    m = Mapping()
+    m.load(filename)
+    
+    assert m.has_key('zen'), "missing attribute 'zen'"
+    assert len(m.zen)==836
+    
+
 def test_mapping_io():
     from rhizoscan.datastructure import Mapping
     from tempfile import mkstemp
@@ -29,4 +41,17 @@ def test_mapping_io():
     import os
     os.close(fid)
     os.unlink(fname)
+
+def test_windows_path():
+    from rhizoscan.storage import FileObject
+    from rhizoscan.storage import FileEntry
+    
+    filename = 'c:\tmp\yo.txt'
+    f = FileObject(filename)
+    assert isinstance(f.entry, FileEntry)
+    
+    filename = 'c:/tmp/yo.txt'
+    f = FileObject(filename)
+    assert isinstance(f.entry, FileEntry)
+
 

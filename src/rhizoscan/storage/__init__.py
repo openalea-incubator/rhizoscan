@@ -18,6 +18,7 @@ MapStorage:
 import cPickle as _cPickle
 import os as _os
 import urlparse as _urlparse
+import urllib   as _urllib
 from tempfile import SpooledTemporaryFile as _TempFile
 
 from rhizoscan.tool import _property
@@ -46,10 +47,10 @@ def _urlsplit(url):
     """
     Split `url` and return scheme and path 
     """
-    if url[1:3] == ':\\':
-        return 'file', url
+    split = _urlparse.urlsplit(url)
+    if len(split.scheme)<2:
+        return 'file', url.replace('\\','/')
     else:
-        split = _urlparse.urlsplit(url)
         return split.scheme, split.path
     
 class RegisteredEntry(type):

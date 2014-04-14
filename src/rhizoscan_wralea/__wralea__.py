@@ -1457,6 +1457,16 @@ arabido = CompositeNodeFactory(name='arabido',
 
 
 
+
+
+
+
+
+
+
+
+
+
 ## ***** automatically generated code **** ##
 from rhizoscan.workflow.openalea import Factory
 if '__all__' not in locals(): __all__ = []

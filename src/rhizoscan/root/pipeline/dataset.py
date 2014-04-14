@@ -108,6 +108,35 @@ class Dataset(list, _Data):
         return Dataset(group.values())
 
 
+
+    def __change_dir__(self, old_dir, new_dir, load=False, verbose=False, _base=''):
+        """
+        Change url of all content stored in `old_dir` to `new_dir`
+
+        This is used to update file url of **already moved** content 
+        It does not actually move the files.
+        
+        :Inputs:
+          - `old_dir`: the (start of) the path to be replaced   (*)
+          - `new_dir`: the (start of) the path to replace it by (*)
+          - `load`:
+              This value is passed recusively to each items `__change_dir__` fct
+              If =2, call dump after applying changes
+              If =3, do not keep loaded content in memory
+          - `verbose`:
+              If True, print a line for each changed made
+              
+        (*) always include the directory separator '\' or '/'
+        """
+        for k,v in self.iteritems():
+            base = _base+'.'+k if len(_base) else k
+            if hasattr(v,'__change_dir__'):
+                if load>=3 and v.get_file():
+                    v = v.loader().load()
+                v.__change_dir__(old_dir=old_dir, new_dir=new_dir, load=load, verbose=verbose, _base=base)
+                if load>=2 and v.get_file():
+                    v.dump()
+
 @_node('image_list', 'invalid_file', 'output_directory', OA_hide=['verbose'])
 def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir=None, out_suffix='_', verbose=False):
     """

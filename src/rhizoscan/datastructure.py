@@ -577,7 +577,7 @@ class Mapping(Data):
         self.__map_storage__ = storage
         self.__map_keys__ = set(keys)
         
-    def load(self, filename=None, overwrite=True):##, auto_move=True):
+    def load(self, filename=None, overwrite=True):
         """
         Load data found in file 'filename' and merge it into the structure
 
@@ -596,30 +596,23 @@ class Mapping(Data):
           ##  todo: should be some "container" stuff
           ##        ex: container have a __base_dir_num__ that says how many 
           ##            dir backward is the start of movable content....
-          ##- auto_move:  ## this is adhoc stuff
-          ##    If True, and the loaded object's data file is not the same as the 
-          ##    loaded filename, this detects the old and new directory and 
-          ##    applies this change to all externally stored attribute (*) if they 
-          ##    also have the same old directory.
-          ##    (*) see set_map_storage
                       
         :Output:
-            return it-self
+            return it-self, updated with loaded content
         """
         if filename is None:
             filename = self.get_file().url
         loaded = Data.load(filename, update_file=True)
         
-        ##old_file = loaded.get_file().url
-        ##if auto_move and old_file!=filename:
-        ##    import os
-        ##    old_dir = os.path.dirname(old_file)
-        ##    new_dir = os.path.dirname(filename)
-        ##    loaded._move_file(old_dir, new_dir)
-            
         self.update(loaded, overwrite=overwrite)
             
         return self
+        
+    def attempt_load(self):
+        """  If this object has a data file, load its content """
+        fileobj = self.get_file()
+        if fileobj:
+            self.load()
             
     # copy Mapping objects
     # --------------------
@@ -631,13 +624,23 @@ class Mapping(Data):
         return new
     copy = __copy__
     
-    def _move_file(self, old_dir, new_dir, verbose=False):
+    def __change_dir__(self, old_dir, new_dir, load=False, verbose=False, _base=''):
         """
         Change url of all content stored in `old_dir` to `new_dir`
 
-        This is used to update file url of already moved content 
-        but not to actually copy the files
+        This is used to update file url of **already moved** content 
+        It does not actually move the files.
         
+        :Inputs:
+          - `old_dir`: the (start of) the path to be replaced   (*)
+          - `new_dir`: the (start of) the path to replace it by (*)
+          - `load`:
+              attempt first to load the content of this object data file
+          - `verbose`:
+              If True, print a line for each changed made
+              
+        (*) always include the directory separator '\' or '/'
+        if `load`, attempt to load this object data file content first
         if `verbose`, print a line for each applied correction
         """
         import os
@@ -652,23 +655,47 @@ class Mapping(Data):
                 return new_url
             else:
                 return None
+                
+        # update self file
+        self_file = self.get_file()
+        if self_file:
+            new_file = change_if_required(self_file.url)
+            if new_file:
+                self.set_file(new_file)
+                if verbose: print _base,'file url:',new_file
             
-        for k,v in self.__dict__.iteritems():
-            if not Data.has_IO_API(v): continue
-            f = v.get_file()
-            if f is None: continue
-            new_url = change_if_required(f.url)
+        if load:
+            self.attempt_load()
             
-            if new_url:
-                v.set_file(new_url)
-                if verbose: print 'moved',new_url
-        
-        # update __map_storage__ if required
+        # update __map_storage__
         if hasattr(self,'__map_storage__'):
             new_gen = change_if_required(self.__map_storage__.url_generator)
             if new_gen:
                 self.__map_storage__.url_generator = new_gen
+                if verbose: print _base,'url gen',new_gen
                 
+        # update attributes (including strings)
+        for k,v in self.__dict__.iteritems():
+            base = _base+'.'+k if len(_base) else k
+            
+            if hasattr(v,'__change_dir__'):
+                v.__change_dir__(old_dir=old_dir, new_dir=new_dir, verbose=verbose, _base=base)
+                
+            elif Data.has_IO_API(v): 
+                f = v.get_file()
+                if f is None: continue
+                
+                new_url = change_if_required(f.url)
+                if new_url:
+                    v.set_file(new_url)
+                    if verbose: print base,':',new_url
+                    
+            elif isinstance(v,basestring):
+                new_v = change_if_required(v)
+                if new_v:
+                    self[k] = new_v
+                    if verbose: print base,':',new_v
+        
             
     # string representation of Mapping content
     # ----------------------------------------

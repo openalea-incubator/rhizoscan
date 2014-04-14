@@ -105,7 +105,7 @@ class Dataset(list, _Data):
 
     def get_column(self, name, default=None):
         """ return the list of item's `name` attribute, or default """
-        return [_mget(item,name,default) for item in self]
+        return [_mget(item,name.split('.'),default) for item in self]
 
     def __change_dir__(self, old_dir, new_dir, load=False, verbose=False, _base=''):
         """

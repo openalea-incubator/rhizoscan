@@ -19,6 +19,8 @@ class RootModel(_PASModel):
         _PASModel.__init__(self, presenter=presenter, mtg=mtg, 
                                  position=position, radius=radius)
         
+        self.maxbackup = 10
+        
         self._color_fct.append(('axe order',self.order_color))
         self.next_color('axe order')
 

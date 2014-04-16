@@ -96,7 +96,9 @@ class RootEditorWidget(_TreeEditorWidget):
         if not item.has_key('mtg'):
             self.show_message("*** Error: No mtg to save ***")
         else:
-            item.mtg.dump()
+            item.set('mtg',item.mtg,True)
+            item.dump()
+            self.show_message("mtg saved")
 
     def _update_tree(self):
         item = self.edited_item

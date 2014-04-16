@@ -57,7 +57,7 @@ dependency_links = ['http://openalea.gforge.inria.fr/pi']
 src_abs_path = os.path.abspath('src')
 sys.path.insert(0,src_abs_path)
 
-entry_points = {}
+entry_points = {'gui_scripts':['RhizoScanEditor = rhizoscan.root.editor:main']}
 
 try:
 	import rhizoscan
@@ -74,6 +74,7 @@ try:
 
 except ImportError:
 	print("WARNING: Relaunch the setup.py because VisuAlea packages have not been generated.")
+
 
 
 # call setup

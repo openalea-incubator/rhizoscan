@@ -11,7 +11,7 @@ def test_arabidopsis_pipeline():
     assert os.path.exists(filename), "could not find test image file:"+filename 
     
     d = Mapping(filename=filename, plant_number=2,
-                fg_smooth=1, border_width=.08,leaf_height=[0,.4],root_max_radius=5)
+                fg_smooth=1, border_width=.08,leaf_height=[0,.4],root_max_radius=5, verbose=1)
     
     pipeline.run(namespace=d)
         
@@ -24,9 +24,14 @@ def test_arabidopsis_pipeline():
     
     import numpy as np
     t = d.tree
-    assert t.axe.number>=8, "not the correct number of axes:"+str(t.axe.number)
+    assert t.axe.number()==8, "not the correct number of axes:"+str(t.axe.number())
     # problem: there is an axe with only a seed segment ??!
-    assert (np.unique(t.axe.plant)==[0,1,2]).all(), "not the correct number of plants"
+    assert (np.unique(t.axe.plant)==[0,1,2]).all(), "not the correct number of plants"+str(np.unique(t.axe.plant))
+    
+    pos_on_parent = t.axe.position_on_parent()
+    assert abs(pos_on_parent[:8]-[0,129,0,35,0,95,76,36]).max()<2, 'incorrect axe position_on_parent'
+    
+    return d
     
 def test_load_dataset():
     from rhizoscan.tool.path import abspath

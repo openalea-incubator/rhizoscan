@@ -44,6 +44,14 @@ class RootEditorWidget(_TreeEditorWidget):
 
         self.add_file_action('Load dataset', self.load_dataset, dialog='open', keys=['Ctrl+O'])
         self.add_file_action('Import image', self.import_image, dialog='open', keys=['Ctrl+I'])
+        self.add_file_action('Save mtg',     self.save_mtg,                    keys=['Ctrl+S'])
+        self.background._file_action = []  # remove load image/point bg from file menu
+
+        self.add_view_action('display image',      self.image_viewer.show, keys=['Shift+1'])
+        self.add_view_action('display plate mask', self.pmask_viewer.show, keys=['Shift+2'])
+        self.add_view_action('display root mask',  self.rmask_viewer.show, keys=['Shift+3'])
+        self.add_view_action('display seed map',   self.seed_viewer.show,  keys=['Shift+4'])
+
 
     def run_pipeline(self):
         """ call the rhizoscan pipeline on current image """
@@ -52,7 +60,8 @@ class RootEditorWidget(_TreeEditorWidget):
             return
             
         item = self.edited_item
-        _arabido_pl.run(namespace=item, compute='all', verbose=True)
+        _arabido_pl.run(namespace=item, compute='all', stored_data=['mtg'], verbose=True)
+        item.dump()
         self._update_tree()
         
 
@@ -80,15 +89,23 @@ class RootEditorWidget(_TreeEditorWidget):
         # set image
         self.image_viewer.set_image(item.filename)
         self._update_tree()
+        
+    def save_mtg(self):
+        """ Save the current dataset item mtg attribute (using its dump method) """
+        item = self.edited_item
+        if not item.has_key('mtg'):
+            self.show_message("*** Error: No mtg to save ***")
+        else:
+            item.mtg.dump()
 
     def _update_tree(self):
         item = self.edited_item
         # set tree, if exist
-        if item.has_key('tree'):
-            self.tree_viewer.set_model(item.tree.to_mtg())
+        if item.has_key('mtg'):
+            self.tree_viewer.set_model(item.mtg)
             self.set_edited_presenter('tree_viewer')
         else:
-            self.show_message("dataset item has not 'tree' attribute")
+            self.show_message("dataset item has not 'mtg' attribute")
 
     def import_image(self, filename):
         raise NotImplementedError("")
@@ -118,5 +135,23 @@ class RootEditor(_TreeEditor):
         self.show()
 
 
-def start_editor():
-    pass
+def main():
+    """ editor as an executable program """
+    ## sys.argv to load dataset file?
+    from optparse import OptionParser
+    
+    parser = OptionParser()
+    parser.add_option("-d","--dataset", dest='dataset',help="*.ini dataset file to load")
+    parser.add_option("-i","--image",   dest='image',  help="image file to import")
+    
+    options, args = parser.parse_args()
+    
+    qapp = QtGui.QApplication([])
+    viewer = RootEditor()
+    viewer.setWindowTitle("RootEditor")
+
+    if options.dataset: viewer.editor.load_dataset(options.dataset)
+    if options.image:   viewer.editor.import_image(options.image)
+        
+    qapp.exec_()
+

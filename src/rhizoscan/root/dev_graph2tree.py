@@ -198,7 +198,7 @@ def tree_path(parent, top_order, invalid=-1):
 
     return [p[::-1] for p in path], elt_path
     
-def merge_tree_path(incomming, out_going, top_order, path_elt, elt_path, priority, clean_path=True):
+def merge_tree_path(incomming, out_going, top_order, path_elt, elt_path, priority, smask, clean_path=True):
     """
     merge path when possible...`
     
@@ -260,9 +260,10 @@ def merge_tree_path(incomming, out_going, top_order, path_elt, elt_path, priorit
             path_tip.pop(c)
         
     if clean_path:
-        del_path = [i for i,p in enumerate(path_elt) if p is None]
+        del_path = [i for i,p in enumerate(path_elt) if p is None or _np.all(smask[p])]
+        if 0 in del_path: del_path.remove(0)
         del_num  = len(del_path)
-        path_elt = [p for p in path_elt if p is not None]
+        path_elt = [p for i,p in enumerate(path_elt) if i not in del_path]
         elt_path = [list(ep.difference(del_path)) for ep in elt_path]
     else:
         del_num = len([i for i,p in enumerate(path_elt) if p is None])
@@ -277,10 +278,13 @@ def path_to_axes(graph, path, axe_selection=[('length',1),('min_tip_length',10)]
     
     *** warning: input `path` is changed in-place ***
     """
+    from rhizoscan.root.graph import nsa
+    
     segment = graph.segment
     axe = path[:]  # to store segment list per axes
     
-    aLength = _np.vectorize(lambda slist:segment.length[slist].sum())(axe)
+    sLength = segment.length()
+    aLength = _np.vectorize(lambda slist:sLength[slist].sum())(axe)
     aPlant  = segment.seed[[a[0] if len(a) else 0 for a in axe]]
     
     # find axe order
@@ -323,7 +327,7 @@ def path_to_axes(graph, path, axe_selection=[('length',1),('min_tip_length',10)]
                 aOrder[seminal>0] = order
            
         elif method=='min_tip_length':
-            saxe = segment_axe_list(axe, segment.number)
+            saxe = segment_axe_list(axe, segment.number())
             saxe_num = _np.vectorize(len)(saxe)
             
             # test tip length all axes in order of decreasing length
@@ -341,7 +345,7 @@ def path_to_axes(graph, path, axe_selection=[('length',1),('min_tip_length',10)]
                 # For each tip, test if it has suffisent length
                 keep = False
                 for tip in own_slice[::-1]:
-                    if segment.length[slist[tip]].sum()>param: 
+                    if segment.length()[slist[tip]].sum()>param: 
                         keep = True
                         break
                         
@@ -358,33 +362,43 @@ def path_to_axes(graph, path, axe_selection=[('length',1),('min_tip_length',10)]
     aOrder[0] = 0
     
     
-    ## def crop_path_start():
-    # -----------------------
-    # find axe order of segment: order of the axe passing with lowest order 
+    # convert path to axes:
+    # ---------------------
+        # find axe order of segment: order of the axe passing with lowest order 
     sOrder = _np.ones(segment.seed.size,dtype='uint8')*max_order
-    sOrder[segment.seed>0] = 0
+    #sOrder[segment.seed>0] = 0 # remove seed from path
     for i,a in enumerate(axe):
         if i==0: continue
         sOrder[a] = _np.minimum(sOrder[a],aOrder[i])
     
-    # crop start of path that are also part of an axe with lower order
+        # crop start of path that are also part of an axe with lower order
     for i,a in enumerate(axe):
         if i==0: continue
-        start = _np.argmax(sOrder[a]>=aOrder[i]) # find the 1st element that has correct order
+        start = _np.argmax(sOrder[a]>=aOrder[i]) # 1st element with correct order
         axe[i] = a[start:]
         
-    ##crop_path_start()
+        # find parent segment and parent axe  ## not robust!?!
+    parent_seg = nsa.parent_segment(axe,segment.parent)
+    parent_axe = nsa.parent_axe(axe,parent_seg)
+    
+    ## for 2ndary+ axe with no parent, set (1st) axe with order-1 as parent axe 
+    invalid_parent = [aid for aid, parent in enumerate(parent_axe) if aOrder[aid]>1 and parent==0]
+    for aid in invalid_parent:
+        pid = aPlant[aid]
+        porder = aOrder[aid]-1
+        parent = [p for p in range(len(axe)) if aOrder[p]==porder and aPlant[p]==pid]
+        parent_axe[aid] = parent[0] if len(parent) else 0 ## if/else not necessary?
 
-    # convert path to axes:
-    # ---------------------
-    # sort axes by decreasing length (after cropping), for priority in AxeList
-    aLength = _np.vectorize(lambda slist:segment.length[slist].sum())(axe)
-    l_sort  = _np.roll(_np.argsort(aLength)[::-1],1)
-    axe    = [axe[i]    for i in l_sort]
-    aOrder = [aOrder[i] for i in l_sort]
-    aPlant = [aPlant[i] for i in l_sort]
+    ##    # sort axes by decreasing length (after cropping), for priority in AxeList
+    ##aLength = _np.vectorize(lambda slist:segment.length()[slist].sum())(axe)
+    ##l_sort  = _np.roll(_np.argsort(aLength)[::-1],1)
+    ##axe    = [axe[i]    for i in l_sort]
+    ##aOrder = [aOrder[i] for i in l_sort]
+    ##aPlant = [aPlant[i] for i in l_sort]
 
-    axelist = _AxeList(axes=axe, order=aOrder, plant=aPlant, segment_list=segment)
+    axelist = _AxeList(axes=axe, segment_list=segment,
+                       parent=parent_axe, parent_segment=parent_seg,
+                       order=aOrder, plant=aPlant)
 
     return axelist
     
@@ -394,14 +408,15 @@ def path_to_axes(graph, path, axe_selection=[('length',1),('min_tip_length',10)]
 def make_root_tree(graph, axe_selection=[('length',1),('min_tip_length',10)], verbose=False):
     seed = graph.segment.seed
     src  = (graph.segment.seed>0) 
-    angle  = graph.segment.direction_difference
-    length = graph.segment.length
+    angle  = graph.segment.direction_difference()
+    length = graph.segment.length()
     
     graph.node.set_segment(graph.segment)     ## just in case
     
     # convert graph to DAG
     # --------------------
-    direction = _dg.segment_digraph(graph.segment)[0]
+    gs = graph.segment
+    direction = _dg.segment_digraph(gs, gs.direction_difference())[0]
     digraph = graph.segment.digraph(direction)
     e_in, e_out = _dg.digraph_to_DAG(digraph[...,1], length[digraph[...,1]], source=src)[:2]
 
@@ -416,22 +431,24 @@ def make_root_tree(graph, axe_selection=[('length',1),('min_tip_length',10)], ve
     #                                   parent=parent, segment_length=length, 
     #                                   node_order=node_order)
     m = len(path)
-    pLength = _np.vectorize(lambda slist:graph.segment.length[slist].sum())(path)
+    pLength = _np.vectorize(lambda slist:graph.segment.length()[slist].sum())(path)
     
     path,spath,n,tmp = merge_tree_path(incomming=e_in, out_going=e_out, top_order=top_order, 
                                    path_elt=path, elt_path=spath, priority=pLength,
-                                   clean_path=True)
+                                   smask=graph.segment.seed>0, clean_path=True)
     
     if verbose:
         print ' axial tree:', n, 'path connected on ', m, '(%2.1f percent)' % (100*float(n)/m) ##
     #return dict(incomming=e_in, out_going=e_out, top_order=top_order, 
     #            path=path, spath=spath, priority=pLength.argsort()[::-1])
     
-    ##
+    # Contruct RootTree
+    # -----------------
+    # construct AxeList object
     graph.segment.parent = parent
     axe = path_to_axes(graph, path, axe_selection=axe_selection)
     
-    graph.segment.axe = axe.segment_axe                    
+    ##graph.segment.axe = axe.segment_axe                    
     t = _RootTree(node=graph.node,segment=graph.segment, axe=axe)
     
     return t
@@ -449,7 +466,7 @@ def segment_axe_list(axe, segment_number):
 # ploting and user interface tools
 # --------------------------------
 def plot_path(graph, path, value):
-    pLength = _np.vectorize(lambda slist:graph.segment.length[slist].sum())(path)
+    pLength = _np.vectorize(lambda slist:graph.segment.length()[slist].sum())(path)
     
     # find "best" path of each segment
     spath = _np.zeros(graph.segment.node.shape[0], dtype=int)
@@ -471,12 +488,12 @@ def interactive_path_plot(rgraph, path=None, spath=None):
     
     if path is None:
         path  = rgraph.axe.segment
-        spath = [[] for i in xrange(rgraph.segment.number)]
+        spath = [[] for i in xrange(rgraph.segment.number())]
         for pid,p in enumerate(path):
             for s in p:
                 spath[s].append(pid)
     valid = _np.vectorize(len)(spath)>0
-    sc = _np.zeros(rgraph.segment.number, dtype=int)
+    sc = _np.zeros(rgraph.segment.number(), dtype=int)
    
     env = _segdist_env(rgraph)
     
@@ -514,19 +531,19 @@ def _axe_distance_to_seed(graph, axe=None, aPlant=None, a2process=None):
     
     if axe is None:       axe    = graph.axe.segment
     if aPlant is None:    aPlant = graph.axe.plant
-    if a2process is None: a2process = _np.ones(graph.axe.number,dtype=bool)
+    if a2process is None: a2process = _np.ones(graph.axe.number(),dtype=bool)
     
     segment = graph.segment
     
     # find the position of the seed of each plant
     nseed = _np.vectorize(lambda slist: segment.seed[slist].min() if len(slist) else 0)(graph.node.segment)
     plant_ind = _np.arange(aPlant.max()+1)
-    seed_x = nd.mean(graph.node.x,labels=nseed, index=plant_ind)
-    seed_y = nd.mean(graph.node.y,labels=nseed, index=plant_ind)
+    seed_x = nd.mean(graph.node.x(),labels=nseed, index=plant_ind)
+    seed_y = nd.mean(graph.node.y(),labels=nseed, index=plant_ind)
     seed_pos = _np.vstack((seed_x,seed_y))                    # shape: 2xSeed#
     
     # find segment which has only one axe passing through
-    saxe = segment_axe_list(axe, segment.number)
+    saxe = segment_axe_list(axe, segment.number())
     uniq_axe = _np.array([(sid,alist[0]) for sid,alist in enumerate(saxe) if len(alist)==1 and a2process[alist[0]]])
     slist = uniq_axe[:,0]
     alist = uniq_axe[:,1]

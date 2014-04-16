@@ -7,7 +7,7 @@ from rhizoscan.ndarray       import reshape as _reshape
 from rhizoscan.tool          import _property    
 
 
-def segment_digraph(segment, cost='direction_difference', callback=None):
+def segment_digraph(segment, cost, callback=None):
     """
     Find an optimised direction for all segments
     
@@ -16,38 +16,33 @@ def segment_digraph(segment, cost='direction_difference', callback=None):
          A SegmentList instance that contains the attributes `neighbors`, `seed`
          and `terminal`. If cost is a string, `segment` should also contain the 
          suitable attribute (by default `direction-difference`)
-      
       - cost:
-         A SxS array of the cost between segment, or the name (string) of an
-         attribute of segment that contains it.
-         
+         A SxS array of the cost between segment
       - callback:
-        A function that is call at each iteration of the algorithm such as::
+         A function that is call at each iteration of the algorithm such as::
         
            callback(i, sdir, sgid, s1,s2)
            
-        where `i` is the iteration number, `sdir` is t curent segment direction,
-        `sgid` is the current group id of the segments and `s1`and `s2` are the
-        id of the processed segments.
+         with `i` is the iteration number, `sdir` is t curent segment direction,
+         `sgid` is the current group id of the segments and `s1`and `s2` are the
+         id of the processed segments.
        
     :Output:
-       - A boolean array of the direction of each segment 
+       - A boolean array of the direction of each segment.
        `False` means as given by input `edge`, `True` means switched direction.
        
        - the segment group id
       
     IN DEVELOPMENT
     """
-    nbor = segment.neighbors
+    nbor = segment.neighbors()
     edge = neighbor_to_edge_list(nbor)
     
     # edges cost
     # ----------
     # edge with seed segment have zero cost
-    if isinstance(cost, basestring):
-        cost = getattr(segment,cost)[edge[:,0], edge[:,1]]
+    cost = cost[edge[:,0], edge[:,1]]
     seed = segment.seed>0
-    seed[segment.seed>=254] = 0  ## bug that makes fake seeds=254
     cost[seed[edge[:,0]] | seed[edge[:,1]]] = 0
     
     # sort by cost
@@ -65,7 +60,7 @@ def segment_digraph(segment, cost='direction_difference', callback=None):
     
     # set seed and terminal segment direction
     #     note: seed must be set after terminal as they also are terminal
-    term  = segment.terminal
+    term  = segment.terminal()
     sdir[term] = nbor[term][:,:,1].any(axis=1)  # default means no nbor on side 1
     sdir[seed] = nbor[seed][:,:,0].any(axis=1)  # default means no nbor on side 0
     gset[term] = 1
@@ -135,7 +130,7 @@ def digraph_to_DAG(neighbors, cost, source=None):
         - source
             indices, or boolean mask, of the sources for the shortest path
                 ex1:   rgraph.segment.seed>0   ;   
-                ex2:  -rgraph.segment.neighbors[...,0].any(axis=1)
+                ex2:  -rgraph.segment.neighbors()[...,0].any(axis=1)
             if None, use the list of elements with no incomming edge.
             
     :Output:
@@ -650,7 +645,7 @@ def neighbor_cost(neighbors, cost):
     :Example:
         Let `s` be a SegmentList object::
         
-        nbor_cost = neighbor_cost(s.neighbors, s.direction_difference) 
+        nbor_cost = neighbor_cost(s.neighbors(), s.direction_difference()) 
     """
     return cost[_np.arange(neighbors.shape[0]).reshape((-1,) + (1,)*(neighbors.ndim-1)), neighbors]
 
@@ -660,11 +655,11 @@ def set_downward_segment(graph):
     In-place set all segments of RootGraph `graph` downward
     return updated `graph`
     
-    *** This function resets the `graph.segment.neighbors` attribute ***
+    *** This function resets the `graph.segment.neighbors()` attribute ***
     """
-    upward = _np.diff(graph.node.y[graph.segment.node],axis=1).ravel()<0
+    upward = _np.diff(graph.node.y()[graph.segment.node],axis=1).ravel()<0
     graph.segment.node[upward] = graph.segment.node[upward][:,::-1]
-    graph.segment.neighbors = None # clear neighbor property
+    graph.segment._neighbors = None # clear precomputed neighbor array
     
     return graph
 
@@ -761,8 +756,8 @@ def neighbor_to_edge_list(neighbors, unique=True, directed=False):
     :Inputs:
       - neighbors:
           A Sx[K] (with possible multidimensional K) array of the indices of the
-          neighbors of each segment s in S. Such as `segment.neighbors` property
-          or surpart, eg. `segment.neighbors[...,0]`
+          neighbors of each segment s in S. Such as returned by 
+          `segment.neighbors()` or subpart like `segment.neighbors()[...,0]`
       - unique: 
           if True, sort and remove all repeated and invalid edges
       - directed:
@@ -800,7 +795,7 @@ def plot_segment_edges(segment, neighbors=None, directed=None):
     """ plot segment graph where `neighbors` define connectivity
     
     neighbors:
-      The array of neighbor indices. If None, use `segment.neighbors`
+      The array of neighbor indices. If None, use `segment.neighbors()`
     directed:
       - if None, draw all edges
       - if 0 or 1, draw only incoming or outgoing edges, respectively
@@ -816,7 +811,7 @@ def plot_segment_edges(segment, neighbors=None, directed=None):
     pos = (segment.node_list.position[:,nid[:,0]] + segment.node_list.position[:,nid[:,1]])/2
     
     if neighbors is None:
-        neighbors = segment.neighbors
+        neighbors = segment.neighbors()
     
     if directed is None:
         edge = neighbor_to_edge_list(neighbors, unique=False)

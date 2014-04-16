@@ -17,7 +17,7 @@ def graph2axial(graph, to_tree=0, to_axe=0, single_order1_axe=True):
     """
     seed = graph.segment.seed
     ##seed[_np.any(self.segment.node==0,axis=1)] = _UNREACHABLE  ###BUG!!!
-    sid = _np.arange(self.segment.number)
+    sid = _np.arange(self.segment.number())
     pid = _nd.minimum(self.sid,seed,_np.arange(seed.max()+1))  # plant(seed) unique id
     sid[seed>0] = self.pid[seed[seed>0]]
     pid = self.pid[1:]
@@ -33,8 +33,8 @@ def graph2axial(graph, to_tree=0, to_axe=0, single_order1_axe=True):
 
     return tree ## ?
 
-# OLD CODE TO BE REVWRITEN
-# ========================
+# OLD CODE TO BE REWRITEN
+# =======================
 def make_tree(self, method): 
     """
     method: 1 for length, 2 for direction, 3 for both
@@ -65,14 +65,14 @@ def find_axes(self, method, single_order1_axe=True):
         return
         
     # find terminal segment
-    sterm = self.segment.terminal
+    sterm = self.segment.terminal()
     
     # compute cost/gain to compute shortest-tree/axe label respectively
     axial_gain = 1
     if method&1: axial_gain  = self.sgraph.makeDistanceMap('nodes')
     if method&2: axial_gain *= 1 + _np.cos(self.dtheta)
 
-    gain = self.segment.length.copy()#_np.zeros(self.sid.size)
+    gain = self.segment.length().copy()#_np.zeros(self.sid.size)
     gain[0] = 0
     for i in self.segment.order:
         #if self.segment.parent[i]!=0 and gain[i]==0:
@@ -162,8 +162,8 @@ def set_axes(self,s_axe=None, s_parent=None, a_segment=None, single_order1_axe=T
     
     # compute the axe length and arc length of segment w.r.t their axe
     # ----------------------------------------------------------------
-    arc_length = _np.zeros_like(self.segment.length)
-    axe.length = _np.zeros(len(axe.segment))
+    arc_length = _np.zeros_like(self.segment.length())
+    axe.length = _np.zeros(len(axe.segment))  ## deprecated
     ##axe.size   = _np.zeros(len(axe.segment),dtype=int)   ## does not respect GraphList standart: size is the number of elements (-1) !
     for i,slist in enumerate(axe.segment):
         if len(slist)==0: continue
@@ -206,16 +206,16 @@ def set_axes(self,s_axe=None, s_parent=None, a_segment=None, single_order1_axe=T
         plant[ax_unset] = p_plant
         ax_unset = (order==_UNSET) & (axe.parent>0)
         
-    axe.order = order
+    axe.set_order(order)
     axe.plant = plant
 
 
 def find_arabido_axes(self): 
     """ IN DEVELOPMENT: find axes allowing overlap, for arabido model """
-    sterm  = self.segment.terminal
+    sterm  = self.segment.terminal()
     sseed  = self.segment.seed
     parent = self.segment.parent
-    d2seed = self.segment.distance_to_seed
+    d2seed = self.segment.distance_to_seed()
 
     sseed[sseed>=254] = 0     ## there is some bug that make unreachable 254 instead of 0
     
@@ -351,7 +351,7 @@ def find_arabido_axes(self):
         plant[ax_unset] = p_plant
         ax_unset = (order==_UNSET) & (axe.parent>0)
         
-    axe.order = order
+    axe.set_order(order)
     axe.plant = plant
     
 

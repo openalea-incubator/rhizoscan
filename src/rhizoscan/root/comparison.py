@@ -69,8 +69,8 @@ class TreeCompare(_Mapping):
             lseed = lseed[mask]
             
             pid = np.unique(lseed)
-            x = nd.mean(t.node.x[nseed],labels=lseed.reshape(-1,1),index=pid)
-            y = nd.mean(t.node.y[nseed],labels=lseed.reshape(-1,1),index=pid)
+            x = nd.mean(t.node.x()[nseed],labels=lseed.reshape(-1,1),index=pid)
+            y = nd.mean(t.node.y()[nseed],labels=lseed.reshape(-1,1),index=pid)
             
             return pid,x,y
             
@@ -114,6 +114,7 @@ class TreeCompare(_Mapping):
         Call `compare_structure` function and store results as dictionaries in 
         attributes `comparison.geometry` and `comparison.topology`
         """
+        from rhizoscan.root.graph.mtg import tree_to_mtg
         from os.path import sep
         c = self.cmp
         r = self.ref
@@ -122,10 +123,10 @@ class TreeCompare(_Mapping):
         
         print '--- comparing file: .../%s ---' % f
         print '============================' + '='*len(f)
-        r.segment.radius = np.zeros(r.segment.number)
-        c.segment.radius = np.zeros(c.segment.number)
-        rmtg = r.to_mtg()
-        cmtg = c.to_mtg()
+        r.segment.radius = np.zeros(r.segment.number())
+        c.segment.radius = np.zeros(c.segment.number())
+        rmtg = tree_to_mtg(r)
+        cmtg = tree_to_mtg(c)
         c = _split_mtg(cmtg)
         r = _split_mtg(rmtg)
         
@@ -461,7 +462,7 @@ def _plot_axe_selected_tree(event):
     ref_tree.plot(bg='k', ac=.4*np.ones((1,3))*(ref_tree.axe.plant==pid)[:,None],linewidths=3)
     
     # plot auto in color map suitable to shown stat 
-    #order = cmp_tree.axe.order
+    #order = cmp_tree.axe.order()
     #amask = cmp_tree.axe.plant==pid
     #if   'axe1' in title:  sc = order[saxe*(saxe>0)]+2
     #elif 'axe2' in title:  sc = order[saxe*(saxe>0)]+2
@@ -469,7 +470,7 @@ def _plot_axe_selected_tree(event):
     #else:                      sc = 2*(saxe>0)+3*(saxe==-1)#saxe*(order[saxe*(saxe>0)]==2)
     #elif stat=='total_length': sc = 2*(saxe>0)+3*(saxe==-1)
     #elif stat=='axe2_number':  sc = 2*(saxe>0)+3*(saxe==-1)#saxe*(order[saxe*(saxe>0)]==2)
-    cmp_tree.plot(bg=None,max_shift=3)#, ac=cmp_tree.axe.order)
+    cmp_tree.plot(bg=None,max_shift=3)#, ac=cmp_tree.axe.order())
     
     # display a line abov and below the selected root plant
     #slist = set([s for slist in a.tree.axe.segment[a.tree.axe.plant==pid] for s in slist])
@@ -613,10 +614,10 @@ def compare_structure_sequence(vs, display=True, slices=slice(None), file_id_par
         f = sep.join(c.get_file().url.split(sep)[-file_id_part:])
         
         print '--- comparing file: ...', f, '---'
-        r.segment.radius = np.zeros(r.segment.number)
-        c.segment.radius = np.zeros(c.segment.number)
-        rmtg = r.to_mtg()
-        cmtg = c.to_mtg()
+        r.segment.radius = np.zeros(r.segment.number())
+        c.segment.radius = np.zeros(c.segment.number())
+        rmtg = tree_to_mtg(r)
+        cmtg = tree_to_mtg(c)
         c = _split_mtg(cmtg)
         r = _split_mtg(rmtg)
         

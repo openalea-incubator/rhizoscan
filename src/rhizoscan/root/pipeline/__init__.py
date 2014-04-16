@@ -8,9 +8,6 @@ from rhizoscan.root.image  import normalize_image as _normalize_image
 from rhizoscan.root.image  import plate           as _plate
 from rhizoscan.root.graph  import RootTree        as _RootTree 
 
-from rhizoscan.root.dev_graph2tree import make_root_tree as _make_root_tree 
-
-
 from rhizoscan.root.image.plate import detect_marked_plate as _detect_marked_plate
 
 
@@ -76,11 +73,12 @@ def no_plate_to_detect(image, px_scale=1):
     return None,px_scale,hull
     
     
-# compute graph:
-# --------------
+# compute graph, tree, mtg:
+# -------------------------
 from rhizoscan.root.image.to_graph import linear_label as _linear_label
 from rhizoscan.root.image.to_graph import image_graph  as _image_graph
 from rhizoscan.root.image.to_graph import line_graph   as _line_graph
+from rhizoscan.root.dev_graph2tree import make_root_tree as _make_root_tree 
 
 @_node('graph',OA_hide=['verbose'])
 def compute_graph(rmask, seed_map, bbox=None, verbose=False):
@@ -97,15 +95,12 @@ def compute_graph(rmask, seed_map, bbox=None, verbose=False):
     
     # shift graph node position by cropped box left corner
     if bbox:
-        graph.node.x[:] += bbox[1].start
-        graph.node.y[:] += bbox[0].start
+        graph.node.x()[:] += bbox[1].start
+        graph.node.y()[:] += bbox[0].start
         graph.node.position[:,0] = 0
     
     return graph
     
-    
-# axial tree extraction from root graph
-# -------------------------------------
 @_node('tree')
 def compute_tree(graph, px_scale=1, axe_selection=[('length',1),('min_tip_length',10)], metadata={}):
     #def compute_tree(graph, px_scale=1, to_tree=2, to_axe=2, metadata={}):

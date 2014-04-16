@@ -142,7 +142,7 @@ def axe2_number(tree, mask=None):
         ax_mask &= mask(tree)
     pl_id  = np.unique(tree.segment.seed)#.plant[ax_mask])
     pl_id  = pl_id[pl_id<>0]
-    number = np.bincount(tree.axe.plant[ax_mask], tree.axe.order[ax_mask]==2,minlength=pl_id.max()+1)
+    number = np.bincount(tree.axe.plant[ax_mask], tree.axe.order()[ax_mask]==2,minlength=pl_id.max()+1)
     return dict([(i,n) for i,n in enumerate(number) if i in pl_id])
 
 @_tree_stat
@@ -171,7 +171,7 @@ def ramification_length(tree, mask=None):
         ax_mask &= mask(tree)
     pl_id  = np.unique(tree.axe.plant[ax_mask])
     
-    branch = tree.axe.parent_segment[tree.axe.order==2]
+    branch = tree.axe.parent_segment[tree.axe.order()==2]
     plant  = tree.axe.plant[tree.segment.axe[branch]]
     bdist  = tree.segment.axelength[branch]
     
@@ -231,7 +231,7 @@ def multi_plot(tc, split='metadata.date', scale=1):
         
         # plot auto in color map suitable to shown stat 
         saxe  = a.tree.segment.axe
-        order = a.tree.axe.order
+        order = a.tree.axe.order()
         ind   = saxe>=-1
         amask = a.tree.axe.plant==pid
         smask = amask[a.tree.segment.axe]
@@ -600,19 +600,22 @@ def get_axes_property(t,property_name, mask=None, order=None, per_plant=True, sc
         property_name: the name of the property to retrieve
         mask:  a mask indicating which axes to retrieve value from
         order: restrict retrieval to axe with this order 
-                - same as mask=t.axe.order==order
+                - same as mask=t.axe.order()==order
         per_plant: return a dictionary of axe values (list) for each plant
                    otherwise, return one list
     """
     if mask is None:
-        mask = np.ones(len(t.axe.order), dtype=bool)
+        mask = np.ones(len(t.axe.order()), dtype=bool)
             
     if order is not None:
-        mask &= (t.axe.order==order)
+        mask &= (t.axe.order()==order)
     
     ax_id = mask.nonzero()[0]
     
-    value = t.axe[property_name][ax_id]
+    prop = t.axe[property_name]
+    if hasattr(prop,'__call__'):
+        prop = prop()
+    value = prop[ax_id]
     if scale:
         value *= scale
     if per_plant:

@@ -157,17 +157,17 @@ def axe_projection(tree, graph, transform, interactive=False):
     # -------------------
     #   compute a sparse matrix representation of connection between g's segments
     #   it is used to compute shortest path for all axe matching
-    nbor = g.segment.neighbors
+    nbor = g.segment.neighbors()
     nbor = nbor.reshape(nbor.shape[0],-1)
     I,J  = nbor.nonzero()
     J    = nbor[I,J]
-    sp_graph = csr_matrix((_np.ones_like(I),(I,J)), shape=(g.segment.number,)*2)
+    sp_graph = csr_matrix((_np.ones_like(I),(I,J)), shape=(g.segment.number(),)*2)
     
     
     # list of tree axes in priority order
     # -----------------------------------
     #   topological order <=> axe sorted by order <=> subaxe are after their parent
-    axe_list = _np.argsort(t.axe.order[1:])+1
+    axe_list = _np.argsort(t.axe.order()[1:])+1
     ## todo sort by "branching" position, then length
     
     
@@ -220,7 +220,7 @@ def axe_projection(tree, graph, transform, interactive=False):
             # construct the length graph on spt
         i = has_parent.nonzero()[0]                     # node with parent
         j = parent[has_parent]                          # their parent
-        len_graph = csr_matrix((g.segment.length[i],(j,i)), shape=(g.segment.number,)*2)
+        len_graph = csr_matrix((g.segment.length()[i],(j,i)), shape=(g.segment.number(),)*2)
         ##order = depth_first_order(spt,0,True,False)     # partial order
         
         # select "best" path
@@ -238,7 +238,7 @@ def axe_projection(tree, graph, transform, interactive=False):
         dtip  = (((tip_pos[:,None,None]-snode)**2).sum(axis=0)).mean(axis=1)
 
             # find best tip
-        best_tip = (dcost**2+dtip**2).argmin() ##+(plength-t.axe.length[axe])**2).argmin()
+        best_tip = (dcost**2+dtip**2).argmin() ##+(plength-t.axe.length()[axe])**2).argmin()
         
             # construct path to best_tip      
         cur_node = best_tip
@@ -253,13 +253,13 @@ def axe_projection(tree, graph, transform, interactive=False):
         if interactive:
             from matplotlib import pyplot as plt
             
-            sc = _np.zeros(g.segment.number, dtype=int)
+            sc = _np.zeros(g.segment.number(), dtype=int)
             sc[mask] = 1
             sc[path] = 2
             sc[best_tip] = 3
             plt.subplot2grid((1,3),(0,0),colspan=2)
             plt.cla()
-            t.plot(ac=(_np.arange(t.axe.number)==axe)*7, linewidth=2, linestyle=":")
+            t.plot(ac=(_np.arange(t.axe.number())==axe)*7, linewidth=2, linestyle=":")
             g.plot(bg=None, sc=sc)
             plt.plot(tip_pos[0],tip_pos[1],'or')
             
@@ -271,7 +271,7 @@ def axe_projection(tree, graph, transform, interactive=False):
             plt.plot(x, y ,'.')
             plt.plot([x[p>0],x[p[p>0]]],[y[p>0],y[p[p>0]]],'b')
             plt.plot(x[best_tip],y[best_tip],'or')
-            plt.plot([t.axe.length[axe]]*2, [0,y[mask].max()])
+            plt.plot([t.axe.length()[axe]]*2, [0,y[mask].max()])
             
             k = raw_input('>')
             if k=='q':
@@ -281,11 +281,11 @@ def axe_projection(tree, graph, transform, interactive=False):
         graph_axes[axe]   = path
         axes_plant[axe]  = plant_id
         axes_sparent[axe] = start_parent[path_start[best_tip]]
-        axes_order[axe]  = t.axe.order[axe]
+        axes_order[axe]  = t.axe.order()[axe]
         
     # contruction tree
     # ================
-    # convert axe proerty to array
+    # convert axe property from dict to list
     def to_list(axe_dict, default):
         for aid in range(max(axe_dict.keys())):
             axe_dict.setdefault(aid, default)
@@ -296,9 +296,11 @@ def axe_projection(tree, graph, transform, interactive=False):
     axes_sparent = _np.array(to_list(axes_sparent, 0))
     axes_order   = _np.array(to_list(axes_order  , 0))
 
+
     # create axe then tree structure
-    graph_axe = AxeList(axes=graph_axes, order=axes_order, plant=axes_plant, 
-                        segment_list=graph.segment, parent_segment=axes_sparent)
+    graph_axe = AxeList(axes=graph_axes, segment_list=graph.segment,
+                        order=axes_order, plant=axes_plant, 
+                        parent_segment=axes_sparent)
     
     tree = RootTree(node=graph.node, segment=graph.segment, axe=graph_axe)
     
@@ -383,8 +385,8 @@ def mean_seed_position(g):
     lseed = lseed[mask]
     
     pid = _np.unique(lseed)
-    x = _nd.mean(g.node.x[nseed],labels=lseed.reshape(-1,1),index=pid)
-    y = _nd.mean(g.node.y[nseed],labels=lseed.reshape(-1,1),index=pid)
+    x = _nd.mean(g.node.x()[nseed],labels=lseed.reshape(-1,1),index=pid)
+    y = _nd.mean(g.node.y()[nseed],labels=lseed.reshape(-1,1),index=pid)
     
     return pid,x,y
     

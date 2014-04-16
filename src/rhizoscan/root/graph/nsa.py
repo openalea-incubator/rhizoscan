@@ -10,9 +10,8 @@ from rhizoscan.datastructure import Mapping as _Mapping
 
 class GraphList(_Mapping):
     ## del dynamic property when saved (etc...) / no direct access (get_prop)?
-    @_property
     def properties(self):
-        """ list of list properties (use add_property to add one)"""
+        """ list of list-properties (use add_property to add one)"""
         if not hasattr(self,'_property_names'):
             self._property_names = set()
         return list(self._property_names)
@@ -21,7 +20,7 @@ class GraphList(_Mapping):
         Add the attribute 'name' with value 'value' to this object, and 'name' to
         this object 'properties' attribute. 
         """
-        self.properties# assert existence
+        self.properties()# assert existence
         self._property_names.add(name)
         self[name] = value
 
@@ -39,23 +38,20 @@ class NodeList(GraphList):
             
         ##self.size = self.position.shape[1]-1   ## -1 should be removed ?
         
-    @_property
     def x(self):  
         """ x-coordinates of nodes """  
         return self.position[0]
-    @_property
     def y(self):
         """ y-coordinates of nodes """  
         return self.position[1]
     
-    @_property
     def number(self):  
         """ number of nodes, including dummy (i.e. 0) node """  
         return self.position.shape[1]
         
     def set_segment(self, segment):
         if hasattr(segment,'node'):
-            ns = [[] for i in xrange(self.number)]
+            ns = [[] for i in xrange(self.number())]
             for s,sn in enumerate(segment.node[1:]):
                 ns[sn[0]].append(s+1)
                 ns[sn[1]].append(s+1)
@@ -64,9 +60,8 @@ class NodeList(GraphList):
         else:
             self.segment = segment
         
-    @_property
     def terminal(self):
-        """ bool flag, is node terminal """
+        """ array of bool indicating if node is terminal """
         if not hasattr(self, '_terminal'):
             self._terminal = _np.vectorize(len)(self.segment)==1
             self.temporary_attribute.add('_terminal')
@@ -82,54 +77,49 @@ class SegmentList(GraphList):
         self.node = node_id
         ##self.size = node_id.shape[0]-1  ## -1 should be removed ?!
         
-    @_property
     def number(self):  
         """ number of segments, including dummy (i.e. 0) segment """  
         return self.node.shape[0]
         
-    @_property
     def length(self):
-        """ Compute length of segments from NodeList 'node' """
+        """ length of segments """
         if not hasattr(self,'_length'):
-            nx = self.node_list.x[self.node]
-            ny = self.node_list.y[self.node]
+            nx = self.node_list.x()[self.node]
+            ny = self.node_list.y()[self.node]
             self._length = ((nx[:,0]-nx[:,1])**2 + (ny[:,0]-ny[:,1])**2)**.5
             self.temporary_attribute.add('_length')
         return self._length
-    @length.setter
-    def length(self, value):
-        self._length = value
+        
+    def set_length(self, length):
+        """ set the length of segment (replace automatically computed one) """
         self.clear_temporary_attribute('_length')
+        self._length = length
     
-    @_property
     def direction(self):
-        """ Compute direction of segments from NodeList 'node' """
+        """ direction of segments as an (radian) angle """
         if not hasattr(self,'_direction'):
-            sy = self.node_list.y[self.node]
-            sx = self.node_list.x[self.node]
+            sy = self.node_list.y()[self.node]
+            sx = self.node_list.x()[self.node]
             dsx = _np.diff(sx).ravel()
             dsy = _np.diff(sy).ravel()
             self._direction = _np.arctan2(dsy,dsx)
             self.temporary_attribute.add('_direction')
         return self._direction
-    @direction.setter
-    def direction(self, value):
-        self._direction = value
-        self.clear_temporary_attribute('_direction')
+    ##@direction.setter
+    ##def direction(self, value):
+    ##    self.clear_temporary_attribute('_direction')
+    ##    self._direction = value
         
-    @_property
     def terminal(self):
-        """ Compute terminal property of segments using attribute node_list """
+        """ Bool array indicating which segments are terminal """
         if not hasattr(self,'_terminal'):
-            self._terminal = _np.any(self.node_list.terminal[self.node],axis=1)
+            self._terminal = _np.any(self.node_list.terminal()[self.node],axis=1)
             self.temporary_attribute.add('_terminal')
         return self._terminal
-    @terminal.setter
-    def terminal(self, value):
-        self._terminal = value
-        self.clear_temporary_attribute('_terminal')
+    ##def set_terminal(self, value):
+    ##    self._terminal = value
+    ##    self.clear_temporary_attribute('_terminal')
        
-    @_property
     def direction_difference(self):
         """ 
         Array of difference in direction between all segments in List
@@ -138,7 +128,7 @@ class SegmentList(GraphList):
         but angle diff for unconnected segment is meaningless
         """
         if not hasattr(self,'_direction_difference'):
-            angle = self.direction
+            angle = self.direction()
             dangle = _np.abs(angle[:,None] - angle[None,:])
             dangle = _np.minimum(dangle, 2*_np.pi-dangle)
             # segments sharing start or end nodes needs to be reverted
@@ -148,35 +138,24 @@ class SegmentList(GraphList):
             self._direction_difference = dangle
             self.temporary_attribute.add('_direction_difference')
         return self._direction_difference
-    
-    @_property
-    def distance_to_seed(self):
-        """ require the property 'length', 'order' and 'parent' """
-        if not hasattr(self,'_distance_to_seed'):
-            d2seed = self.length.copy()
-            p = self.parent
-            for i in self.order:
-                d2seed[i] += d2seed[p[i]]
-            self.temporary_attribute.add('_distance_to_seed')
-        return self._distance_to_seed
         
-        
-    @property
     def neighbors(self):
         """ 
-        Edges array of neighboring segments constructed with `neighbor_array`
-        *** It requires the `seed` attribute ***
+        Edges array of neighboring segments (constructed with `neighbor_array`)
+        
+        If this SegmentList contains a `seed` attribute, connection between
+        seed segments are not taken into account
         """
         if not hasattr(self,'_neighbors'):
-            nbor = neighbor_array(self.node_list.segment, self.node, self.seed)
+            nbor = neighbor_array(self.node_list.segment, self.node, self.get('seed',None))
             self._neighbors = nbor
             self.temporary_attribute.add('_neighbors')
         return self._neighbors
-    @neighbors.setter
-    def neighbors(self, value):
-        self.clear_temporary_attribute('_neighbors')
-        if value is not None:
-            self._neighbors = value
+    ##@neighbors.setter
+    ##def neighbors(self, value):
+    ##    self.clear_temporary_attribute('_neighbors')
+    ##    if value is not None:
+    ##        self._neighbors = value
     
     def digraph(self, direction):
         """
@@ -215,7 +194,7 @@ class SegmentList(GraphList):
         return nbor
 
 class AxeList(GraphList):
-    def __init__(self, axes=None, parent=None, plant=None, order=None, segment_list=None, parent_segment='parent'):
+    def __init__(self, axes, segment_list, parent, plant=None, order=None, parent_segment='parent'):
         """
         Create an AxeList instance.
         
@@ -230,18 +209,22 @@ class AxeList(GraphList):
               empty: a *dummy* axe.
               This value is stored in this AxeList `segment` attribute
               The list should be in a decreasing priority order (see notes)
+          - segment_list:
+              The SegmentList instance from which this AxeList is constructed
           - parent:
               id of the parent axe, as an array of same length as `axes`
-          - order:
-              An array-like of the order of each axe. Same length as `axe`.
+              ##todo: make parent mandatory
           - plant:
-              An array-like of the plant id for each axe. Same length as `axe`.
-          - segment_list:
-              The SegmentList instance on which this AxeList is constructed.
+              An array-like of the plant id for each axe. Same length as `axe`
+              ##todo: plant - provide an automatic method to compute it
+          - order:
+              An array-like of the order of each axe. Same length as `axe`
+              ##todo: order - provide an automatic method to compute it
           - parent_segment:
               The list of the parent segment of all axes. If a string is given, 
               use the the attribute with the name of `segment_list` to infer it.
               See notes.
+              ##todo: parent_segment - remove default value ('parent')
               
         :Notes:
             The AxeList constructor compute the "main axe" of each segment from
@@ -252,29 +235,29 @@ class AxeList(GraphList):
 
             It is considered that the parent axe of an axe `a` is the main axe of
             the parent segment of the 1st segment of axe `a`.
+            
+        ##TODO: AxeList - remove automatic parent computation 
+        ##              - but can provide a practical external method 
         """
-        if axes is None: 
-            DeprecationWarning("AxeList constructor without argument is deprecated") ##
-            return
-        
         self.segment = _np.asarray(axes)
-        self.order   = _np.asarray(order)
         self.plant   = _np.asarray(plant)
         
         self._segment_list = segment_list
         
-        if isinstance(parent_segment, basestring):
-            self.parent_segment = segment_list[parent_segment][self.first_segment]
-        else:
-            self.parent_segment = _np.asarray(parent_segment)
+        self.parent = _np.asarray(parent)
+        self.parent_segment = _np.asarray(parent_segment)
+        ##if isinstance(parent_segment, basestring):
+        ##    self.parent_segment = segment_list[parent_segment][self.first_segment()]
+        ##else:
+        ##    self.parent_segment = _np.asarray(parent_segment)
             
+        # set axe order if given, see 'order' property 
         if order is not None:
-            self._order = order
-            #see property 'order' 
+            self._order = _np.asarray(order)
         
         # find id of main axe for all segments
-        segment_axe  = _np.zeros(segment_list.number, dtype=int)
-        axe_priority = _np.argsort(order[1:])+1
+        segment_axe  = _np.zeros(segment_list.number(), dtype=int)
+        axe_priority = _np.argsort(self.order()[1:])+1
         ##todo: add priority by starting position on parent axe
         ##todo: store axe_priority - as partial_order?
         for o in axe_priority[::-1]:
@@ -293,7 +276,7 @@ class AxeList(GraphList):
         # previous auto compute of parent segment (property sparent)
         if not hasattr(self,'parent_segment'):
             if verbose: print 'sparent property to parent_segment attribute'
-            sparent = self._segment_parent[self.first_segment]
+            sparent = self._segment_parent[self.first_segment()]
             self.parent_segment = sparent
             del self._segment_parent
             
@@ -301,80 +284,115 @@ class AxeList(GraphList):
         if not hasattr(self,'parent'):
             if verbose: print 'parent property to parent attribute'
             self.parent = self.segment_axe[self.parent_segment]
+            del self.segment_axe
             
         # replace 'order' attribute by property
         if self.__dict__.has_key('order'):
-            if verbose: print 'order attribute to order property'
+            if verbose: print 'order attribute to order accessor'
             self._order = self.__dict__['order']
             del self.__dict__['order']
               
-    @_property
     def number(self):
         """ number of axes, including dummy (i.e. 0) axe """  
         return len(self.segment)
         
-    @_property
     def segment_number(self):
+        """ Array of the number of segments in each axe """
         if not hasattr(self,'_segment_number'):
             self._segment_number = _np.vectorize(len)(self.segment)
             self.temporary_attribute.add('_segment_number')
         return self._segment_number
         
-    @_property
     def length(self):
+        """ length of the axes (sum of their segments length) """
         if not hasattr(self,'_length'):
-            axlen = _np.vectorize(lambda slist: self._segment_list.length[slist].sum())
+            axlen = _np.vectorize(lambda slist: self._segment_list.length()[slist].sum())
             self._length = axlen(self.segment)
             self.temporary_attribute.add('_length')
         return self._length
-    @length.setter
-    def length(self, value):
-        self.clear_temporary_attribute('_length')
-        self._length = value
         
-    @_property
-    def first_segment(self):                    ## change this attrib name?
+    def set_length(self, length):
+        """ set the axes length (replace auto compute one) """
+        self.clear_temporary_attribute('_length')
+        self._length = _np.asarray(length)
+        
+    def arc_length(self):
+        """ 
+        Arc length of segments for each axe, as a dict of (segment_id,arc_length)
+        
+        To get the arc length along axe 'aid' as a list, ordered by segment, do:
+            `[t.arc_length[aid][sid] for sid in t.axe.segment[aid]]`
+        """
+        if not hasattr(self,'_arc_length'):
+            arclen = lambda slist: dict(zip(slist,_np.cumsum(self._segment_list.length()[slist])))
+            self._arc_length = _np.array(map(arclen,self.segment))
+            self.temporary_attribute.add('_arc_length')
+        return self._arc_length
+        
+    def position_on_parent(self):
+        """ Arc length of parent segment """
+        if not hasattr(self,'_pos_on_parent'):
+            arclen = self.arc_length()
+            pos = [0 if p==0 or sp==0 else arclen[p][sp] for p, sp in zip(self.parent,self.parent_segment)]
+            self._pos_on_parent = _np.array(pos)
+            self.temporary_attribute.add('_pos_on_parent')
+        return self._pos_on_parent
+        
+    def insertion_angle(self):
+        """ insertion angle axe """
+        if not hasattr(self,'_insertion_angle'):
+            dir_diff = self._segment_list.direction_difference()
+            insertion_angle = dir_diff[self.first_segment(),self.parent_segment]
+            self._insertion_angle = insertion_angle
+            self.temporary_attribute.add('_insertion_angle')
+        return self._insertion_angle
+    
+    def first_segment(self):
         """ first segment of axe """
         if not hasattr(self,'_segment1'):
             segment1 = _np.array([sl[0] if len(sl) else 0 for sl in self.segment])
             self._segment1 = segment1
             self.temporary_attribute.add('_segment1')
         return self._segment1
-    @_property
-    def sparent(self):                    ## change this attrib name?
-        """ compute axe parent segment from segment_list parent property 
-        DEPRECATED - should be remove
-        """
-        DeprecationWarning("AxeList.sparent property => should use 'parent_segment' attribute")
-        if not hasattr(self,'_parent_segment'):
-            sparent = self._segment_parent[self.first_segment]
-            self._parent_segment = sparent
-            self.temporary_attribute.add('_parent_segment')
-        return self._parent_segment
     
-    
-    @_property
     def order(self):
         """ axe topological order """
         if not hasattr(self,'_order'):
             raise NotImplementedError("order property")
         return self._order
         
-    @order.setter
-    def order(self, value):
-        self.clear_temporary_attribute('_order')
-        self._order = value
+    ##def set_order(self, order):
+    ##    self.clear_temporary_attribute('_order')
+    ##    self._order = _np.asarray(order)
+
+    def partial_order(self):
+        """ 
+        Return the axe ids in partial order
+          - children axes appears after their parent
+          - sibling axes are sorted by their position on parent 
+        """
+        if not hasattr(self,'_partial_order'):
+            priority = zip(self.order(),self.position_on_parent())
+            porder = sorted(range(len(priority)),key=priority.__getitem__)
+            self._partial_order = _np.array(porder)
+            self.temporary_attribute.add('_partial_order')
+        return self._partial_order
         
+    def segment_main_axe(self):
+        """ 
+        Return the "main" axe of all segments
         
-    @_property
-    def insertion_angle(self):
-        """ insertion angle axe """
-        if not hasattr(self,'_insertion_angle'):
-            insertion_angle = self._segment_list.direction_difference[self.first_segment,self.parent_segment]
-            self._insertion_angle = insertion_angle
-            self.temporary_attribute.add('_insertion_angle')
-        return self._insertion_angle
-    
+        The main axe of a segment is the first (w.r.t to axe partial_order) 
+        of the axe the segment is part of
+        """
+        if not hasattr(self,'_segment_axe'):
+            segment_axe = _np.zeros(self._segment_list.number(),dtype=int)
+            for axe in self.partial_order()[::-1]:
+                segment_axe[self.segment[axe]] = axe
+            self._segment_axe = segment_axe
+            self.temporary_attribute.add('_segment_axe')
+        return self._segment_axe
+        
     def get_node_list(self):
         """
         Return list of axes as a list of node
@@ -385,7 +403,7 @@ class AxeList(GraphList):
         
         axe_node = []
         invalid  = []
-        term_node = self._segment_list.node_list.terminal
+        term_node = self._segment_list.node_list.terminal()
         
         for i,seg_list in enumerate(self.segment):
             if len(seg_list)==0: 
@@ -459,4 +477,45 @@ def neighbor_array(node_segment, segment_node, seed=None, output='array'):
     else:
         return snbor
 
-
+def parent_segment(axes, segment_parent):
+    """
+    Return the parent segment of each axe in `axes`
+    
+    :Inputs:
+      - `axes`: list of **sorted** segment in each axes
+      - `segment_parent`: id of parent segment of all segments
+    
+    :Outputs:
+      - parent segment of all axes, as a numpy array
+    
+    """
+    p = [segment_parent[slist[0]] if len(slist) else 0 for slist in axes]
+    return _np.array(p)
+    
+def parent_axe(axes, parent_segment):
+    """ 
+    Find parent axes and segments of all axes based on parent segment
+    
+    :Inputs:
+      - `axes`: list of segment in each axes
+      - `parent_segment`: id of parent segment of all axes
+    
+    :Outputs:
+      - parent axe of all axes, as a numpy array
+    
+    :Note:
+        Each segment is associated to the first axe it appears in.
+        Thus, it works properly if each segment is part of only one axe. 
+        Otherwise, the order of `axes` has a strong influence.
+    """
+    # find axe of each segment 
+    segment_axe = {0:0}
+    for axe, slist in enumerate(axes[::-1]):
+        axe = len(axes)-axe-1
+        segment_axe.update((sid,axe) for sid in slist)
+  
+    # find parent axe
+    axe_parent = [segment_axe[pseg] for pseg in parent_segment]
+    return _np.array(axe_parent)
+    
+    

@@ -17,7 +17,7 @@ def total_root_length(p,prop, plant_num=1):
         L.setdefault(key, np.zeros(len(s.plgraph)))
         N.setdefault(key, np.zeros(len(s.plgraph)))
         for i,g in enumerate(s.plgraph):
-            L[key][i] += g.segment.length.sum()
+            L[key][i] += g.segment.length().sum()
             N[key][i] += 1
         s.plgraph.clear_buffer()
     
@@ -36,7 +36,7 @@ def primary_root_length(p,prop, plant_num=1):
         L.setdefault(key, np.zeros(len(s.plgraph)))
         N.setdefault(key, np.zeros(len(s.plgraph)))
         for i,t in enumerate(s.tree):
-            L[key][i] += t.axe.length[t.axe.order==1].sum()
+            L[key][i] += t.axe.length()[t.axe.order()==1].sum()
             N[key][i] += 1
         s.tree.clear_buffer()
     

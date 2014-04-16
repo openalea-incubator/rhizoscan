@@ -264,7 +264,9 @@ class NJ_loader(Mapping):
         """
         Construct a RootTree from this object
         """
-        from rhizoscan.root.graph import NodeList, SegmentList, AxeList, RootTree, RootGraph
+        from rhizoscan.root.graph.nsa import NodeList, SegmentList, AxeList 
+        from rhizoscan.root.graph.nsa import parent_segment, parent_axe
+        from rhizoscan.root.graph import RootGraph, RootTree
         
         def first_id(list_length):
             ids = np.cumsum(list_length)+1   # +1: dummy elements
@@ -309,7 +311,7 @@ class NJ_loader(Mapping):
           #   parent of dummy segment (0) is it-self
           #   parent of 1st seg of child axes = id of 1st seg of parent axe + "n"
         axe_1st_segment = first_id([slist.shape[0] for slist in ax_segments])
-        sparent = np.arange(-1,segment.number-1)
+        sparent = np.arange(-1,segment.number()-1)
         sparent[0] = 0
         for i,t in enumerate(self.tracing):
             c_1st_seg = axe_1st_segment[i]
@@ -321,6 +323,7 @@ class NJ_loader(Mapping):
                 sparent[c_1st_seg] = 0
         segment.add_property('parent',sparent)
         
+        node.set_segment(segment)
           
         # construct AxeList
         # -----------------
@@ -329,16 +332,23 @@ class NJ_loader(Mapping):
         axe_segment = [[]]+[range(s,s+n) for n,s in zip(ax_seg_num,ax_seg_start)]
         axe_order = np.array([0] + [t.order for t in self.tracing])
         axe_plant = np.array([0] + [t.plant for t in self.tracing])
-        axe = AxeList(axes=axe_segment,order=axe_order,plant=axe_plant, segment_list=segment)
-        axe.add_property('seg_1st',np.hstack(([0],axe_1st_segment)))
         
           # set 1st segment of each axe of order 1 as seed
-          ## this might not induce bugs: seed are usually not part of axe
-        seed = np.zeros(segment.number,dtype='uint8')
-        axe1 = axe.order==1
-        seed[axe.first_segment[axe1]] = np.arange(1,np.sum(axe1)+1).astype('uint8')
+          ## this might induce bugs: seed are usually not(?) part of axe
+        seed = np.zeros(segment.number(),dtype='uint8')
+        axe1 = [i+1 for i,t in enumerate(self.tracing) if t.order==1] ##axe_order==1 ##i+1: with bg axe
+        axe_1st_seg = np.array([slist[0] if len(slist) else 0 for slist in axe_segment],dtype=int)
+        seed[axe_1st_seg[axe1]] = np.arange(1,np.sum(axe1)+1).astype('uint8')
         segment.add_property('seed', seed)
-          
+
+          # create the AxeList object
+        seg_parent = parent_segment(axe_segment,segment.parent)
+        axe_parent = parent_axe(axe_segment,seg_parent)
+        axe = AxeList(axes=axe_segment,  segment_list=segment,
+                      parent=axe_parent, parent_segment=seg_parent,
+                      order=axe_order,   plant=axe_plant)
+        
+
         return RootTree(node=node, segment=segment, axe=axe)
         
     def plot(self,bg=None, scale=1):

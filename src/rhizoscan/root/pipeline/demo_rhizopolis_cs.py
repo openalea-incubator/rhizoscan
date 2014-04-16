@@ -281,8 +281,8 @@ def image_pipeline(image, plate_width=120, min_dimension=50, smooth=1, to_tree=2
         pl_graph = _line_graph(image_graph=im_graph, segment_skeleton=sskl)    
         
         # shift graph node position by cropped box left corner
-        pl_graph.node.x[:] += bbox[1].start
-        pl_graph.node.y[:] += bbox[0].start
+        pl_graph.node.x()[:] += bbox[1].start
+        pl_graph.node.y()[:] += bbox[0].start
         pl_graph.node.position[:,0] = 0
         
         pl_graph.dump(filename)

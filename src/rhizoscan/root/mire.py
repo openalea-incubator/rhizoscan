@@ -10,8 +10,8 @@ def mire_segment(p):    ### this function seems obsolete
     plt.clf()
     color = 'rgbycm'
     for i,rg in enumerate(p.rgraph):
-        sl = rg.segment.length
-        so = np.mod(rg.segment.direction + 2,np.pi) - 2
+        sl = rg.segment.length()
+        so = np.mod(rg.segment.direction() + 2,np.pi) - 2
         cl = nd.sum(sl,rg.segment.cluster,np.arange(19))
         co = nd.sum(sl*so,rg.segment.cluster,np.arange(19)) / cl
         

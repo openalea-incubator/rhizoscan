@@ -19,4 +19,13 @@ class RootModel(_PASModel):
         _PASModel.__init__(self, presenter=presenter, mtg=mtg, 
                                  position=position, radius=radius)
         
+        self._color_fct.append(('axe order',self.order_color))
+        self.next_color('axe order')
+
+        
+    def order_color(self, segment):
+        """ return the color associated to `segment` axe order """ 
+        axe = self.get_axe(segment)
+        return self.mtg.property('order').get(axe,0)
+        
 

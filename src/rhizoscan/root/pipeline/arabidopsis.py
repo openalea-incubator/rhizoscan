@@ -18,6 +18,7 @@ from . import _print_state, _print_error
 from rhizoscan.root.image import segment_root_image  as _segment_root
 from rhizoscan.root.image import remove_background   as _remove_background
 from rhizoscan.root.image.seed import detect_leaves  as _detect_leaves
+from rhizoscan.root.graph.mtg  import tree_to_mtg
 
 
 # image segmentation
@@ -78,16 +79,16 @@ def detect_leaves(rmask, image, bbox, plant_number=1, root_min_radius=3, leaf_he
 
 @_pipeline([load_image,    _node.copy(detect_petri_plate,name='detect_frame'), 
             segment_image, detect_leaves,
-            compute_graph, compute_tree])
+            compute_graph, compute_tree, tree_to_mtg])
 def pipeline(): pass
 
 @_pipeline([load_image,    _node.copy(detect_marked_plate,name='detect_frame'), 
             segment_image, detect_leaves,
-            compute_graph, compute_tree])
+            compute_graph, compute_tree, tree_to_mtg])
 def pipeline_marked_frame(): pass
 
 @_pipeline([load_image,    _node.copy(no_plate_to_detect,name='detect_frame'), 
             segment_image, detect_leaves,
-            compute_graph, compute_tree])
+            compute_graph, compute_tree, tree_to_mtg])
 def pipeline_no_frame(): pass
 

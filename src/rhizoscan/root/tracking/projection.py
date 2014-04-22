@@ -1,121 +1,44 @@
 """
-Module to track root archiecture sequences
+Module to project root trees onto root graphs
 
-Tracking steps:
- - node|segment(t+1) to axe(t) distance
-    - distance from node(t+1) to node(t): cdist
-    - distance from node(t+1) to root segment(t) - listed by axe
-    - distance from node(t+1) to root axes(t) - min d(n,s) per axes
-    - input: axialtree_t1, graph-t2
-    - output:  distance matrix, ???
- 
- - todo: match plant seeds
-    - distance from seeds centers
-    - match closest 1-to-1
-    
- - todo: init first axial tree
- 
- - todo: iterative shortest path to find all axes (lower order 1st)
-    - start at parent axe (init with leaves)
-    - distance sum should be (an approximation of) a suitable curve distance
-    - select "best path", max-cover/min-distance
-    
- - todo: root "growth":
-    - use (& arrange) the graph-2-axial method?
+The main function which implements this projection is `axe_projection`
+
+Main steps of the projection algorithm from tree `t` onto graph `g`:
+ - 1-to-1 match of t and g seeds 
+ - compute distance from g segments to t axes
+    * distance = (approx) area between segments and their projection on axes
+ - (construct sparse graph of g segments "neighbors")
+ - iteratively "project" t axe on g, following partial order of t axes:
+    * select potential start of axe: branch segments in g from parent axe/seed
+    * find best path in g 
+       - using shortest path on segment-to-axe distance
+       - select best path to mininimize (dist/path-length) & distance to axe tip
+       
+##TODO: filter projected axe to detect invalid ones (hopefully those are fakes)
+        see '##PB' in axe_projection
 """
 import numpy as _np
 from scipy import ndimage as _nd
 
-from rhizoscan.workflow import node  as _node
-from rhizoscan.image    import Image as _Image
-from rhizoscan.opencv   import descriptors as _descriptors
 from rhizoscan.geometry import transform   as _transform
 from rhizoscan.geometry.polygon import distance_to_segment as _distance_to_segment
 
-_NA_ = _np.newaxis
-
-
-def track_root(dseq, update=False, verbose=True, plot=False):
-    """
-    TESTING / IN DEV
-    
-    track root in dataset sequence `dseq`
-    
-    each item in `dseq` should have attributes graph,tree,key_point,descriptor
-    
-    use rhizoscan.opencv stuff to estimate affine transform between image
-    """
-    d0 = dseq[0].load()
-    d1 = dseq[1].load()
-    
-    # image tracking
-    if not update and d1.has_key('image_transform'):
-        T = d1.image_transform
-    else:
-        kp0   = d0.key_point
-        desc0 = d0.descriptor
-        kp1   = d1.key_point
-        desc1 = d1.descriptor
-        
-        T = _descriptors.affine_match(kp0,desc0, kp1,desc1, verbose=verbose)
-        d1.image_transform = T
-
-    t = d0.tree
-    g = d1.graph
-
-    # make a copy of g with transformed node position 
-    gnpos = _transform(T=T, coordinates=g.node.position)
-    g_input = g
-    g = g.copy()
-    g.node = g.node.copy()
-    g.node.position = gnpos
-
-    # compute g node to t segment distance
-    d,s,p = node_to_axe_distance(g.node.position, t)
-
-    if plot:
-        from matplotlib import pyplot as plt
-        g.plot(bg='k',sc=(g.segment.seed>0)+1)
-        t.plot(bg=None)
-        n = gnpos
-        I = _np.arange(p.shape[1])  # list of nodes index
-        k = _np.argmin(d,axis=1)    # best axe match for each node
-        plt.plot([n[0,:],p[0,I,k]],[n[1,:],p[1,I,k]], 'b')
-    
-    
-    # match seed
-    seed_match, unmatch_t, unmatch_g = match_seed(t,g)
-    
-    # get ids of first nodes of t 1st order axe 
-    
-    return t,g,seed_match
-    # match axe 0
-    # match axe i>0
-    
-def load_test_ds():
-    """ return tracking dataset for testing purpose """
-    from rhizoscan.root.pipeline.dataset import make_dataset
-    ds,inv,out = make_dataset('/Users/diener/root_data/nacry/AR570/pando/pando_rsa.ini')
-    ds = ds.group_by(['genotype.name','nitrate','plate'],key_base='metadata')[0]
-    ds[0].load()
-    ds[1].load()
-    return ds
-    
-def test_axe_proj(ds):
-    """ call axe_projection on dataset items in ds - for dev purpose - """
-    return axe_projection(ds[0].tree, ds[1].graph, ds[1].image_transform)#, interactive=True)
 
 def axe_projection(tree, graph, transform, interactive=False):
     """
-    *** IN DEVELOPEMENT ***
-    
     Find/project axes in `tree` onto `graph`
     
-    `tree` is a RootTree
-    `graph` is a RootGraph
-    `transform` is a affine transformation from `graph` frame into `tree` frame
+    :Inputs:
+      - `tree` 
+            a RootTree instance
+      - `graph`
+            a RootGraph instance
+      - `transform` 
+            3x3 affine transformation array of the geometric transformation 
+            from `graph` frame into `tree` frame
     
-    return a RootTree contructed from `graph` with added axe property
+    :Output:
+        a RootTree contructed from `graph` with added axe attribute
     """
     from scipy.sparse import csr_matrix
     from scipy.sparse.csgraph import dijkstra
@@ -131,11 +54,8 @@ def axe_projection(tree, graph, transform, interactive=False):
     axes_order   = {} # order of each of these axes
     unmatch = {}      # store unmatched content
     
-    # cost of matching graph segments on tree axes
-    # --------------------------------------------
-    #  cost is the (approximate) area between g.segments and t.axes
-    
-    # make a copy of g with node position transformed in t frame
+    # set graph into the same frame as tree
+    # -------------------------------------
     g = graph.copy()
     g.node = g.node.copy()
     g.node.position = _transform(T=transform, coordinates=graph.node.position)
@@ -144,6 +64,18 @@ def axe_projection(tree, graph, transform, interactive=False):
 
     t = tree
 
+    # match seed of graph and tree
+    # ----------------------------
+    seed_match, unmatch_t, unmatch_g = match_seed(g,t)
+    seed_match = dict(seed_match)
+    unmatch['t_seed'] = unmatch_t
+    unmatch['g_seed'] = unmatch_g
+    
+    
+    # cost of matching graph segments on tree axes
+    # --------------------------------------------
+    #  i.e. cost is the (approximate) area between g.segments and t.axes
+    
     # get the list of segment-to-segment connections
     g_sedges = neighbor_array(g.node.segment,g.segment.node,seed=g.segment.seed,output='list')
     g_sedges = [sedge[0].union(sedge[1]) for sedge in g_sedges]
@@ -151,7 +83,7 @@ def axe_projection(tree, graph, transform, interactive=False):
     # compute distances from node in g to segment in t
     d,s,p = node_to_axe_distance(g.node.position, t)
     g2t_area = segment_to_projection_area(g, p)        # shape (|gs|,|ta|)
-    
+    g2t_area += g2t_area[1:].min()/g.segment.number()  # assert strict >0
     
     # shortest path graph
     # -------------------
@@ -161,33 +93,18 @@ def axe_projection(tree, graph, transform, interactive=False):
     nbor = nbor.reshape(nbor.shape[0],-1)
     I,J  = nbor.nonzero()
     J    = nbor[I,J]
-    sp_graph = csr_matrix((_np.ones_like(I),(I,J)), shape=(g.segment.number(),)*2)
-    
-    
-    # list of tree axes in priority order
-    # -----------------------------------
-    #   topological order <=> axe sorted by order <=> subaxe are after their parent
-    axe_list = _np.argsort(t.axe.order()[1:])+1
-    ## todo sort by "branching" position, then length
-    
-    
-    # match seed of graph and tree
-    # ----------------------------
-    seed_match, unmatch_t, unmatch_g = match_seed(g,t)
-    seed_match = dict(seed_match)
-    unmatch['t_seed'] = unmatch_t
-    unmatch['g_seed'] = unmatch_g
-    
+    sp_graph = csr_matrix((_np.ones(I.size),(I,J)), shape=(g.segment.number(),)*2)
+
+
     # find axe tip node
     # -----------------
     anodes, inv = t.axe.get_node_list()
     tip = [nodes[-1] if len(nodes) else None for nodes in anodes]
 
 
-    # find/project all t axes into g
-    # ==============================
-    ##axe_list = axe_list[:5] ##DEBUG: order 1 only
-    for axe in axe_list:
+    # project all axes of t onto g
+    # ============================
+    for axe in t.axe.partial_order():
         # find possible graph segment to start the projected axe
         # ------------------------------------------------------
         p_axe = t.axe.parent[axe]
@@ -198,49 +115,54 @@ def axe_projection(tree, graph, transform, interactive=False):
         else:
             starts,start_parent = branch_segment(g_sedges, graph_axes[p_axe])
             plant_id = axes_plant[p_axe]
+            ##PB: start can be taken in the wrong direction 
+            ##    this has been seen when real start did not exist, so the 
+            ##    closest one was used. The selected path then went back(ward)
+            ##    along the parent axe toward the position of axe in t.
         
         # compute shortestpath
         # --------------------
-            # shortest path with multiple possible starts
-        sp_graph.data[:] = g2t_area[J,axe]
+        # shortest path with multiple possible starts
+        sp_graph.data[:] = g2t_area[sp_graph.indices,axe]   # sp_g.indices=destination (?)
         path_cost, predecessor = dijkstra(sp_graph, indices=starts, return_predecessors=True)
         
-            # keep only "best" parent (with lowest cost) for each segment
-            #   referenced below as 'spt' for shortest path tree
+        # for each segment, keep only best parent (ie. with lowest cost)
+        #   referenced below as 'spt' for shortest path tree
         path_start = path_cost.argmin(axis=0)       # (lowest cost) path start
         ind    = _np.arange(path_cost.shape[1])
         parent = predecessor[path_start,ind]        # segment parent on spt
         cost   = path_cost[path_start,ind]          # path cost on spt 
         mask = _np.isinf(cost)==False               # reachable segments
         
-            # start parent are set to vertex 0 => unique start to all path
+        # start parent are set to vertex 0 => unique start to all path
         parent[(parent<0)&mask]=0
         has_parent = parent>=0
         
-            # construct the length graph on spt
-        i = has_parent.nonzero()[0]                     # node with parent
+        # construct the graph of the path length (based on spt)
+        i = has_parent.nonzero()[0]                     # node with parent in spt
         j = parent[has_parent]                          # their parent
         len_graph = csr_matrix((g.segment.length()[i],(j,i)), shape=(g.segment.number(),)*2)
-        ##order = depth_first_order(spt,0,True,False)     # partial order
         
         # select "best" path
         # ------------------
-            # compute path length (by segments)
+        #   Best path is the path that:
+        #    - has the lowest "distance to tree axe" / length ratio
+        #    - finish closest to the tree axe tip
+        
+        # "distance to tree axe" cost is "normalized" by path length, i.e.: 
+        #     path-to-tree-axe-area/path-length
         plength = dijkstra(len_graph, indices=0,directed=False)
+        cost[parent>0] /= plength[parent>0]       
         
-            # compute cost to minimize as path-cost/path-length
-        dcost = cost.copy()
-        dcost[parent>0] /= plength[parent>0]       
-        
-            # compute distance to axe tip
+        # compute distance to axe tip
         tip_pos = t.node.position[:,tip[axe]]
         snode = g.node.position[:,g.segment.node]
         dtip  = (((tip_pos[:,None,None]-snode)**2).sum(axis=0)).mean(axis=1)
 
-            # find best tip
-        best_tip = (dcost**2+dtip**2).argmin() ##+(plength-t.axe.length()[axe])**2).argmin()
+        # select best tip
+        best_tip = (cost**2+dtip**2).argmin()
         
-            # construct path to best_tip      
+        # construct path to best_tip      
         cur_node = best_tip
         cur_parent = parent[cur_node]
         path  = [cur_node]
@@ -266,7 +188,7 @@ def axe_projection(tree, graph, transform, interactive=False):
             plt.subplot2grid((1,3),(0,2))
             plt.cla()
             x = dtip**.5#plength
-            y = dcost
+            y = cost
             p = parent
             plt.plot(x, y ,'.')
             plt.plot([x[p>0],x[p[p>0]]],[y[p>0],y[p[p>0]]],'b')
@@ -283,8 +205,9 @@ def axe_projection(tree, graph, transform, interactive=False):
         axes_sparent[axe] = start_parent[path_start[best_tip]]
         axes_order[axe]  = t.axe.order()[axe]
         
-    # contruction tree
-    # ================
+        
+    # contruct tree
+    # =============
     # convert axe property from dict to list
     def to_list(axe_dict, default):
         for aid in range(max(axe_dict.keys())):
@@ -295,12 +218,13 @@ def axe_projection(tree, graph, transform, interactive=False):
     axes_plant   = _np.array(to_list(axes_plant  , 0))
     axes_sparent = _np.array(to_list(axes_sparent, 0))
     axes_order   = _np.array(to_list(axes_order  , 0))
+    axes_parent  = t.axe.parent
 
 
     # create axe then tree structure
     graph_axe = AxeList(axes=graph_axes, segment_list=graph.segment,
                         order=axes_order, plant=axes_plant, 
-                        parent_segment=axes_sparent)
+                        parent=axes_parent, parent_segment=axes_sparent)
     
     tree = RootTree(node=graph.node, segment=graph.segment, axe=graph_axe)
     
@@ -365,7 +289,6 @@ def match_seed(g1,g2):
     
     match,unmatch1,unmatch2 = direct_matching(d)
     
-    ## todo: map (un)match ids from [0,n1/2-1] to pid1/2
     match = [(pid1[s1],pid2[s2]) for s1,s2 in match]
     unmatch1 = [pid1[s1] for s1 in unmatch1]
     unmatch2 = [pid2[s2] for s2 in unmatch2]
@@ -476,7 +399,7 @@ def node_to_axe_distance(nodes,tree):
 
 def segment_to_projection_area(graph, node_projection):
     """
-    Approximate the area between `graph` segment to their projection
+    (Approximate) area between `graph` segment to their projection
     
     The return value is the area between the `graph` segments and the segment
     constructed from both their `node_projection`
@@ -501,6 +424,8 @@ def segment_to_projection_area(graph, node_projection):
       The area of `graph` segment to their projection, as an array of shape
       (|gs|,|a|), where |gs| is the number of segments and |a| of projections
     """
+    NEW_DIM = _np.newaxis
+
     # For detail on the algorithm, see rhizoscan-technical.pdf, section:
     #  "Computing distance from RootGraph to RootTree
     
@@ -524,7 +449,7 @@ def segment_to_projection_area(graph, node_projection):
     #     np2: vector from n2 to its projection (p2)
     #     dp:  vector from p1 to p2
     dn  = _np.diff(n,axis=-1)[...,0]    # shape (k,|gs|)
-    np  = p-n[:,:,:,_NA_]               # shape (k,|gs|,n12,|a|)
+    np  = p-n[:,:,:,NEW_DIM]               # shape (k,|gs|,n12,|a|)
     np1 = np[:,:,0]                     # shape (k,|gs|,|a|)
     np2 = np[:,:,1]                     # shape (k,|gs|,|a|)
     dp  = _np.diff(p,axis=2)[:,:,0]     # shape (k,|gs|,|a|)
@@ -532,7 +457,7 @@ def segment_to_projection_area(graph, node_projection):
     
     # process the "normal case": convex and concave in n2
     #    compute (|dn x np1| + |-dp x np2|)/2
-    area = (cross(dn[:,:,_NA_],np1)+cross(-dp,np2))/2
+    area = (cross(dn[:,:,NEW_DIM],np1)+cross(-dp,np2))/2
     
     ## todo: crossed quad case
     #    find crossing that split dn in dn1 and dn2, and dp in dp1, and dp2

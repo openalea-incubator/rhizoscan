@@ -171,7 +171,7 @@ class SegmentList(GraphList):
         # reverse edge direction
         node = self.node.copy()
         node[direction] = node[direction][...,::-1]
-        nbor = neighbor_array(self.node_list.segment, node, self.seed)
+        nbor = neighbor_array(self.node_list.segment, node, self.get('seed',None))
             
         # remove edges that are invalid for a directed graph
         # 
@@ -369,12 +369,13 @@ class AxeList(GraphList):
         """ 
         Return the axe ids in partial order
           - children axes appears after their parent
-          - sibling axes are sorted by their position on parent 
+          - sibling axes are sorted by their position on parent
+          - dummy axe (0) is not contained in partial order
         """
         if not hasattr(self,'_partial_order'):
             priority = zip(self.order(),self.position_on_parent())
             porder = sorted(range(len(priority)),key=priority.__getitem__)
-            self._partial_order = _np.array(porder)
+            self._partial_order = _np.array(porder)[1:]
             self.temporary_attribute.add('_partial_order')
         return self._partial_order
         

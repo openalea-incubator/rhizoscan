@@ -33,7 +33,7 @@ def test_constructors():
         
     assert a.order().max()==2, 'incorrect axe max order'
     assert (a.position_on_parent()==[0,0,1,2]).all()
-    assert (a.partial_order()==[0,1,2,3]).all()
+    assert (a.partial_order()==[1,2,3]).all()
         
     g = RootGraph(node=n,segment=s)
     t = RootTree(node=n,segment=s, axe=a)

@@ -37,6 +37,18 @@ from .graph import RootTree as _RootTree
 
 # robust graph: virtually remove/add "little" segments
 # ----------------------------------------------------
+##todo:
+## - robust RootGraph, where 
+##     * segments are added between close enough nodes
+##     * too little segment are merge/removed
+## - make a "robust" SegmentList subclass with
+##     * .node are ids of "node group", i.e. min(nid) for nid in all merge node group
+##     * .base_node are the id of real node
+##     * .direction is still computed from base_node
+##     * what about length?
+## - reconstruction of general RT from AxeList made using "robust" SegmentList
+##     * generate new 'smooth curve' (node/segments) between clustered nodes?
+##
 def make_robust_graph(node,segment, merge_distance):
     """
     IN DEV
@@ -431,7 +443,7 @@ def make_root_tree(graph, axe_selection=[('length',1),('min_tip_length',10)], ve
     #                                   parent=parent, segment_length=length, 
     #                                   node_order=node_order)
     m = len(path)
-    pLength = _np.vectorize(lambda slist:graph.segment.length()[slist].sum())(path)
+    pLength = _np.vectorize(lambda slist:length[slist].sum())(path)
     
     path,spath,n,tmp = merge_tree_path(incomming=e_in, out_going=e_out, top_order=top_order, 
                                    path_elt=path, elt_path=spath, priority=pLength,

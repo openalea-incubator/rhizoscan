@@ -61,7 +61,7 @@ class SeedMapEditor(list):
     def _get_new_seed_id(self):
         """ find first unused seed id, add it to used list and return it """
         slist = sorted(self.cur_seed)
-        free_id = [j for i,j in zip(slist,range(1,len(slist)+1)) if i<>j]
+        free_id = [j for i,j in zip(slist,range(1,len(slist)+1)) if i!=j]
         if len(free_id):
             new_id = free_id[0]
         elif len(slist):
@@ -211,12 +211,12 @@ class SeedMapBlocking(_BlockInput):
         key = event.key
         if key in ['escape', 'enter']:
             self.stop(event)
-        elif key=='ctrl+z' and self.mode<>'wait':
+        elif key=='ctrl+z' and self.mode!='wait':
             self.editor.pop()
             self.editor.update_seed_id_list()
             self.update_display()
         elif key=='p':
-            if self.mode<>'pause':
+            if self.mode!='pause':
                 print "edition is off"
                 self._paused_mode = self.mode
                 self.mode = 'pause'

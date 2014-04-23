@@ -497,7 +497,7 @@ def OLD_dag_covering_path(dag_edge, cost, source):
             if p2c[p]==-1 and c2p[c]==-1:
                 p2c[p] = c
                 c2p[c] = p
-        direct = [(parent[p],children[c]) for p,c in enumerate(p2c) if c<>-1]
+        direct = [(parent[p],children[c]) for p,c in enumerate(p2c) if c!=-1]
             
         # find match for remaining children, if any
         branch = []

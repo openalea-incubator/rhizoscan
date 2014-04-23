@@ -54,7 +54,7 @@ def last_header_diff(dataset_name,word_group, rm=False):
     print 'Find last file with diff header in %d result file list' % word_num
     for i in xrange(word_num-2,-1,-1):
         h0 = _read_header(word_files[i])
-        if h0<>h1: break
+        if h0!=h1: break
         h1 = h0
         
     if rm:

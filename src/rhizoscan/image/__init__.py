@@ -296,7 +296,7 @@ class Image(_np.ndarray, _Data):
     def __repr__(self):
         desc = _np.ndarray.__repr__(self).replace('\n', '\n' + ' '*6)
         for k,v in self.__dict__.iteritems():
-            if k[0]<>'_':
+            if k[0]!='_':
                 v = repr(v)
                 if k=='info' and len(v)>10: v = v[:6] + '...' 
                 desc += ', ' + k + '=' + v
@@ -818,7 +818,7 @@ def imconvert(image, color=None, dtype=None, scale='dtype', from_color=None, ove
                     factor = 1  # no scaling
                 else:
                     factor = dtype_max(dtype) / (imax-imin) 
-                    if imin<>0:
+                    if imin!=0:
                         image = image-imin
             elif scale=='dtype':
                 factor = dtype_max(dtype) / dtype_max(from_dtype)
@@ -867,7 +867,7 @@ def imconvert(image, color=None, dtype=None, scale='dtype', from_color=None, ove
              
             # convert factor type accordingly
             #   and check if scaling cannot be done without conversion
-            if factor<>1:
+            if factor!=1:
                 factor_dt = _np.array(factor,dtype=image.dtype if before else dtype)
                 if factor==factor_dt: 
                     factor = factor_dt
@@ -882,12 +882,12 @@ def imconvert(image, color=None, dtype=None, scale='dtype', from_color=None, ove
                 else:         img = (image*factor).astype(dtype)
             else:
                 img = _np.asanyarray(image,dtype=dtype)
-                if factor<>1: img = img*factor
+                if factor!=1: img = img*factor
             #img = image
             
             # apply clipping, if necessary
             # ----------------------------
-            if overflow<>'allowed' and scale!='normalize' and odt in ('u','i') and (scale!='dtype' or idt!='b'):
+            if overflow!='allowed' and scale!='normalize' and odt in ('u','i') and (scale!='dtype' or idt!='b'):
                 omin = _np.iinfo(dtype).min
                 omax = _np.iinfo(dtype).max
 

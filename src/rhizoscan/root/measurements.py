@@ -141,7 +141,7 @@ def axe2_number(tree, mask=None):
     if mask is not None: 
         ax_mask &= mask(tree)
     pl_id  = np.unique(tree.segment.seed)#.plant[ax_mask])
-    pl_id  = pl_id[pl_id<>0]
+    pl_id  = pl_id[pl_id!=0]
     number = np.bincount(tree.axe.plant[ax_mask], tree.axe.order()[ax_mask]==2,minlength=pl_id.max()+1)
     return dict([(i,n) for i,n in enumerate(number) if i in pl_id])
 

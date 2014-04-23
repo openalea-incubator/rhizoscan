@@ -63,7 +63,7 @@ def _close_pairs(X,max_d):
     IJ  = _np.sort(_np.vstack((I,J)), axis=0)
 
     # remove diagonal element
-    IJ  = IJ[:,_np.diff(IJ,axis=0).ravel()<>0]
+    IJ  = IJ[:,_np.diff(IJ,axis=0).ravel()!=0]
 
     # remove duplicate
     dt = _np.dtype([('i',int),('j',int)])

@@ -419,7 +419,7 @@ class AxeList(GraphList):
             if seg_node.shape[0]==1:
                 snode0   = set(seg_node[0])
                 nparent  = snode0.intersection(spnode)
-                if len(nparent)<>1:
+                if len(nparent)!=1:
                     invalid.append(i)
                     seg_node = seg_node.ravel()
                     axe_node.append(seg_node[term_node[seg_node].argsort()])

@@ -334,7 +334,7 @@ def mask_hull(mask):
     """ find and return binary `mask` image hull, i.e. a list of pixels position """
     from scipy import spatial, sparse
     # find border pixels
-    px = _np.transpose((mask<>_nd.uniform_filter(mask,size=(3,3))).nonzero())
+    px = _np.transpose((mask!=_nd.uniform_filter(mask,size=(3,3))).nonzero())
     
     # compute hull (sort indices using csgraph stuff)
     hull = spatial.Delaunay(px).convex_hull

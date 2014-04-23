@@ -1,10 +1,4 @@
 import numpy as _np
-import scipy as _sp
-from scipy import ndimage as _nd
-
-from rhizoscan.datastructure import Mapping as _Mapping
-from rhizoscan.ndarray       import reshape as _reshape
-from rhizoscan.tool          import _property    
 
 
 def segment_digraph(segment, cost, callback=None):
@@ -330,7 +324,6 @@ def topsort_node(incomming, out_going, source=None):
     return order
 
 def minimum_dag_branching(incomming, cost, invalid=0):
-    
     """
     Compute the minimum branching on the given DAG
     

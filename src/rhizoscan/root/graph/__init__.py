@@ -1,3 +1,14 @@
+"""
+Package that implement graph representation used in RhizoScan
+
+The central representation are `RootGraph` and `RootTree` which are mostly 
+storing a `NodeList`, a `SegmentList` and (for RootTree) an AxeList objects.
+
+See submodule `nsa` for the Node/Segment/Axe-List class definition
+
+See also the `conversion` module for other graph representation.
+"""
+
 import numpy                        as _np
 from   scipy   import ndimage       as _nd
 
@@ -6,14 +17,12 @@ from rhizoscan.ndarray import reshape       as _reshape
 from rhizoscan.image.measurements   import color_label as _color_label
 from rhizoscan.datastructure        import Mapping as _Mapping
 
-from rhizoscan.tool import _property
-from rhizoscan.workflow import node as _node # to declare workflow nodes
-
 """
-TODO?
-  - Node/Segment/AxeList: (required) set_node/segment/axe_list setter?
-  - RootGraph/Tree making sure node.segment, segment.node, axe.segment, 
-                    segment.axe link correctly
+TODO:
+  - N/S/A List: required used of set_node/segment_list?
+  - RootGraph/Tree constructor (re)set node.segment, segment.node, axe.segment?
+  
+  - make some workflow nodes for RG/RT constructor and plot?
 """
 
 from rhizoscan.root.graph.nsa import NodeList, SegmentList, AxeList
@@ -21,11 +30,10 @@ from rhizoscan.root.graph.nsa import NodeList, SegmentList, AxeList
 
 class RootGraph(_Mapping):
     """
-    A graph representation of roots system
+    A graph representation of roots system 
     
-    Basically a pair of NodeList and SegmentList
-
-    ***** in development *****
+    It basically stores a pair of NodeList and SegmentList in `node` and 
+    `segment` attributes. It also provide a `plot` method.
     """
     def __init__(self, node=None,segment=None):
         if node    is not None: self.node    = node

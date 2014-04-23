@@ -4,9 +4,10 @@ used by RootGraph
 """
 import numpy as _np
 
-from rhizoscan.tool import _property    
+from rhizoscan.tool import _property
 from rhizoscan.datastructure import Mapping as _Mapping
 
+from rhizoscan.root.graph.conversion import segment_to_neighbor as _seg2nbor
 
 class GraphList(_Mapping):
     ## del dynamic property when saved (etc...) / no direct access (get_prop)?
@@ -23,7 +24,23 @@ class GraphList(_Mapping):
         self.properties()# assert existence
         self._property_names.add(name)
         self[name] = value
-
+   
+##TODO: test & use the below decorator for method with buffered outputs
+def buffered(method):
+    """ decorator to stores outputs of `method` in temporal_attribute """
+    tmp_name = '_'+func.__name__
+    
+    def buffered_method(self):
+        if not hasattr(self,tmp_name):
+            setattr(self,tmp_name, func(self))
+            self.temporary_attribute.add(tmp_name)
+        return getattr(self,tmp_name)
+        
+    tmp_func.__name__ = func.__name__
+    tmp_func.__doc__ = func.__doc__
+    
+    return tmp_func
+    
 class NodeList(GraphList):
     def __init__(self,position=None, x=None, y=None):
         """
@@ -68,7 +85,6 @@ class NodeList(GraphList):
         return self._terminal
     
 class SegmentList(GraphList):
-    ##TODO Segmentlist: add a (private) link to node, and lake length, etc... class properties 
     def __init__(self, node_id, node_list):
         """
         Create a SegmentList from an Nx2 array of nodes pairs
@@ -105,10 +121,6 @@ class SegmentList(GraphList):
             self._direction = _np.arctan2(dsy,dsx)
             self.temporary_attribute.add('_direction')
         return self._direction
-    ##@direction.setter
-    ##def direction(self, value):
-    ##    self.clear_temporary_attribute('_direction')
-    ##    self._direction = value
         
     def terminal(self):
         """ Bool array indicating which segments are terminal """
@@ -116,9 +128,6 @@ class SegmentList(GraphList):
             self._terminal = _np.any(self.node_list.terminal()[self.node],axis=1)
             self.temporary_attribute.add('_terminal')
         return self._terminal
-    ##def set_terminal(self, value):
-    ##    self._terminal = value
-    ##    self.clear_temporary_attribute('_terminal')
        
     def direction_difference(self):
         """ 
@@ -141,22 +150,20 @@ class SegmentList(GraphList):
         
     def neighbors(self):
         """ 
-        Edges array of neighboring segments (constructed with `neighbor_array`)
+        Returns the `neighbor` segment graph for this SegmentList
+        
+        See the `rhizoscan.root.graph.conversion` module and its 
+        `segment_to_neighbor` function for details.
         
         If this SegmentList contains a `seed` attribute, connection between
         seed segments are not taken into account
         """
         if not hasattr(self,'_neighbors'):
-            nbor = neighbor_array(self.node_list.segment, self.node, self.get('seed',None))
+            nbor = _seg2nbor(self.node, self.node_list.segment, self.get('seed',None))
             self._neighbors = nbor
             self.temporary_attribute.add('_neighbors')
         return self._neighbors
-    ##@neighbors.setter
-    ##def neighbors(self, value):
-    ##    self.clear_temporary_attribute('_neighbors')
-    ##    if value is not None:
-    ##        self._neighbors = value
-    
+        
     def digraph(self, direction):
         """
         Create the digraph induced by `direction`
@@ -171,7 +178,7 @@ class SegmentList(GraphList):
         # reverse edge direction
         node = self.node.copy()
         node[direction] = node[direction][...,::-1]
-        nbor = neighbor_array(self.node_list.segment, node, self.get('seed',None))
+        nbor = _seg2nbor(node, self.node_list.segment, self.get('seed',None))
             
         # remove edges that are invalid for a directed graph
         # 
@@ -360,10 +367,6 @@ class AxeList(GraphList):
         if not hasattr(self,'_order'):
             raise NotImplementedError("order property")
         return self._order
-        
-    ##def set_order(self, order):
-    ##    self.clear_temporary_attribute('_order')
-    ##    self._order = _np.asarray(order)
 
     def partial_order(self):
         """ 
@@ -430,53 +433,6 @@ class AxeList(GraphList):
                 
         return axe_node,invalid
 
-def neighbor_array(node_segment, segment_node, seed=None, output='array'):
-    """
-    Create an edges array of neighboring segments
-    
-    :Inputs:
-      - node_segment:
-          An array of lists of all segment connected to each node
-      - segment_node:
-          An array of the nodes pairs connected to each segment
-      - seed: optional
-          If given, it should be a mask that flags 'seed' segments. Nodes that 
-          connect only such seed segments are not use for connection.
-      - output:
-          Either 'array' or 'list'. See `Output` section for details
-    
-    :Output:
-        If `output` is 'list', return a list of a pair of sets: 
-        for each "parent" segment, it contains a pair (tuple) of the set of 
-        connected "children" segments, one for each side the "parent".
-        
-        If `output` is 'array', return an array of shape (S,N,2) with S the
-        number of ("parent") segments, N the maximum number for "children" 
-        neighbors per "parent" segment and 2 for the 2 "parent" sides. 
-        Each neighbors[i,:,k] contains the list of the neighboring segments ids 
-        on side `k` of segment `i`.
-        In order to fill the array, the missing neighbors are set to 0.
-    """
-    ns   = node_segment.copy()
-    if seed is not None:
-        invalid_nodes = _np.vectorize(lambda nslist: (seed[nslist]>0).all())(node_segment)
-        ns[invalid_nodes] = set()
-    ns[0] = set()
-    
-    # construct nb1 & nb2 the neighbor array of all segments in direction 1 & 2
-    nsbor = _np.vectorize(set)(ns)
-    snbor = [(s1.difference([i]),s2.difference([i])) for i,(s1,s2) in enumerate(nsbor[segment_node])]
-
-    if output=='array':
-        edge_max = max(map(lambda edg:max(len(edg[0]),len(edg[1])),snbor))
-        edge = _np.zeros((len(snbor),edge_max,2), dtype='uint32')
-        for i,(nb1,nb2) in enumerate(snbor):
-            edge[i,:len(nb1),0] = list(nb1)
-            edge[i,:len(nb2),1] = list(nb2)
-        return edge
-        
-    else:
-        return snbor
 
 def parent_segment(axes, segment_parent):
     """

@@ -106,8 +106,14 @@ class RootEditorWidget(_TreeEditorWidget):
         if item.has_key('mtg'):
             self.tree_viewer.set_model(item.mtg)
             self.set_edited_presenter('tree_viewer')
-        else:
+        elif item.has_key('tree'):            ##to check
+            from rhizoscan.root.graph.mtg import tree_to_mtg
             self.show_message("dataset item has not 'mtg' attribute")
+            mtg = tree_to_mtg(item.tree)
+            self.tree_viewer.set_model(mtg)
+            self.set_edited_presenter('tree_viewer')
+        else:
+            self.show_message("dataset item has not 'mtg' not 'tree' attribute")
 
     def import_image(self, filename):
         raise NotImplementedError("")

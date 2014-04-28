@@ -18,7 +18,7 @@ from rhizoscan.image.measurements   import color_label as _color_label
 from rhizoscan.datastructure        import Mapping as _Mapping
 
 """
-TODO:
+TODO:                                                        
   - N/S/A List: required used of set_node/segment_list?
   - RootGraph/Tree constructor (re)set node.segment, segment.node, axe.segment?
   
@@ -176,17 +176,18 @@ class RootTree(RootGraph):
             else:
                 color = ac
 
-        # get nodes, transformed if necessary
         nxy = self.node.position
         if transform is not None:
-            nxy = _geo.normalize(_geo.dot(transform,_geo.homogeneous(nxy[::-1])))[1::-1]
+            nxy = _geo.normalize(_geo.dot(transform,_geo.homogeneous(nxy)))[:-1]
         nxy = nxy.T
         
         # make LineCollection
         axe_node = self.axe.get_node_list()[0]
         
-        shift  = _np.arange(len(axe_node)) % (2*max_shift+1) - max_shift
-        line = [nxy[node_list]+[[sh,sh]] for node_list,sh in zip(axe_node,shift)]
+        ms = max_shift
+        shiftx  = _np.arange(len(axe_node))    % (2*ms+1) - ms
+        shifty  = _np.arange(len(axe_node))/ms % (2*ms+1) - ms
+        line = [nxy[node_list]+[[sx,sy]] for node_list,sx,sy in zip(axe_node,shiftx,shifty)]
         lcol = mcol.LineCollection(line, color=color, **kargs)
         
         # compute bounding box

@@ -234,7 +234,7 @@ def topsort(incomming, out_going, source=None, fifo=True):
         If given `source` does not allow to reach all elements, then the 
         unreachable one are not included in the returned list.
     
-    (*) A. B. Kahn. 1962. Topological sorting of large networks. Commun. ACM 5
+    (*) A. B. Kahn. 1962. Topological sorting of large networks. Com. ACM 5
     """
     from collections import deque
     
@@ -652,7 +652,7 @@ def set_downward_segment(graph):
     """
     upward = _np.diff(graph.node.y()[graph.segment.node],axis=1).ravel()<0
     graph.segment.node[upward] = graph.segment.node[upward][:,::-1]
-    graph.segment._neighbors = None # clear precomputed neighbor array
+    graph.segment.clear_temporary_attribute() # clear precomputed neighbor and possible dependences
     
     return graph
 

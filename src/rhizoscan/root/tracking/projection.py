@@ -44,7 +44,7 @@ def axe_projection(tree, graph, transform, interactive=False):
     from scipy.sparse.csgraph import dijkstra
     from scipy.sparse.csgraph import depth_first_order
     
-    from rhizoscan.root.graph.nsa import neighbor_array
+    from rhizoscan.root.graph.conversion import segment_to_los as _seg2los
     from rhizoscan.root.graph.nsa import AxeList
     from rhizoscan.root.graph     import RootTree
 
@@ -77,7 +77,7 @@ def axe_projection(tree, graph, transform, interactive=False):
     #  i.e. cost is the (approximate) area between g.segments and t.axes
     
     # get the list of segment-to-segment connections
-    g_sedges = neighbor_array(g.node.segment,g.segment.node,seed=g.segment.seed,output='list')
+    g_sedges = _seg2los(g.segment.node,g.node.segment,mask=g.segment.seed)
     g_sedges = [sedge[0].union(sedge[1]) for sedge in g_sedges]
 
     # compute distances from node in g to segment in t
@@ -108,13 +108,17 @@ def axe_projection(tree, graph, transform, interactive=False):
         # find possible graph segment to start the projected axe
         # ------------------------------------------------------
         p_axe = t.axe.parent[axe]
-        if p_axe==0: # parent is a seed
-            plant_id = t.axe.plant[axe]
-            starts = (g.segment.seed==plant_id).nonzero()[0]
-            start_parent = [0]*len(starts)
-        else:
-            starts,start_parent = branch_segment(g_sedges, graph_axes[p_axe])
-            plant_id = axes_plant[p_axe]
+        
+        # always all to start from seed
+        plant_id = t.axe.plant[axe]
+        starts = (g.segment.seed==plant_id).nonzero()[0]
+        start_parent = [0]*len(starts)
+        
+        if p_axe>0: # parent is not a seed
+            ##plant_id = axes_plant[p_axe]
+            starts_2,start_parent_2 = branch_segment(g_sedges, graph_axes[p_axe])
+            starts = _np.hstack((starts,starts_2))
+            start_parent = _np.hstack((start_parent,start_parent_2))
             ##PB: start can be taken in the wrong direction 
             ##    this has been seen when real start did not exist, so the 
             ##    closest one was used. The selected path then went back(ward)

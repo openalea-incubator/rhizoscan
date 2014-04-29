@@ -40,28 +40,71 @@ def tree_to_mtg(tree):
     #   parse axe (adding nodes) in min-order, then max-length order
     #   1st time a node is parsed, its current axe is set as its main
     #   hypothesis: 1st axe node (branching node) "main axe" is the parent axe
-    g = _MTG()
+    g = root_mtg()
     
     mtg_pid = {}  # plant id in mtg - keys are tree plant id  
-    mtg_nid = {}  # node  id in mtg - keys are tree nodes id -> set the 1st processed
+    mtg_aid = {}  # axe   id in mtg - keys are tree axe   id  
+    mtg_nid = {}  # node  id in mtg - keys are tree nodes id -> set the 1st processed##
     
     
     # add plant
     # ---------
     for pid in seed_id:
-        properties = dict(plant=pid)
+        mtg_id = add_plant(g, plant_id=pid)
+        ##properties = dict(plant=pid)
+        ### add the plant: scale 1
+        ##g.add_component(g.root, plant=pid, label='P%d'%pid)
+        mtg_pid[pid] = mtg_id
         
-        # add the plant: scale 1
-        mtg_id = g.add_component(g.root, plant=pid, label='P%d'%pid)
-        ##mtg_pid[pid] = mtg_id
+        ### add an axe (scale 2) 
+        ##v = g.add_component(mtg_id, label='G', order=0)
+        ##
+        ### add a node in its center (scale 3)
+        ##n = g.add_component(v, position=seed_pos[pid], label='g', **properties)
+        ##mtg_pid[pid] = n
         
-        # add an axe (scale 2) 
-        v = g.add_component(mtg_id, label='G', order=0)
-        
-        # add a node in its center (scale 3)
-        n = g.add_component(v, position=seed_pos[pid], label='g', **properties)
-        mtg_pid[pid] = n
-        
+    # for all axes (in their partial order),
+    #   - add the axe to mtg
+    #   - add the axe list of segments
+    axes_order = tree.axe.order()
+    axes_nodes = tree.axe.get_node_list()[0]
+    tree_pos = tree.node.position
+    for axe_id in tree.axe.partial_order():
+        # add the axe
+        ##parent_seg = tree.axe.parent_segment[axe_id]
+        parent_axe = tree.axe.parent[axe_id]
+        axe_order  = axes_order[axe_id]
+        if parent_axe==0:
+            mtg_plant = mtg_pid[tree.axe.plant[axe_id]]
+            mtg_axe = add_axe(g, plant=mtg_plant, order=axe_order)
+            mtg_aid[axe_id] = mtg_axe
+        else:
+            mtg_axe = add_axe(g, parent=mtg_aid[parent_axe], order=axe_order)
+            mtg_aid[axe_id] = mtg_axe
+            
+        # add the segments
+        axe_nodes = axes_nodes[axe_id]
+        node_0 = axe_nodes[0]
+        if parent_axe==0:
+            # add 1st axe segment
+            pos = tuple(tree_pos[:,node_0])+(0,)
+            vid = add_segment(g, axe=mtg_axe, position=pos)
+            mtg_nid[(axe_id,node_0)] = vid
+            mtg_axe = None # next node is a successor
+        else:
+            # id of mtg parent vertex
+            vid = mtg_nid[(parent_axe,node_0)]
+            
+        # add all successor descendants
+        seg_nid = axe_nodes[1:]
+        seg_pos = tree_pos[:,seg_nid]
+        for nid,(x,y) in zip(seg_nid, seg_pos.T):
+            vid = add_segment(g, parent=vid, axe=mtg_axe, position=(x,y,0)) 
+            mtg_nid[(axe_id,nid)] = vid
+            mtg_axe = None # next node is a successor
+            
+    return g
+    
     # To select the parent axe: 
     #   - axe parsing follows axe asc. order, then length desc. order
     #   - the 1st time a node is added, the current axe is set as its 'main' 
@@ -134,7 +177,62 @@ def tree_to_mtg(tree):
             edge_type[v] = '+'
 
     return g
+
+
+# API for root-mtg
+# ----------------
+##todo: root-mtg doc
+def root_mtg():
+    """ create an empty mtg structure to stores root system """
+    g = _MTG()
+    prop = g.graph_properties()
+    prop['type'] = 'RootMTG'
+    prop['scales'] = ['Plant','Axe','Segment']
     
+    return g
+
+def add_plant(g, **properties):
+    """ Add a plant vertex to (root)mtg `g` """
+    return g.add_component(g.root, label='P', edge_type='/', **properties)
+    
+def add_axe(g, parent=None, plant=None, **properties):
+    """ 
+    Add a root axe to root mtg `g`
+    
+    Either `parent` or `plant` should be given:
+     - parent for secondary axes, the same plant as parent is selected
+     - plant for primary axes
+    """
+    if parent:
+        return g.add_child(parent, label='A', edge_type='+', **properties)
+    else:
+        return g.add_component(plant, label='A', edge_type='/', **properties)
+        
+def add_segment(g, parent=None, axe=None, **properties):
+    """
+    Add a root segment to root mtg `g`
+    
+    Either `parent`, `axe` or both should be given:
+     - axe only for the 1st segment of an axe
+     - parent only for successor segment in same axe as parent
+     - both for branching axes, the `parent` axe should be the `axe` parent
+    """
+    if parent is not None:
+        # successor, same axe
+        if axe is None:
+            seg_id = g.add_child(parent, label='S', edge_type='<', **properties)
+            
+        # branch
+        else:
+            seg_id = g.add_child(parent, label='S', edge_type='+', **properties)
+            g.add_component(axe, component_id=seg_id)
+            
+    else:
+        # 1st axe segment
+        seg_id = g.add_component(axe, label='S', edge_type='/', **properties)
+        
+    return seg_id
+
 
 ## tests
 def test_to_mtg(t):

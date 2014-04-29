@@ -158,13 +158,20 @@ def axe_projection(tree, graph, transform, interactive=False):
         plength = dijkstra(len_graph, indices=0,directed=False)
         cost[parent>0] /= plength[parent>0]       
         
+        # compute distance to axe start
+        nstart = g.segment.node[starts]
+        a_start = t.node.position[:,anodes[axe][0]]
+        gpos = g.node.position
+        dstart = ((gpos[:,nstart]-a_start[:,None,None])**2).sum(axis=0).min(axis=-1)
+        dstart = dstart[path_start]
+        
         # compute distance to axe tip
         tip_pos = t.node.position[:,tip[axe]]
         snode = g.node.position[:,g.segment.node]
         dtip  = (((tip_pos[:,None,None]-snode)**2).sum(axis=0)).mean(axis=1)
 
         # select best tip
-        best_tip = (cost**2+dtip**2).argmin()
+        best_tip = (cost**2+dstart**2+dtip**2).argmin()
         
         # construct path to best_tip      
         cur_node = best_tip

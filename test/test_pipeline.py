@@ -21,7 +21,9 @@ def test_arabidopsis_pipeline():
     assert d.has_key('seed_map'), "pipeline did not compute 'seed_map'"
     assert d.has_key('graph')   , "pipeline did not compute 'graph'"
     assert d.has_key('tree')    , "pipeline did not compute 'tree'"
+    assert d.has_key('mtg')     , "pipeline did not compute 'mtg'"
     
+    # test tree
     import numpy as np
     t = d.tree
     assert t.axe.number()==8, "not the correct number of axes:"+str(t.axe.number())
@@ -30,7 +32,16 @@ def test_arabidopsis_pipeline():
     
     pos_on_parent = t.axe.position_on_parent()
     assert abs(pos_on_parent[:8]-[0,129,0,35,0,95,76,36]).max()<2, 'incorrect axe position_on_parent'
+
+
+    # test mtg
+    g = d.mtg
+    plant_number = len(g.vertices(scale=1))
+    axe_number = len(g.vertices(scale=2))
+    assert plant_number==2, "not the correction number of plants in mtg"+str(plant_number)
+    assert axe_number==7,   "not the correction number of axes in mtg"+str(axe_number)
     
+
     return d
     
 def test_load_dataset():

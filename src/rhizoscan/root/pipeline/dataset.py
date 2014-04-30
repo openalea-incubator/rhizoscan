@@ -335,6 +335,46 @@ def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir=None, out_suffi
             
     return img_list, invalid, out_dir
     
+def make_dataset_item(filename, metadata=None, base_dir=None, data_dir=None, out_dir=None):
+    """ Create an item for dataset 
+    
+    filename: the item `filename` attribute
+    metadata: the item `metadata` attribute - default: empty Mapping object
+    base_dir: base directory of others - default: filename dir
+    data_dir: directory of filename - default: base_dir 
+    out_dir:  directory for output  - default: base_dir
+    
+    item data file has the following set:
+     - attribute 'filename': the given value
+     - attribute '__key__':  the filename with data_dir & extension removed
+     - item file (used by dump&load):        out_dir/__key__+'.namespace'
+     - map storage (for external attribute): out_dir/__key__+'_{}'
+     
+    returns the dataset item
+    """
+    import os
+    file_dir, file_base = os.path.split(filename)
+    file_base, file_ext = os.path.splitext(file_base)
+    
+    if metadata is None:  metadata = _Mapping()
+    if base_dir is None:  base_dir = os.path.dirname(filename)
+    if data_dir is None:  data_dir = base_dir
+    if out_dir  is None:  out_dir  = base_dir
+    
+    file_base = filename[len(data_dir):].strip(os.sep)
+    key = os.path.splitext(file_base)[0]
+    
+    item_file = os.path.join(out_dir,key)+'.namespace'
+    map_store = os.path.join(out_dir,key)+'_{}'
+    
+    item = _Mapping(filename=filename, metadata=metadata, __key__=key)
+    item.__loader_attributes__ = ['filename','metadata']
+    item.set_map_storage(map_store)
+    item.set_file(item_file)
+    
+    return item
+    
+    
     
 def _add_multilevel_key_value(m, key,value): 
     """

@@ -13,7 +13,7 @@ from rhizoscan.workflow import node as _node # to declare workflow nodes
 
 @_node('mtg')
 def tree_to_mtg(tree):
-    """ create a mtg from this axial tree """
+    """ create a mtg from given RootTree `tree` """
     # - parse axe in partial order
     # - keep mapping (plant/axe/node id in tree) to (vertex id in mtg)
     #   for parent and complex look up
@@ -34,7 +34,7 @@ def tree_to_mtg(tree):
         
     # for all axes (in their partial order),
     #   - add the axe to mtg
-    #   - add the axe list of segments
+    #   - add the axe segments
     axes_order = tree.axe.order()
     axes_nodes = tree.axe.get_node_list()[0]
     tree_pos = tree.node.position

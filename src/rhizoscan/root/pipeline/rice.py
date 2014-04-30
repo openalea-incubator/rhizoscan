@@ -38,7 +38,7 @@ def process(ini_file, indices=None, **kargs):
     
 
 @_node('mask', 'tree')
-def image_pipeline(image, seed_min_radius, circle_number, pixel_size, min_dimension, plant_number, to_tree, to_axe, smooth=1, seed_height=[.35,.65], metadata=None, output=None, update=[], verbose=True):
+def image_pipeline(image, seed_min_radius, circle_number, pixel_size, min_dimension, plant_number, to_tree, to_axe, smooth=1, seed_bbox=[.1,.35,.9,.65], metadata=None, output=None, update=[], verbose=True):
     import os
     
     if all(map(hasattr,(image,)*3, ('filename', 'metadata', 'output'))):

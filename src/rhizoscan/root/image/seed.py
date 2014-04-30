@@ -8,7 +8,7 @@ from rhizoscan.stats import cluster_1d  as _cluster_1d
 
 from rhizoscan.workflow import node as _node # to declare workflow nodes
 @_node('leaf_map')
-def detect_leaves(mask, image, leaf_number, root_radius, leaf_height=None, sort=True):
+def detect_leaves(mask, image, leaf_number, root_radius, leaf_bbox=None, sort=True):
     """
     Detect leaves cluster in 'mask' based on pixels luminosity of 'image'
     
@@ -24,9 +24,9 @@ def detect_leaves(mask, image, leaf_number, root_radius, leaf_height=None, sort=
         Parameter used for morphological filtering (closing). The given value 
         should typically be be higher than maximum root radius, butin the same 
         order (approx. twice the real value is a good choice).
-    leaf_height:
-        if not None, must be a two element list of the minimal/maximal height of
-        the leaves in the mask image
+    leaf_bbox:
+        Optional bounding box in mask to look for leaves: 
+        a `[xmin,ymin,xmax,ymax]` list
     sort:
         if True, sort detected leaves cluster by their x-coordinates
         
@@ -54,10 +54,10 @@ def detect_leaves(mask, image, leaf_number, root_radius, leaf_height=None, sort=
     leaf = _nd.binary_dilation(leaf,iterations=root_radius, mask = mask)#, output=leaf)
     leaf = (_nd.binary_dilation((leaf==0)*mask,iterations=root_radius,mask=mask)==0)*mask
     
-    return _cluster_seed(seed_mask=leaf, seed_number=leaf_number, seed_height=leaf_height, sort=sort)
+    return _cluster_seed(seed_mask=leaf, seed_number=leaf_number, seed_bbox=leaf_bbox, sort=sort)
 
 @_node('seed_map')
-def detect_seeds(mask, seed_number, radius_min, seed_height=None, sort=True):
+def detect_seeds(mask, seed_number, radius_min, seed_bbox=None, sort=True):
     """
     Detect seed clusters in 'mask' based on local shape radius
     
@@ -69,6 +69,9 @@ def detect_seeds(mask, seed_number, radius_min, seed_height=None, sort=True):
         Number of clusters to extract - The biggest detected clusters are kept
     radius_min:
         Minimum radius of seed, in pixels
+    seed_bbox:
+        Optional bounding box in mask to look for seeds: 
+        a `[xmin,ymin,xmax,ymax]` list
     sort:
         if True, sort detected leaves cluster by their x-coordinates
         
@@ -85,13 +88,18 @@ def detect_seeds(mask, seed_number, radius_min, seed_height=None, sort=True):
     seed = (radius>radius_min)[label]  ##-1
     seed[label==0] = 0
     
-    return _cluster_seed(seed_mask=seed, seed_number=seed_number, seed_height=seed_height, sort=sort)
+    return _cluster_seed(seed_mask=seed, seed_number=seed_number, seed_bbox=seed_bbox, sort=sort)
     
-def _cluster_seed(seed_mask, seed_number, seed_height=None, sort=True):
-    if seed_height is not None:
-        bound = [int(h*seed_mask.shape[0]) for h in seed_height]
-        seed_mask[:bound[0]] = 0
-        seed_mask[bound[1]:] = 0
+def _cluster_seed(seed_mask, seed_number, seed_bbox=None, sort=True):
+    if seed_bbox is not None:
+        wbound = [seed_bbox[0],seed_bbox[2]]
+        hbound = [seed_bbox[1],seed_bbox[3]]
+        wbound = [int(w*seed_mask.shape[1]) for w in wbound]
+        hbound = [int(h*seed_mask.shape[0]) for h in hbound]
+        seed_mask[:,:wbound[0]] = 0
+        seed_mask[:,wbound[1]:] = 0
+        seed_mask[:hbound[0],:] = 0
+        seed_mask[hbound[1]:,:] = 0
     
     # identify 'seed_number' best clusters (best=biggest)
     seed_lab,N = _nd.label(seed_mask)

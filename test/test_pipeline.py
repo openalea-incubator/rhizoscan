@@ -11,7 +11,7 @@ def test_arabidopsis_pipeline():
     assert os.path.exists(filename), "could not find test image file:"+filename 
     
     d = Mapping(filename=filename, plant_number=2,
-                fg_smooth=1, border_width=.08,leaf_height=[0,.4],root_max_radius=5, verbose=1)
+                fg_smooth=1, border_width=.08,leaf_bbox=[0,0,1,.4],root_max_radius=5, verbose=1)
     
     pipeline.run(namespace=d)
         

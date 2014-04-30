@@ -70,8 +70,8 @@ def segment_image(image, pmask=None, root_max_radius=15, min_dimension=50, smoot
 # detect leaves:
 # --------------
 @_node('seed_map', OA_hide=['sort'])
-def detect_leaves(rmask, image, bbox, plant_number=1, root_min_radius=3, leaf_height=[0,.2], sort=True):
-    seed_map = _detect_leaves(mask=rmask, image=image[bbox], leaf_number=plant_number, root_radius=root_min_radius, leaf_height=leaf_height, sort=sort) ##
+def detect_leaves(rmask, image, bbox, plant_number=1, root_min_radius=3, leaf_bbox=[.05,.05,.95,.2], sort=True):
+    seed_map = _detect_leaves(mask=rmask, image=image[bbox], leaf_number=plant_number, root_radius=root_min_radius, leaf_bbox=leaf_bbox, sort=sort) ##
     seed_map = seed_map.view(_Image)
     seed_map.set_serializer(pil_format='PNG', ser_dtype='uint8', ser_scale=255/plant_number)
     return seed_map

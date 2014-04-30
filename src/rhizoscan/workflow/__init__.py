@@ -143,15 +143,19 @@ class node(object):
         return f
         
     @staticmethod
-    def is_update_required(function, namespace):
+    def is_update_required(function, namespace, test_input=False):
         """
         Return true if one or more of `function` outputs is missing in
         dictionary `namespace`.
         
-        `function`is expected to be a decorated `node`
-        `namespace` should have `__contain__` method, such as dict object.
+        `function`:   a `node` function
+        `namespace`:  dict like object (should implement `__contain__`)
+        `test_input`: if True, update is required if an input is missing 
         """
-        return not all(o['name'] in namespace for o in node.get_attribute(function, 'outputs'))
+        update = not all(o['name'] in namespace for o in node.get_outputs(function))
+        if test_input:
+            update |= not all(i['name'] in namespace for i in node.get_inputs(function))
+        return update
             
     @staticmethod
     def get_input_arg(function, namespace):
@@ -170,7 +174,7 @@ class node(object):
           - a list of input names that marked as 'required' in `function` and 
             are missing in `namespace`. 
         """
-        inputs  = node.get_attribute(function, 'inputs')
+        inputs  = node.get_inputs(function)
         missing = [i['name'] for i in inputs if i['required'] and not namespace.has_key(i['name'])]
         inputs  = dict((i['name'],namespace.get(i['name'], i['value'])) for i in inputs)
         
@@ -226,7 +230,7 @@ class node(object):
             outputs = fct(**inputs)
             outputs = node.format_outputs(function, outputs)
         else:
-            outputs = dict((o['name'],namespace.get(o['name'])) for o in node.get_attribute(function, 'outputs'))
+            outputs = dict((o['name'],namespace.get(o['name'])) for o in node.get_outputs(function))
         
         if len(stored_data):   ## ... this should be done another way ... 
             for oname, ovalue in outputs.iteritems():
@@ -278,7 +282,7 @@ class node(object):
         ##    return outputs
             
         ##todo: raise error if outputs length != node outputs length ?
-        out_name = [o['name'] for o in node.get_attribute(function, 'outputs')]
+        out_name = [o['name'] for o in node.get_outputs(function)]
         if len(out_name)==1 or not hasattr(outputs,'__iter__'):
             return {out_name[0]:outputs}
         else:
@@ -400,11 +404,20 @@ class node(object):
         return function.__node__.get(attribute,default)
 
     @staticmethod
+    def get_inputs(function, default=None):
+        """ returns the `function` inputs """
+        return node.get_attribute(function, attribute='inputs', default=default)
+    @staticmethod
+    def get_outputs(function, default=None):
+        """ returns the `function` outputs """
+        return node.get_attribute(function, attribute='outputs', default=default)
+        
+    @staticmethod
     def set_input_attribute(function, input_name, **attributes):
         """
         Set `attributes` in the input node attributes of `function` with name `input_name` 
         """
-        inputs = node.get_attribute(function, 'inputs')
+        inputs = node.get_inputs(function)
         in_names = dict((i['name'],k) for k,i in enumerate(inputs))
         
         if not input_name in in_names:
@@ -501,8 +514,8 @@ class Pipeline(object):
         pl_inputs = []
         ns_names  = set()
         for n in nodes:
-            n_inputs = node.get_attribute(n,'inputs')
-            n_output = node.get_attribute(n,'outputs')
+            n_inputs = node.get_inputs(n)
+            n_output = node.get_outputs(n)
             n_inputs = dict((ni['name'],ni) for ni in n_inputs)
             missing  = [name for name in n_inputs.keys() if name not in ns_names]       
             pl_inputs.extend([n_inputs[name] for name in missing])
@@ -523,7 +536,7 @@ class Pipeline(object):
             - call self.run(node='all',namespace=None, **kargs) after mergin args into kargs
             - return output with name from node.get_attribute(...)
         """
-        inputs = node.get_attribute(self,'inputs')
+        inputs = node.get_inputs(self)
         
         if len(args):
             in_names = [i['name'] for i in inputs]
@@ -531,11 +544,9 @@ class Pipeline(object):
         
         return self.run(compute='all', namespace=kargs) # return whole namespace (??)
         
-    @_property
-    def inputs(self):
+    def get_inputs(self):
         return node.get_attribute(self,'inputs')
-    @_property
-    def outputs(self):
+    def get_outputs(self):
         return node.get_attribute(self,'outputs')
     
     def run(self, compute='missing', update=True, namespace=None, stored_data=[], **kargs):
@@ -575,7 +586,7 @@ class Pipeline(object):
             
         namespace.update(kargs)
         
-        for i in node.get_attribute(self,'inputs'):
+        for i in self.get_inputs():
             if not i.get('required',False):
                 namespace.setdefault(i['name'],i['value']) 
         
@@ -604,11 +615,12 @@ class Pipeline(object):
             names  = dict((k,None) for k in namespace.keys())
             if compute=='missing': compute=[]
             for n in self.__pipeline__:
-                if node.get_attribute(n,'name') in compute or node.is_update_required(n, names):
+                if node.get_attribute(n,'name') in compute or node.is_update_required(n, names, test_input=update):
                     nodes.append(n)
                     if update:
-                        for o in node.get_attribute(n,'outputs'):
-                            names.pop(o['name'], None)
+                        for out in node.get_outputs(n):
+                            names.pop(out['name'],None)
+                            
                             
         return nodes
     

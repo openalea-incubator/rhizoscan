@@ -105,8 +105,9 @@ def load_test_ds():
     
 def test_axe_projection(sds, start=0):
     """ call axe_projection on dataset items in ds - for dev purpose - """
-    from rhizoscan.root.pipeline import compute_tree
+    from rhizoscan.root.graph.to_tree import make_tree
     from rhizoscan.root.graph.to_tree import graph_to_dag
+    from rhizoscan.root.graph.to_tree import set_downward_segment
     from rhizoscan.root.tracking.growth import simple_axe_growth
     from rhizoscan.root.tracking.growth import simple_tip_growth
     
@@ -116,8 +117,12 @@ def test_axe_projection(sds, start=0):
     d2.load()
     g1 = d1.graph
     g2 = d2.graph
-    t1 = compute_tree(g1)
-    t2 = axe_projection(t1, g2, d2.image_transform)
+    t1 = make_tree(g1)
+    
+    g2 = set_downward_segment(g2)  ## for debug visualisation
+    from rhizoscan import geometry as geo
+    T = geo.dot(geo.inv(d1.image_transform), d2.image_transform)
+    t2 = axe_projection(t1, g2, T)
     
     dag2, sdir = graph_to_dag(t2.segment, t2.axe) 
     axe2,daxe = simple_axe_growth(dag2, t2.axe) # update t2.axe in place
@@ -128,7 +133,7 @@ def test_axe_projection(sds, start=0):
     return g1,t1,g2,t2, sdir, daxe, tip_axes, dag2
     
 
-def mtest_axe_projection(cds, group=0, max_shift=2):
+def mtest_axe_projection(cds, group=0, start=0, max_shift=2):
     from scipy.sparse.csgraph import connected_components
     from scipy import ndimage as nd
     from scipy.linalg import inv
@@ -147,11 +152,12 @@ def mtest_axe_projection(cds, group=0, max_shift=2):
         return unreachable_lab[lab]
         
     
-    def uncover(t, tip_axe):
+    def uncover(t, tip_axe, sdir):
         """ return a array of segment uncovered by any axes:
-            0:covered, 1:unreachable, 2:reachable 
+            0:covered, 1:unreachable, 2:reachable-downward, 3:reachable-upward 
         """
         sc = 2-unreachable(t)
+        sc[sc==2] += sdir[sc==2]
         
         for slist in t.axe.segment:
             sc[slist] = 0
@@ -160,7 +166,7 @@ def mtest_axe_projection(cds, group=0, max_shift=2):
         
         return sc
     
-    start = 0
+    corder=1
     while isinstance(group,int):
         g1,t1,g2,t2, sdir, daxes, taxes, dag = test_axe_projection(cds[group], start)
         T1 = cds[group][start].image_transform
@@ -171,7 +177,7 @@ def mtest_axe_projection(cds, group=0, max_shift=2):
         ax.set_position([0,.51,1,.49])
         sc = unreachable(t1)
         t1.plot(sc=sc, indices=sc&(t1.segment.node!=0).all(axis=1),linestyle=':', linewidth=2, transform=T1)
-        t1.plot(bg=None,max_shift=max_shift, linewidth=2, transform=T1)
+        t1.plot(bg=None,max_shift=max_shift, corder=corder, linewidth=2, transform=T1)
         
         # draw t2
         ax = plt.subplot(2,1,2, sharex=ax, sharey=ax)
@@ -182,9 +188,9 @@ def mtest_axe_projection(cds, group=0, max_shift=2):
         ##    sc[daxe] = i
         ##t2.plot(sc=7*(sc>0), linewidth=3, transform=T2)
         
-        sc = uncover(t2, taxes)
+        sc = uncover(t2, taxes, sdir)
         t2.plot(sc=sc, indices=(sc>0)&(t2.segment.node!=0).all(axis=1),linestyle=':', linewidth=2, transform=T2)
-        t2.plot(bg=None,max_shift=max_shift, linewidth=2, transform=T2)
+        t2.plot(bg=None,max_shift=max_shift, corder=corder, linewidth=2, transform=T2)
         
         # draw new tip
         taxes = [] + taxes
@@ -193,10 +199,10 @@ def mtest_axe_projection(cds, group=0, max_shift=2):
                        parent=tmp, parent_segment=tmp,
                        plant=tmp, order=tmp)
         t2.axe = taxe
-        t2.plot(bg=None,max_shift=2, linewidth=1, transform=T2)
+        t2.plot(bg=None,max_shift=max_shift, linewidth=1, transform=T2)
         
         
-        g = raw_input('group:')
+        g = raw_input('group:%d,start:%d=>' % (group,start))
         if g=='q':
             group = g
         elif g.startswith('+'):
@@ -205,6 +211,16 @@ def mtest_axe_projection(cds, group=0, max_shift=2):
             except:
                 print "  Error: unrecognized start '"+g[1:]+"'"
                 start = 0
+        elif g.startswith('s'):
+            try:
+                max_shift = int(g[1:])
+            except:
+                print "  Error: unrecognized shift '"+g[1:]+"'"
+        elif g.startswith('c'):
+            try:
+                corder = int(g[1:])
+            except:
+                print "  Error: unrecognized corder '"+g[1:]+"'"
         else:
             try:
                 group = int(g)

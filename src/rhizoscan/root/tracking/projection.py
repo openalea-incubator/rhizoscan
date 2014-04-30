@@ -109,7 +109,7 @@ def axe_projection(tree, graph, transform, interactive=False):
         # ------------------------------------------------------
         p_axe = t.axe.parent[axe]
         
-        # always all to start from seed
+        # always alloow start from seed
         plant_id = t.axe.plant[axe]
         starts = (g.segment.seed==plant_id).nonzero()[0]
         start_parent = [0]*len(starts)
@@ -117,8 +117,9 @@ def axe_projection(tree, graph, transform, interactive=False):
         if p_axe>0: # parent is not a seed
             ##plant_id = axes_plant[p_axe]
             starts_2,start_parent_2 = branch_segment(g_sedges, graph_axes[p_axe])
-            starts = _np.hstack((starts,starts_2))
-            start_parent = _np.hstack((start_parent,start_parent_2))
+            if len(starts_2):
+                starts = _np.hstack((starts,starts_2))
+                start_parent = _np.hstack((start_parent,start_parent_2))
             ##PB: start can be taken in the wrong direction 
             ##    this has been seen when real start did not exist, so the 
             ##    closest one was used. The selected path then went back(ward)
@@ -248,8 +249,8 @@ def branch_segment(segment_graph, axe_segment):
     
     :Inputs:
       - `segment_graph`:
-          the graph of connection between segments as a list (for all segments)
-          of the sets of their connected segments
+          the connection between segments as an undirected list-of-set type
+          I.e. for all segments, the sets of connected segments at *both* side
       - `axe_segment`:
           The list of segment ids of given axe
           
@@ -271,7 +272,11 @@ def branch_segment(segment_graph, axe_segment):
     branch = dict(branch).items()
     
     # replace index in axe_segment by (parent) segment id
-    return zip(*((sid,axe_segment[pid]) for sid,pid in branch))
+    res = zip(*((sid,axe_segment[pid]) for sid,pid in branch))
+    if len(res):
+        return res
+    else:
+        return [],[]
     
     
 def match_seed(g1,g2):

@@ -309,7 +309,8 @@ def plot_stat(vs, value='axe1_length', title=None, prefilter=None, split=None, l
         cmp_val = np.clip(cmp_val, 0, clip)
     ax = _plot_tc(tc=tc_flat,x=ref_val,y=cmp_val, plant_id=plantid,
                   title=title, xlabel='reference', ylabel='measurements',
-                  split=split, legend=legend, cla=cla, print_fct=print_error)
+                  split=split, legend=legend, cla=cla, print_fct=print_error,
+                  merge_unique=merge_unique)
 
     bound = max(max(ref_val), max(cmp_val))
     plt.plot([0,bound], [0,bound], 'r')
@@ -402,7 +403,7 @@ def _plot_tc(tc,x,y,plant_id, title,xlabel,ylabel, split=False, merge_unique=Fal
                     size = np.bincount(s)
                     xi,yi  = v['x'],v['y']
                 else:
-                    size = 1
+                    size = 2
                 label_str = legend(lab)
                 colori = color[i%len(color)]
                 plt.scatter(xi, yi, s=8*size, c=colori, edgecolors='none', label=label_str)

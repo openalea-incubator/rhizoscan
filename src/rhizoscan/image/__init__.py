@@ -485,6 +485,8 @@ class PILSerializer(object):
         img = fromarray(img, mode=self.pil_mode)
         img.save(stream, format=self.pil_format, **self.pil_param)
         
+        return self
+        
     def load(self,stream):
         from PIL import Image
         img = _np.array(Image.open(stream))

@@ -224,8 +224,7 @@ class Data(object):
         if Data.has_store_API(data): to_store = data.__store__()
         else:                        to_store = data
         
-        serializer = Data.get_serializer(data)
-        file_object.save(to_store, serializer=serializer)
+        file_object.save(to_store)
         
         if io_api and hasattr(data,'loader'): 
             return data.loader()

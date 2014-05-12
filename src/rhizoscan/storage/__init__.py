@@ -17,8 +17,6 @@ MapStorage:
 
 import cPickle as _cPickle
 import os as _os
-import urlparse as _urlparse
-import urllib   as _urllib
 from tempfile import SpooledTemporaryFile as _TempFile
 
 from rhizoscan.tool import _property
@@ -26,13 +24,13 @@ from rhizoscan.tool import class_or_instance_method as _cls_inst_method
 from rhizoscan.tool.path import assert_directory as _assert_directory
 
 
-class PickleSerializer(object):
-    """
-    basic pickle serializer
+class Serializer(object):
+    """ default serializer which use pickle
     
-    It has static `dump` and `load` functions, using protocol=-1 and 
+    It can be used has static `dump` and `load` functions, using protocol=-1 and 
     extension='.pickle'
     """
+    _registered = {}
     protocol  = -1 # pickle saving (dump) are done with the latest protocol
     extension = '.pickle'  # file extension that indicate the file content type
     
@@ -43,11 +41,56 @@ class PickleSerializer(object):
     def load(stream):
         return _cPickle.load(stream)
 
+    @staticmethod
+    def register(serializer, extensions):
+        for ext in extensions:
+            Serializer._registered[ext] = serializer
+        
+    @staticmethod
+    def is_registered(extension):
+        return Serializer._registered.has_key(extension)
+    @staticmethod
+    def get_registered(extension, **param):
+        serializer = Serializer._registered[extension.lower()]
+        if isinstance(serializer,basestring):
+            module = serializer.split('.')
+            sclass = module[-1]
+            module = '.'.join(module[:-1])
+            module = __import__(module,fromlist=[''])
+            sclass = getattr(module,sclass)
+            Serializer._registered[extension] = sclass
+            serializer = sclass
+        
+        return serializer(**param)
+        
+    @staticmethod
+    def make_serializer(serializer):
+        """ return the suitable serializer object w.r.t given `serializer` 
+        
+        If serializer is None, returns Serializer class
+        If it is a valid serializer object, returns it
+        If a string, return the serializer registered with that name 
+        """
+        if serializer is None:
+            return Serializer
+        elif hasattr(serializer,'dump') and hasattr(serializer,'load'):
+            return serializer
+        elif isinstance(serializer,basestring):
+            return Serializer.get_registered(serializer)
+        elif hasattr(serializer,'__getitem__'):
+            return Serializer.get_registered(serializer[0],**serializer[1])
+        else:
+            raise TypeError("Unable to construct suitable serializer")
+        
+Serializer.register('rhizoscan.image.PILSerializer',['.png','.jpg','.tiff','.tif','.bmp'])
+Serializer.register('rhizoscan.root.graph.mtg.RSMLSerializer',['.rsml'])
+        
 def _urlsplit(url):
     """
     Split `url` and return scheme and path 
     """
-    split = _urlparse.urlsplit(url)
+    import urlparse
+    split = urlparse.urlsplit(url)
     if len(split.scheme)<2:
         return 'file', url.replace('\\','/')
     else:
@@ -181,12 +224,13 @@ class SFTPEntry(FileEntry):
         """
         Create a SFTPEntry from an url or a ParseResult object
         """
-        if isinstance(url,_urlparse.ParseResult):
+        import urlparse
+        if isinstance(url,urlparse.ParseResult):
             self.url = url.geturl()
             self.urlparse = url
         else:
             self.url = url
-            self.urlparse = _urlparse.urlparse(url)
+            self.urlparse = urlparse.urlparse(url)
             
         self._connect()
         
@@ -227,10 +271,11 @@ class SFTPEntry(FileEntry):
         """
         Create a FileEntry for the file `filename` in the same directory 
         """
+        import urlparse
         p = self.urlparse
         dirname = _os.path.dirname(p.path)
         sibling = _os.path.join(dirname,filename)
-        sibling = _urlparse.ParseResult(scheme=p.scheme, netloc=p.netloc, path=sibling, params=p.params, query=p.query, fragment=p.fragment)
+        sibling = urlparse.ParseResult(scheme=p.scheme, netloc=p.netloc, path=sibling, params=p.params, query=p.query, fragment=p.fragment)
         return self.__class__(sibling)
         
     def __getstate__(self):
@@ -255,11 +300,11 @@ class FileObject(object):
       - remove(): delete the file
       
     :Serializer:
-        By default, FileEntry use `PickleSerializer` (which use `cPickle`) to 
+        By default, FileEntry use `Serializer` (which use `cPickle`) to 
         serialize/deserialize data. However, `load` and `save` have suitable 
         parameter to provide alternate serializer.
         
-        See also: `PickleSerializer`, `FileEntry`
+        See also: `Serializer`, `FileEntry`
     """
     __meta_file__ = '__storage__.meta'  # name of 'header' file storing metadata 
     
@@ -268,11 +313,15 @@ class FileObject(object):
         Create the FileObject related to file at `url`
         """
         self.entry = RegisteredEntry.create_entry(url)
-        self._stream = None
         
     @_property
     def url(self):
         return self.entry.url
+        
+    def get_extension(self):
+        """ return this fileObject extension """
+        from os.path import splitext
+        return splitext(self.url)[1]
         
     def exists(self):
         return self.entry.exists()
@@ -283,7 +332,13 @@ class FileObject(object):
         """
         stream = self.entry.open(mode='rb')
         if serializer is None:
-            serializer = self.get_metadata().get('serializer',PickleSerializer)
+            serializer = self.get_metadata().get('serializer')
+        if serializer is None:
+            ext = self.get_extension()
+            if Serializer.is_registered(ext):
+                serializer = Serializer.get_registered(ext)
+            else:
+                serializer = Serializer
         data = serializer.load(stream)
         stream.close()
         
@@ -292,15 +347,17 @@ class FileObject(object):
     def save(self,data, serializer=None):
         stream = _TempFile(mode='w+b')
         if serializer is None:
-            serializer = PickleSerializer
-        serializer.dump(data, stream)
+            serializer = getattr(data,'__serializer__',None)
+        serializer = Serializer.make_serializer(serializer)
+        head = serializer.dump(data, stream)
         with self.entry.open(mode='wb') as f:
             stream.seek(0)
             f.write(stream.read())
         f.close()
         
-        if serializer is not PickleSerializer:
-            self.set_metadata(dict(serializer=serializer)) ## what if write fails?
+        #if head is not None:#
+        if serializer is not Serializer:
+            self.set_metadata(dict(serializer=serializer))#serializer)) ## what if write fails?
             
     def remove(self):
         """
@@ -323,7 +380,7 @@ class FileObject(object):
         
     def set_metadata(self, metadata, update=True):
         """
-        Save the all (key,value) of `metadata` in this entry metadata entry
+        Save all (key,value) of `metadata` in this metadata entry
         
         If update, update metadata with `metadata` content.
         otherwise, replace the whole metadata dictionary.
@@ -408,9 +465,9 @@ class MapStorage(object):
     def set_data(self, name, data):
         """ stores `data` to the FileObject related to key = `name` """
         serializer = getattr(data,'__serializer__', None)
-        extension  = getattr(serializer,'extension', '')
+        extension  = getattr(serializer,'extension', '') 
         entry = self.make_entry(name, extension=extension)
-        entry.save(data, serializer=serializer)
+        entry.save(data)
         return entry
         
     def get_data(self,name):

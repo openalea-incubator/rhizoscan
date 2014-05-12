@@ -5,11 +5,6 @@ Generic and unclassified tools
 
 """
 
-import subprocess                           # used by jedit
-import inspect                              # used by jedit and print functionnalities
-import time                                 # used by tic and toc
-#import functools
-
 __all__ = ['_property','class_or_instance_method', 'static_or_instance_method', 'jedit','tic','toc','static_set','static_get']
 
 # decorators
@@ -125,6 +120,8 @@ def jedit(file=''):
     
     input can be a filename, a module or a function
     """
+    import subprocess
+    import inspect
     
     if not isinstance(file,basestring):
         if inspect.isbuiltin(file):
@@ -152,6 +149,7 @@ def printMessage(msg,stack=False,header=''):
     if stack is True, also print the module, function and line where it has been called
     """
     if stack:
+        import inspect
         s = inspect.stack()[1]
         print "%s(%s.%s,l%s): %s " % (header,s[1],s[3],s[2],_message2string_(msg))
     else:
@@ -172,6 +170,7 @@ def printError(msg,stack=True):
     printMessage(msg=msg,stack=stack,header='\033[91m *** Error')
 
 def printDebug(msg=''):
+    import inspect
     s = inspect.stack()[1]
     printMessage(msg=msg,stack=True,header='\033[94m ')
 
@@ -189,6 +188,7 @@ def tic(flag='default'):
     """
     set initialization time for 'flag'
     """
+    import time
     static_set('tic&toc_static:'+ flag,time.time())
     
 def toc(flag='default',verbose=True):
@@ -196,6 +196,7 @@ def toc(flag='default',verbose=True):
     depending on verbose, it prints or returns the time 
     speend since the last call to tic (with same flag)
     """
+    import time
     t2 = time.time()
     t1 = static_get('tic&toc_static:' + flag)
     if verbose:

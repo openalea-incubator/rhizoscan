@@ -66,20 +66,23 @@ def match_bf(desc1, desc2, knn=2):
 
 # tracking
 # --------
-@_node('image_transform')
+@_node('image_transform','point_mask')
 def affine_match(kp1, desc1, kp2, desc2, matching='FLANN', alpha=.75, verbose=False):
     """
     Find affine transformation between 2 set of image descriptors
     
-    `kp1`:   keypoint list for 1st image
-    `desc1`: descriptor array relative to `kp1`
-    `kp2`:   keypoint list for 2nd image
-    `desc2`: descriptor array relative to `kp2`
-    `matching`: the descriptors matching method
-    `alpha`:    coefficient for trusting a descriptor match ##
+    :Inputs:
+      - `kp1`:   keypoint list for 1st image
+      - `desc1`: descriptor array relative to `kp1`
+      - `kp2`:   keypoint list for 2nd image
+      - `desc2`: descriptor array relative to `kp2`
+      - `matching`: the descriptors matching method
+      - `alpha`:    coefficient for trusting a descriptor match ##
     
-    return the affine transformation fitting kp/desc2 onto kp/desc2, as an array
-      i.e. kp1-point ~= T * kp2-point
+    :Outpus:
+      - the affine transformation fitting kp/desc2 onto kp/desc2, as an array
+            i.e. `kp1-point ~= T * kp2-point`
+      - the mask of matched key-points
     """
     # BFMatcher with default params
     if verbose: print 'descriptor matching with ' + matching
@@ -99,12 +102,13 @@ def affine_match(kp1, desc1, kp2, desc2, matching='FLANN', alpha=.75, verbose=Fa
         raise RuntimeError("Not enough matches are found - %d/%d" % (len(good),MIN_MATCH_COUNT))
     else:
         if verbose: print 'find image affine transformation'
-        pts1 = np.float32([ kp1[m.queryIdx].pt for m in good ]).reshape(-1,1,2)
-        pts2 = np.float32([ kp2[m.trainIdx].pt for m in good ]).reshape(-1,1,2)
+        def pos(p): return p.pt if hasattr(p,'pt') else p
+        pts1 = np.float32([ pos(kp1[m.queryIdx]) for m in good ]).reshape(-1,1,2)
+        pts2 = np.float32([ pos(kp2[m.trainIdx]) for m in good ]).reshape(-1,1,2)
     
         M, mask = cv2.findHomography(pts2, pts1, cv2.RANSAC,5.0)
 
-    return M
+    return M,mask
     
 
 def tracker(image1,image2, output_file=None, alpha=0.75, matching='FLANN'):

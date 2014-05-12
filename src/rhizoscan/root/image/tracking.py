@@ -59,6 +59,6 @@ def sequence_transformation(ds, reference=0, verbose=False):
         
         if verbose: 
             print 'find affine transfrom on item', d.__key__
-        T = _descriptors.affine_match(r_kp,r_desc, d_kp,d_desc, verbose=verbose-1)
+        T,M = _descriptors.affine_match(r_kp,r_desc, d_kp,d_desc, verbose=verbose-1)
         d.image_transform = T
         d.dump()

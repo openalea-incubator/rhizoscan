@@ -3,7 +3,7 @@ import os
 image_file = 'test/data/pipeline/arabido.png'
 project_file = 'test/data/pipeline/arabidopsis/database.ini'
 
-def test_arabidopsis_pipeline():
+def arabidopsis_pipeline(output=None):
     from rhizoscan.root.pipeline.arabidopsis import pipeline
     from rhizoscan.datastructure import Mapping
     
@@ -13,7 +13,11 @@ def test_arabidopsis_pipeline():
     d = Mapping(filename=filename, plant_number=2,
                 fg_smooth=1, border_width=.08,leaf_bbox=[0,0,1,.4],root_max_radius=5, verbose=1)
     
-    pipeline.run(namespace=d)
+    if output:
+        d.set_map_storage(output)
+        pipeline.run(namespace=d, stored_data=['pmask','rmask','seed_map','tree','mtg'])
+    else:
+        pipeline.run(namespace=d)
         
     assert d.has_key('image')   , "pipeline did not compute 'image'" 
     assert d.has_key('pmask')   , "pipeline did not compute 'pmask'"
@@ -40,10 +44,21 @@ def test_arabidopsis_pipeline():
     axe_number = len(g.vertices(scale=2))
     assert plant_number==2, "not the correction number of plants in mtg"+str(plant_number)
     assert axe_number==7,   "not the correction number of axes in mtg"+str(axe_number)
-    
 
     return d
+
+def test_arabido_pipeline_no_storage():
+    arabidopsis_pipeline()
     
+def test_arabido_pipeline_with_storage():
+    import os
+    from tempfile import mkdtemp
+    tmp = mkdtemp()
+    try:
+        arabidopsis_pipeline(tmp)
+    finally:
+        os.rmdir(tmp)
+
 def test_load_dataset():
     from rhizoscan.tool.path import abspath
     from rhizoscan.root.pipeline.dataset import make_dataset

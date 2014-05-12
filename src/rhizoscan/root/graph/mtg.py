@@ -73,7 +73,28 @@ def tree_to_mtg(tree):
             mtg_nid[(axe_id,nid)] = vid
             mtg_axe = None # next node is a successor
             
+    g.__serializer__ = '.rsml'
     return g
+
+
+
+class RSMLSerializer(object):
+    """ Class to serialize/deserialize root mtg into rsml file """
+    extension = '.rsml'
+    def __init__(self):
+        pass
+    
+    def dump(self, mtg, stream):
+        from rsml import io
+        from rsml.continuous import discrete_to_continuous
+        cmtg = discrete_to_continuous(mtg.copy())
+        io.mtg2rsml(cmtg, stream)
+    
+    def load(self,stream):
+        from rsml import io
+        from rsml.continuous import continuous_to_discrete
+        rsml = io.rsml2mtg(stream)
+        return continuous_to_discrete(rsml)
 
 
 # API for root-mtg

@@ -78,7 +78,7 @@ def no_plate_to_detect(image, px_scale=1):
 from rhizoscan.root.image.to_graph import linear_label as _linear_label
 from rhizoscan.root.image.to_graph import image_graph  as _image_graph
 from rhizoscan.root.image.to_graph import line_graph   as _line_graph
-from rhizoscan.root.dev_graph2tree import make_root_tree as _make_root_tree 
+from rhizoscan.root.graph.to_tree  import make_tree    as _make_root_tree 
 
 @_node('graph',OA_hide=['verbose'])
 def compute_graph(rmask, seed_map, bbox=None, verbose=False):
@@ -105,7 +105,7 @@ def compute_graph(rmask, seed_map, bbox=None, verbose=False):
 def compute_tree(graph, px_scale=1, axe_selection=[('length',1),('min_tip_length',10)], metadata={}):
     #def compute_tree(graph, px_scale=1, to_tree=2, to_axe=2, metadata={}):
     #tree = _RootTree(node=graph.node, segment=graph.segment, to_tree=to_tree, to_axe=to_axe)
-    tree = _make_root_tree(graph=graph, axe_selection=[('length',1),('min_tip_length',10)])
+    tree = _make_root_tree(graph=graph, axe_selection=axe_selection)
     metadata['px_scale'] = px_scale
     tree.metadata = metadata
     return tree 

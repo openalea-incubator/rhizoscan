@@ -164,6 +164,24 @@ class SegmentList(GraphList):
             self.temporary_attribute.add('_neighbors')
         return self._neighbors
         
+    def reachable(self):
+        """
+        Return a boolean mask of segments connected to seeds
+        """
+        if not hasattr(self,'_reachable'):
+            from scipy.sparse.csgraph import connected_components
+            from rhizoscan.root.graph.conversion import neighbor_to_csgraph
+            
+            nbor = self.neighbors()
+            cs = neighbor_to_csgraph(nbor)
+            n, lab = connected_components(cs)
+            reachable_lab = _np.zeros(n,dtype=bool)
+            reachable_lab[lab[self.seed>0]] = 1
+            self._reachable = reachable_lab[lab]
+            self.temporary_attribute.add('_reachable')
+        return self._reachable
+
+        
     def digraph(self, direction):
         """
         Create the digraph induced by `direction`

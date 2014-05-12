@@ -80,8 +80,8 @@ def axe_projection(tree, graph, transform, interactive=False):
     g_sedges = _seg2los(g.segment.node,g.node.segment,mask=g.segment.seed)
     g_sedges = [sedge[0].union(sedge[1]) for sedge in g_sedges]
 
-    # compute distances from node in g to segment in t
-    d,s,p = node_to_axe_distance(g.node.position, t)
+    # compute distances from segment in g to axe in t
+    d,s,p = node_to_axe_distance(g.node.position, t)   # d(g.node, t.axe)
     g2t_area = segment_to_projection_area(g, p)        # shape (|gs|,|ta|)
     g2t_area += g2t_area[1:].min()/g.segment.number()  # assert strict >0
     

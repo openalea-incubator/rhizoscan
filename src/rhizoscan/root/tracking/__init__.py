@@ -61,7 +61,7 @@ def track_root(dseq, update=False, verbose=True, plot=False):
         kp1   = d1.key_point
         desc1 = d1.descriptor
         
-        T = _descriptors.affine_match(kp0,desc0, kp1,desc1, verbose=verbose)
+        T,M = _descriptors.affine_match(kp0,desc0, kp1,desc1, verbose=verbose)
         d1.image_transform = T
 
     t = d0.tree

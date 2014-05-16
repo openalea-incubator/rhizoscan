@@ -456,6 +456,12 @@ def _plot_axe_selected_tree(event):
     ref_tree = tc.ref
     cmp_tree = tc.cmp
 
+    # just in case
+    tc.ref.segment.node_list = tc.ref.node
+    tc.ref.axe._segment_list = tc.ref.segment
+    ref_tree.node.set_segment(ref_tree.segment)
+    ##cmp_tree.node.set_segment(cmp_tree.segment)
+    
     f=plt.gcf().number
     plt.figure(f+41)
     
@@ -532,6 +538,8 @@ def make_tree_compare(reference, compared, keys=None, file_object=None, verbose=
         if rt and ct:
             if verbose>1: print 'adding trees for', c.filename
             image.append(c.filename)
+            rt.metadata = r.metadata
+            ct.metadata = c.metadata
             ref.append(rt)
             cpr.append(ct)
         else:

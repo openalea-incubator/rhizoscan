@@ -64,15 +64,27 @@ class Serializer(object):
         return serializer(**param)
         
     @staticmethod
-    def make_serializer(serializer):
-        """ return the suitable serializer object w.r.t given `serializer` 
+    def get_serializer_for(obj,ext=None):
+        """ return the suitable serializer for given `obj` 
         
-        If serializer is None, returns Serializer class
-        If it is a valid serializer object, returns it
-        If a string, return the serializer registered with that name 
+        First, look for '__serializer__' attribute in `obj`. If found:
+          - and it is a serializer-like object, returns it
+          - and it is a string, return the serializer registered with that name 
+          - and it is a list of string and parameter dict: return the serializer
+            constructor registered with that name, and call it with given param
+        
+        Otherwise, if `ext` is given, look for registered serializer with that 
+        extension.
+        
+        Other, returns the Serializer class
         """
+        serializer = getattr(obj,'__serializer__',None)
         if serializer is None:
-            return Serializer
+            if ext is not None and Serializer.is_registered(ext):
+                serializer = ext
+            else:
+                return Serializer
+                
         elif hasattr(serializer,'dump') and hasattr(serializer,'load'):
             return serializer
         elif isinstance(serializer,basestring):
@@ -326,13 +338,12 @@ class FileObject(object):
     def exists(self):
         return self.entry.exists()
         
-    def load(self, serializer=None):
+    def load(self):
         """
         open, read and return the object entry
         """
         stream = self.entry.open(mode='rb')
-        if serializer is None:
-            serializer = self.get_metadata().get('serializer')
+        serializer = self.get_metadata().get('serializer')
         if serializer is None:
             ext = self.get_extension()
             if Serializer.is_registered(ext):
@@ -344,11 +355,10 @@ class FileObject(object):
         
         return data
             
-    def save(self,data, serializer=None):
+    def save(self,data):
         stream = _TempFile(mode='w+b')
-        if serializer is None:
-            serializer = getattr(data,'__serializer__',None)
-        serializer = Serializer.make_serializer(serializer)
+        serializer = getattr(data,'__serializer__',None)
+        serializer = Serializer.get_serializer_for(data, self.url)
         head = serializer.dump(data, stream)
         with self.entry.open(mode='wb') as f:
             stream.seek(0)
@@ -464,29 +474,21 @@ class MapStorage(object):
         
     def set_data(self, name, data):
         """ stores `data` to the FileObject related to key = `name` """
-        serializer = getattr(data,'__serializer__', None)
+        serializer = Serializer.get_serializer_for(data)
         extension  = getattr(serializer,'extension', '') 
-        entry = self.make_entry(name, extension=extension)
-        entry.save(data)
-        return entry
+        
+        # create file object, and save
+        url = self.url_generator.format(name)+extension
+        fobj = FileObject(url)
+        self.__dict__[name] = fobj
+        fobj.save(data)
+        
+        return fobj
         
     def get_data(self,name):
         """ retrieve data from the MapStorage object (i.e. load it) """
-        entry = self.get_file(name)
-        entry.load(data)
-
-
-    def make_entry(self, key, extension=''):
-        """
-        Create the FileObject related to `key`
-        
-        The returned entry is generated with this MapStorage `url_generator`, 
-        to which `extension` is appended.
-        """
-        url = self.url_generator.format(key)+extension
-        entry = FileObject(url)
-        self.__dict__[key] = entry
-        return entry
+        fobj = self.get_file(name)
+        fobj.load(data)
         
     def get_file(self, key):
         """

@@ -10,14 +10,14 @@ from rhizoscan.datastructure import Data    as _Data
 
 from . import _print_state, _print_error, _param_eval 
 
-class Dataset(list, _Data):
+class Dataset(list, _Mapping):
     """ 
     Data subclasses which implement a list of dataset items 
     
     Dataset are traditional `list` with additional methods:
       - from the Data class: set/get_file, etc...
       - specialized to access "dataset" item:
-        `key_get`, `key_sort`, `key_index`, `iteritems`
+        `kget`, `ksort`, `kindex`, `iteritems`
         
     Dataset items are expected to be object with a '__key__' attribute
     that is unique inside the dataset.
@@ -34,7 +34,7 @@ class Dataset(list, _Data):
         """ return the list of item keys """
         return [getattr(item,'__key__',None) for item in self]
         
-    def key_index(self, key, default=None):
+    def kindex(self, key, default=None):
         """ 
         Return the index of the (1st) item with __key__ attribute equal to `key` 
         Return 'default' if 'key' is not found
@@ -44,15 +44,16 @@ class Dataset(list, _Data):
         except ValueError:
             return default
         
-    def key_get(self, key, default=None):
+    def kget(self, key, default=None):
         """ Return the (1st) item with attribute '__key__' equal to given `key` """
         index = self.index(key)
         if index: return self[index]
         else:     return default
         
-    def key_sort(self):
-        """ inplace sort by item's '__key__' attribute """
+    def ksort(self):
+        """ **inplace*$ sort by item's '__key__' attribute """
         self.sort(key=lambda item: (item.get('__key__'),item))
+        return self
         
     def __getslice__(self, i, j):
         """ Return the sub-dataset from item `i` to `j` """
@@ -61,7 +62,24 @@ class Dataset(list, _Data):
     def iteritems(self):
         """ Return an iterator on (item.__key__,item) for all Dataset items """
         return ((item.__key__, item) for item in self)
+
+    def itermembers(self):
+        """ 
+        Return an iterator on (membder.__key__,member) for all Dataset members
         
+        For standard Dataset, this is the same as `iteritems`. For grouped
+        Dataset however, it iterates over the members of the groups.
+        
+        See also: `group_by`, `iteritems`
+        """
+        from itertools import chain
+        ##chain(item if isinstance(item,Dataset) else ((item.__key__,item),) for item in self)
+        if self.is_grouped():
+            return chain(*(item.iteritems() for item in self))
+        else:
+            return self.iteritems()
+        
+
     def __repr__(self):
         return list.__repr__(self)
     def __str__(self):
@@ -86,6 +104,8 @@ class Dataset(list, _Data):
           - `key_base`:
               Common suffix to append to all `key`
               Eg: (key=['b','c'], key_base='a') is the same as key=['a.b','a.c']
+              
+        See also: `is_grouped`, `itermembers`
         """
         if isinstance(key, basestring):
             key = [key]
@@ -102,6 +122,10 @@ class Dataset(list, _Data):
             group.setdefault(key_value,Dataset(key=key_value)).append(item)
             
         return Dataset(group.values())
+
+    def is_grouped(self):
+        """ Return True if this dataset contains (only) Datasets """
+        return all(isinstance(item,Dataset) for item in self)
 
     def get_column(self, name, default=None):
         """ return the list of item's `name` attribute, or default """
@@ -298,6 +322,10 @@ def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir=None, out_suffi
         print 'metadata:', meta_parser.pattern, 
         print '> ' + ', '.join((m.name+':'+m.type for m in meta_list))
         
+    # get global variable
+    global_attr = ini.get('global',{})
+    
+        
     # parse all image files, set metadata and remove invalid
     # ------------------------------------------------------
     img_list = Dataset()
@@ -325,7 +353,7 @@ def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir=None, out_suffi
                 else:
                     _add_multilevel_key_value(meta,field,value)
                 
-            ds_item = _Mapping(filename=f, metadata=meta, __key__=fkey)
+            ds_item = _Mapping(filename=f, metadata=meta, __key__=fkey, **global_attr)
             ds_item.__loader_attributes__ = ['filename','metadata']
             ds_item.set_map_storage(out_store)
             ds_item.set_file(out_file)

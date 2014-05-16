@@ -3,11 +3,27 @@
 def image_io(format, ser_dtype, ser_scale):
     import os
     import tempfile
+    dname = tempfile.mkdtemp(suffix='test_image')
+    try:
+        image_io_run(format=format,ser_dtype=ser_dtype,ser_scale=ser_scale,
+                     dir_name=dname)
+        
+        # check when header is generated, if it is readable
+        header = os.path.join(dname, '__storage__.meta')
+        if os.path.exists(header):
+            import cPickle
+            with open(header) as f:
+                cPickle.load(f)
+        
+    finally:
+        os.rmdir(dname)
+
+def image_io_run(format, ser_dtype, ser_scale, dir_name):
+    import os
     import numpy as np
     from rhizoscan.image import Image
     
-    fid, fname = tempfile.mkstemp(suffix='.'+format.lower())
-    os.close(fid)
+    fname = os.path.join(dir_name,'test_image.'+format.lower())
  
     img = Image(np.arange(10*18,dtype='uint8').reshape(10,18))
     img.set_serializer(pil_format=format, ser_dtype=ser_dtype, ser_scale=ser_scale)

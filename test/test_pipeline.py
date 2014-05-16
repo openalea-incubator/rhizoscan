@@ -15,7 +15,7 @@ def arabidopsis_pipeline(output=None):
     
     if output:
         d.set_map_storage(output)
-        pipeline.run(namespace=d, stored_data=['pmask','rmask','seed_map','tree','mtg'])
+        pipeline.run(namespace=d, stored_data=['pmask','rmask','seed_map','tree','rsa'])
     else:
         pipeline.run(namespace=d)
         
@@ -25,7 +25,7 @@ def arabidopsis_pipeline(output=None):
     assert d.has_key('seed_map'), "pipeline did not compute 'seed_map'"
     assert d.has_key('graph')   , "pipeline did not compute 'graph'"
     assert d.has_key('tree')    , "pipeline did not compute 'tree'"
-    assert d.has_key('mtg')     , "pipeline did not compute 'mtg'"
+    assert d.has_key('rsa')     , "pipeline did not compute 'rsa'"
     
     # test tree
     import numpy as np
@@ -39,11 +39,20 @@ def arabidopsis_pipeline(output=None):
 
 
     # test mtg
-    g = d.mtg
+    g = d.rsa
     plant_number = len(g.vertices(scale=1))
     axe_number = len(g.vertices(scale=2))
     assert plant_number==2, "not the correction number of plants in mtg"+str(plant_number)
     assert axe_number==7,   "not the correction number of axes in mtg"+str(axe_number)
+    
+    if output:
+        # test rsml serialization
+        from rhizoscan.root.graph.mtg import RSMLSerializer
+        with d.rsa.__file_object__.entry.open('r') as f:
+            t = RSMLSerializer().load(f)
+        assert len(g.vertices())==len(t.vertices())
+        
+        assert d.rsa.__file_object__.url[-5:]=='.rsml', "stored rsa has not the 'rsml' extension"
 
     return d
 

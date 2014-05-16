@@ -27,6 +27,15 @@ def test_s2a(ds, group=2, start=0):
 
     T = geo.dot(geo.inv(d1.image_transform), d2.image_transform)
 
+    # set graph into the same frame as tree
+    # -------------------------------------
+    g2 = g2.copy()
+    g2.node = g2.node.copy()
+    g2.node.position = geo.transform(T=T, coordinates=g2.node.position)
+    g2.segment = g2.segment.copy()    # copy with transformed _node_list
+    g2.segment._node_list = g2.node   #    maybe not useful...
+
+
     return (t1,g2,T) + seg_to_axe_distance(t1,g2)
     
     g2 = set_downward_segment(g2)  ## for debug visualisation
@@ -52,10 +61,10 @@ def seg_to_axe_distance(t,g):
 def plot_max_eps(t,g,Tgt,ds,emax, show=0, disp_t=True):
     if disp_t:
         from rhizoscan.geometry import translation
-        t.plot(bg='g',ac='r',transform=translation((5,0)))
+        t.plot(bg='w',ac='g',transform=translation((5,0)))
         bg = None
     else:
-        bg = 'g'
+        bg = 'w'
     
     eps_max = _np.sort(ds,axis=1)
     if show==0:
@@ -63,10 +72,11 @@ def plot_max_eps(t,g,Tgt,ds,emax, show=0, disp_t=True):
     elif show==1:
         show = eps_max[:,1]
     else:
-        show = eps_max[:,1]-eps_max[:,0]
-        
-    sc = _np.minimum(show,emax)*(g.segment.reachable()+0)
-    g.plot(bg=bg,sc=sc,indices=g.segment.reachable(), transform=Tgt)
+        show = eps_max[:,0]/eps_max[:,0]        
+                                       
+    #sc = _np.minimum(show,emax)*(g.segment.reachable()+0)
+    sc = (show<emax)*(g.segment.reachable()+0)
+    g.plot(bg=bg,sc=sc,indices=g.segment.reachable())#, transform=Tgt)
     from matplotlib import pyplot as plt
     if not disp_t and Tgt is not None:
         plt.ylim(plt.ylim()[::-1])
@@ -79,7 +89,7 @@ def node_los_graph(g):
     """ neighbor nodes for all nodes as a list of set """
     nlos = [set(g.segment.node[slist].ravel().tolist()) for slist in g.node.segment]
     for i,nb in enumerate(nlos):
-        nb.discard(i)
+        nb.discard(i)                       
     return nlos
 
 def node_csgraph(g):

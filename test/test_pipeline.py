@@ -52,7 +52,14 @@ def arabidopsis_pipeline(output=None):
             t = RSMLSerializer().load(f)
         assert len(g.vertices())==len(t.vertices())
         
-        assert d.rsa.__file_object__.url[-5:]=='.rsml', "stored rsa has not the 'rsml' extension"
+        # test file extension
+        def ext(attr):
+            return os.path.splitext(d[attr].__file_object__.url)[1]
+        assert ext('pmask')   =='.png',    "stored pmask has not the '.png' extension"
+        assert ext('rmask')   =='.png',    "stored rmask has not the '.png' extension"
+        assert ext('seed_map')=='.png',    "stored seed_map has not the '.png' extension"
+        assert ext('tree')    =='.pickle', "stored tree has not the '.pickle' extension"
+        assert ext('rsa')     =='.rsml',   "stored rsa has not the '.rsml' extension"
 
     return d
 

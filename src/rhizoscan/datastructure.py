@@ -254,7 +254,7 @@ class Data(object):
         else:
             file_object = _FileObject(data)
             
-        data = file_object.load()
+        data = file_object.load(getattr(data,'__serializer__',None))
         
         if Data.has_store_API(data):
             data = data.__restore__()

@@ -338,12 +338,13 @@ class FileObject(object):
     def exists(self):
         return self.entry.exists()
         
-    def load(self):
+    def load(self, serializer=None):
         """
         open, read and return the object entry
         """
         stream = self.entry.open(mode='rb')
-        serializer = self.get_metadata().get('serializer')
+        if serializer is None:
+            serializer = self.get_metadata().get('serializer')
         if serializer is None:
             ext = self.get_extension()
             if Serializer.is_registered(ext):

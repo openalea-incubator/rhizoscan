@@ -12,7 +12,7 @@ except ImportError:
 from rhizoscan.workflow import node as _node # to declare workflow nodes
 
 @_node('rsa')
-def tree_to_mtg(tree):
+def tree_to_mtg(tree, max_order=None):
     """ create a mtg from given RootTree `tree` """
     # - parse axe in partial order
     # - keep mapping (plant/axe/node id in tree) to (vertex id in mtg)
@@ -43,6 +43,10 @@ def tree_to_mtg(tree):
         # --------
         parent_axe = tree.axe.parent[axe_id]
         axe_order  = axes_order[axe_id]
+        
+        if max_order and axe_order>max_order:
+            continue
+        
         if parent_axe==0:
             mtg_plant = mtg_pid[tree.axe.plant[axe_id]]
             mtg_axe = add_axe(g, plant=mtg_plant, order=int(axe_order))

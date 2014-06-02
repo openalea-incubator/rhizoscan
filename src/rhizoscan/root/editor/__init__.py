@@ -70,7 +70,7 @@ class RootEditorWidget(_TreeEditorWidget):
         try:
             ds, inv, out = _make_dataset(filename)
             self.dataset = ds
-            self.dataset.key_sort()
+            self.dataset.ksort()
         except:
             self.show_message('Error loading dataset file: '+filename)
             return

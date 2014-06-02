@@ -58,15 +58,43 @@ def seg_to_axe_distance(t,g):
     return dn,ds, g2t_area
     
 
-def plot_max_eps(t,g,Tgt,ds,emax, show=0, disp_t=True):
-    if disp_t:
-        from rhizoscan.geometry import translation
-        t.plot(bg='w',ac='g',transform=translation((5,0)))
-        bg = None
-    else:
-        bg = 'w'
+def plot_criteria(g,ds,epsilon,sigma, show=0, t=None):
+    # definitions
+    Es = ds.min(axis=1)       # min d(s,a) for all a
+    a_ = ds.argmin(axis=1)    # best axe for assignment 
+    As = ds==Es[:,None]       # axis which are at min dist Es as bool array
+    Es2 = (ds+_np.inf*Es[:,None]).min(axis=1)
     
-    eps_max = _np.sort(ds,axis=1)
+    # criteria of assigment 
+    I1 = As.sum(axis=1)==1    # unicity
+    I2 = Es<=epsilon          # proximity
+    I3 = (Es/Es2)<sigma       # separability
+    
+    I = (I1 & I2 & I3)*a_     # 0:unrespected criteria, 1+: best axes
+    
+    # criteria of neighborhood
+    #   instead of computing each criteria, label suitable connected segments
+    nbor = g.segment.neighbors().copy()    # II1: neighborhood
+    mask = (nbor>0).sum(axis=1)!=1         # II2: linearity (of neighborhood)
+    m2 = a_[nbor] # II3...
+    for nb in range(nbor.shape[1]):        # remove nbor unrespectful of II*
+        nbor[:,nb][mask] = 0
+    
+    from rhizoscan.root.graph.conversion import neighbor_to_csgraph
+    from scipy.sparse.csgraph import connected_components
+    csg = neighbor_to_csgraph(nbor)
+    n,II = connected_components(csg)
+    
+    return I,II, m2, a_
+    
+    # display
+    # -------
+    bg = 'w'
+    if t is not None:
+        from rhizoscan.geometry import translation
+        t.plot(bg=bg,ac='g',transform=translation((5,0)))
+        bg = None
+    
     if show==0:
         show = eps_max[:,0]
     elif show==1:
@@ -76,7 +104,7 @@ def plot_max_eps(t,g,Tgt,ds,emax, show=0, disp_t=True):
                                        
     #sc = _np.minimum(show,emax)*(g.segment.reachable()+0)
     sc = (show<emax)*(g.segment.reachable()+0)
-    g.plot(bg=bg,sc=sc,indices=g.segment.reachable())#, transform=Tgt)
+    g.plot(bg=bg,sc=sc,indices=g.segment.reachable())
     from matplotlib import pyplot as plt
     if not disp_t and Tgt is not None:
         plt.ylim(plt.ylim()[::-1])

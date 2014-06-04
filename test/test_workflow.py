@@ -28,13 +28,22 @@ def test_pipeline_creation_and_call():
     # assert name of pipeline input are correct
     assert [i['name'] for i in node.get_attribute(h, 'inputs')]==['a','b']
     
+    # assert pipeline outputs
+    out_name =  [out['name'] for out in h.get_outputs()]
+    assert out_name==['e'], 'invalid pipeline output: '+repr(out_name)
+    
     # assert restricted function computation ability 
     n = h._nodes_to_compute('missing',False,dict(a=1, c=2,d=3))
     assert len(n)==1   # only g to be computed
     assert node.get_attribute(n[0], 'name')=='g'
     
     # assert Pipeline.run call
-    ns = h.run(a=1,b=2)
+    out = h.run(a=1,b=2)
+    assert out.has_key('e'), 'pipeline.run() output invalid: '+repr(out) 
+    assert out['e']==9, "invalid pipeline output value: " + repr(out['e'])
+    
+    ns = dict(a=1,b=2)
+    h.run(namespace=ns)
     assert ns.has_key('e')
     assert ns['e']==9
     

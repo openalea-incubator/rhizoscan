@@ -544,12 +544,15 @@ class Pipeline(object):
         
         if len(args):
             in_names = [i['name'] for i in inputs]
+            #todo: assert arg names not in kargs? 
             kargs.update(zip(in_names, args))
         
-        ns = self.run(compute='all', namespace=kargs)
+        outputs = self.run(compute='all', namespace=kargs)
         
         # return suitable outputs
-        return [ns[out['name']] for out in self.get_outputs()]
+        outputs = [ns[out['name']] for out in self.get_outputs()]
+        if len(outputs)==1: return outputs[0]
+        else:               return outputs
         
     def get_inputs(self):
         return node.get_attribute(self,'inputs')
@@ -574,7 +577,7 @@ class Pipeline(object):
               - If None, initiate run with an empty namespace dictionary
               - Otherwise, it should be an object with a dictionary interface
                 (i.e. implements `keys`, `update` and `__getitem__`) and is used
-                to store/retrieve inputs and outputs of the pipeline nodes.
+                to store&get inputs and outputs of **all** the pipeline nodes.
           - `stored_data`:
               List of data name that are to be stored by `namespace`. In this
               case, `namespace` should implement `set(key,value,store)` method
@@ -586,7 +589,7 @@ class Pipeline(object):
               the computation and thus are passed to the nodes run method.
               
         :Output:
-          Return the updated `namespace`
+          Return the **dictionary** of this pipeline outputs
         """
         if namespace is None:
             namespace = dict()
@@ -603,7 +606,7 @@ class Pipeline(object):
                 print 'running:', n.__name__
             node.run(n, namespace=namespace, stored_data=stored_data, update=1)
                 
-        return namespace
+        return dict((out['name'],namespace[out['name']]) for out in self.get_outputs())
 
     def _nodes_to_compute(self,compute, update, namespace):
         """

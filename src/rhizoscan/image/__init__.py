@@ -769,7 +769,8 @@ def imconvert(image, color=None, dtype=None, scale='dtype', from_color=None, ove
     if color is not None and from_color!=color:
         if from_color in ('rgb', 'rgba') and color=='gray':
             if from_color=='rgba':
-                Warning('conversion  rgba-to-gray: the transparency channel is not processed')
+                import warnings
+                warnings.warn('conversion  rgba-to-gray: the transparency channel is not processed')
                 image = image[:,:,:3]
                 from_color = 'rgb'
             # convert rgb(a) to gray

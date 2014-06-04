@@ -109,6 +109,89 @@ def detect_petri_plate(fg_mask, border_width, plate_size, plate_shape='square'):
     
     return pmask, px_scale, hull
 
+@_node('plate_mask', 'plate_hull')
+def detect_plate(fg_mask, border_width=.08):
+    """
+    NOT WORKING !!! (see pdiam in border_width<1)
+    
+    Find petri plate in foreground mask `fg_mask`
+    
+    The plate is selected as the biggest connex area in `fg_mask`
+    
+    :Inputs:
+      - fg_mask:
+          binary array such as returned by `detect_foreground`
+      - border_width:
+          width of the petri plate border (see outputs), given either in pixels 
+          (if value >=1) or in percent of the plate size (if <1).
+          
+    :Outputs:
+      - A labeled image of the petri plate and selected border. Pixels with 
+        values 0 are background, value 1 is the plate border and 2 is inside of 
+        the plate (once border is removed).
+      - The hull of the (whole) plate as a list of the x-y coordinates pairs
+    """
+    # find biggest connex area
+    fg_label = _nd.label(fg_mask)[0]
+    fg_size  = _label_size(fg_label)
+    fg_size[0] = 0
+    pmask = fg_label==fg_size.argmax()
+    
+    # compute te hull
+    if border_width<1:
+        border_width = pdiam * border_width
+    pmask = _nd.binary_opening(pmask, iterations=int(border_width))
+    hull = _np.transpose((pmask>_nd.binary_erosion(pmask)).nonzero())
+    hull = _polygon.convex_hull(hull)
+    
+    # remove border and make the petri plate labeled image
+    be = _nd.binary_erosion
+    inside = _np.minimum(be(pmask>0, iterations=int(border_width)),
+                         be(pmask>0, iterations=int(border_width/2**.5), 
+                                     structure=_np.ones((3,3))))
+    two = _np.array(2,dtype='uint8')
+    pmask  = pmask + two*inside
+    
+    return pmask, hull
+
+@_node('px_scale', 'unit')
+def plate_resolution(hull, plate_size, plate_shape='square', unit='cm'):
+    """
+    Compute the image resolution from a plate `hull`
+    
+    :Inputs:
+      - hull:
+          plate hull as a list of x-y pairs
+      - plate_size:
+          diameter in real units of the plate
+      - plate_shape:
+          The shape of the plate: either 'square' or 'cicular.
+      - unit:
+          The real world unit this resolution is for
+          
+    :Outputs:
+      - the pixel scale to real unit, i.e. the size of 1 pixel in real units
+      - unit
+    """
+    # compute hull area
+    lines = np.hstack([hull,np.roll(hull,-1,axis=0)])
+    area  = .5*abs((lines[:,0]*lines[:,3]-lines[:,1]*lines[:,2]).sum())
+    
+    # estimated plate diameter in pixels and pixels size in real unit
+    if plate_shape=='square':
+        pdiam = area**.5
+    elif plate_shape=='circular':
+        pdiam = area**.5/_np.pi
+    else:
+        raise NotImplementedError("shape should be square of circular: general fitting is not implemented")##
+    if border_width<1:
+        border_width = pdiam * border_width
+        
+    px_scale = plate_size/pdiam
+   
+
+
+
 
 @_node('hull_mask','hull')
 def hull_mask(mask):

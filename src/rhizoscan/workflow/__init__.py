@@ -488,10 +488,11 @@ class pipeline(object):
     
     See `Pipeline` documentation
     """
-    def __init__(self, nodes):
-        self.nodes = nodes
+    def __init__(self, nodes, outputs=None):
+        self.nodes   = nodes
+        self.outputs = outputs
     def __call__(self, function):
-        return Pipeline(function=function, nodes=self.nodes)
+        return Pipeline(function=function, nodes=self.nodes, outputs=self.outputs)
         
 class Pipeline(object):
     """
@@ -502,29 +503,32 @@ class Pipeline(object):
     If this is not suitable with original node IO names, node copies can be 
     passed with alternative name using the nodes `copy(...)` method.
     """
-    def __init__(self, function, nodes):
+    def __init__(self, function, nodes, outputs=None):
         """
-        function: the decorated function
+        function: the decorated function  ##to remove? (used only be decorator)
+        outputs: the outputs of the pipeline. If None, use outputs of last node.
         """
         pl_name = function.func_name
         self.__name__ = pl_name
         self.__module__ = function.__module__
         self.__pipeline__ = nodes
         
-        pl_inputs = []
+        inputs = []
         ns_names  = set()
         for n in nodes:
             n_inputs = node.get_inputs(n)
             n_output = node.get_outputs(n)
             n_inputs = dict((ni['name'],ni) for ni in n_inputs)
             missing  = [name for name in n_inputs.keys() if name not in ns_names]       
-            pl_inputs.extend([n_inputs[name] for name in missing])
+            inputs.extend([n_inputs[name] for name in missing])
             ns_names.update(missing)
             ns_names.update(no['name'] for no in n_output)
             
-        pl_outputs = [dict(name='pipeline_namespace', value=dict())]
+        if outputs is None:
+            outputs = node.get_outputs(nodes[-1])
+        ##pl_outputs = [dict(name='pipeline_namespace', value=dict())]
         
-        node(name=pl_name, outputs=pl_outputs, inputs=pl_inputs)(self)
+        node(name=pl_name, outputs=outputs, inputs=inputs)(self)
         ##del self.run #! remove node's run to have Pipeline.run again... 
     
     def __call__(self, *args, **kargs):
@@ -542,7 +546,10 @@ class Pipeline(object):
             in_names = [i['name'] for i in inputs]
             kargs.update(zip(in_names, args))
         
-        return self.run(compute='all', namespace=kargs) # return whole namespace (??)
+        ns = self.run(compute='all', namespace=kargs)
+        
+        # return suitable outputs
+        return [ns[out['name']] for out in self.get_outputs()]
         
     def get_inputs(self):
         return node.get_attribute(self,'inputs')

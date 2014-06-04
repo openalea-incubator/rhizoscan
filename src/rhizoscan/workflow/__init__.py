@@ -60,7 +60,7 @@ class node(object):
     
       - `node.get_attribute(fct, name, default=None)`
       - `node.set_attribute(fct, name, value)`
-      - `node.run(...)` function call with additional abilities (see `run` doc)
+      - `node.call(...)` function call with additional abilities (see `run` doc)
       - `node.copy()` make an independant copy of the node (see doc)
 
     Decoration data are stored in `__node__` dictionary, but the `get_attribute`
@@ -131,7 +131,7 @@ class node(object):
             kwargs['outputs'] = list(args)
         self.kwargs = kwargs
         
-    # call creates a pointer to the functions and attached (key)arguments to it
+    # creates a pointer to the functions and attached (key)arguments to it
     def __call__(self,f):
         # attache alea parameter to decorated function
         for key,value in self.kwargs.iteritems():
@@ -212,7 +212,7 @@ class node(object):
                 They overwrite those in `namespace`, if provided.
                 
         :Outputs:
-            Return updated namespace
+            Return the function output as a **dictionary**
         """
         func_name  = node.get_attribute(function, 'name')
         
@@ -239,37 +239,8 @@ class node(object):
                 namespace.dump()
         else:
             namespace.update(outputs)
-        return namespace
-        
-    @staticmethod
-    def _run(function, verbose=False, **kargs):
-        """
-        ##DEPRECATED
-        Call the node function, and return the function outputs as a dictionary
-        
-        The function's argument should be given as key-arguments:
-        
-        >>> @node('out1','out2')
-        >>> def fct(a,b=1):
-        >>>     return a+b, a*b
-        >>>
-        >>> out = fct.run(a=6, b=7)
-        >>> print out
-        >>> # {'out1':13,'out2':42}
-        """
-        _print_state(verbose, 'running '+ function.get_node_attribute('name', '"unnamed function"'))
-        param = function.get_node_attribute('inputs', [])
-        kargs_key = kargs.keys()
-        
-        required = [p['name'] for p in param if p.get('required',False)]
-        missing = [req_input for req_input in required if req_input not in kargs_key]
-        if len(missing):
-            raise TypeError("Required argmument '" + "','".join(missing) + "' not found")
-        
-        param = dict([(p['name'],p['value']) for p in param])
-        param.update((name,kargs[name]) for name in param.keys() if name in kargs_key)
-        
-        return node.format_outputs(function,function(**param))
+            
+        return dict((out['name'],namespace[out['name']]) for out in node.get_outputs(function))
         
     @staticmethod
     def format_outputs(function, outputs):
@@ -324,7 +295,7 @@ class node(object):
         
     @staticmethod
     def get_function(function, ntype=None):
-        """ return the function to call detpending on the type of `function` """
+        """ return the function to call depending on the type of `function` """
         if ntype is None: ntype = node.get_attribute(function,'type')
         if   ntype=='function': return function
         elif ntype=='method':   return function.im_func
@@ -535,10 +506,6 @@ class Pipeline(object):
         """
         ---OUTDATED---
         Call iteratively the pipeline nodes
-        
-        ##todo:
-            - call self.run(node='all',namespace=None, **kargs) after mergin args into kargs
-            - return output with name from node.get_attribute(...)
         """
         inputs = node.get_inputs(self)
         

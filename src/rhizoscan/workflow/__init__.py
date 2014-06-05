@@ -523,10 +523,8 @@ class Pipeline(object):
         if len(outputs)==1: return outputs[0]
         else:               return outputs
         
-    def get_inputs(self):
-        return node.get_attribute(self,'inputs')
-    def get_outputs(self):
-        return node.get_attribute(self,'outputs')
+    get_inputs  = node.get_inputs
+    get_outputs = node.get_outputs
     
     def run(self, namespace={}, outdated=[], outputs=None, store=[], **kargs):
         """

@@ -32,11 +32,6 @@ def test_pipeline_creation_and_call():
     out_name =  [out['name'] for out in h.get_outputs()]
     assert out_name==['e'], 'invalid pipeline output: '+repr(out_name)
     
-    # assert restricted function computation ability 
-    n = h._nodes_to_compute('missing',False,dict(a=1, c=2,d=3))
-    assert len(n)==1   # only g to be computed
-    assert node.get_attribute(n[0], 'name')=='g'
-    
     # assert Pipeline.run call
     out = h.run(a=1,b=2)
     assert out.has_key('e'), 'pipeline.run() output invalid: '+repr(out) 
@@ -47,6 +42,26 @@ def test_pipeline_creation_and_call():
     assert ns.has_key('e')
     assert ns['e']==9
     
-    ## unsuitable behavior when called as a node: needs to define __node__.outputs
-    #assert node.run(h,...) 
+    
+def test_pipeline_node_to_call():
+    from rhizoscan.workflow import node, pipeline
+    
+    @node('d','e','x')
+    def F(a,b=2,c=3): return a+b,b+c, 13
+    
+    @node('f','g')
+    def G(b,d,z=42): return b+c,c+e
+    
+    @pipeline(nodes=[F,G])
+    def H(): pass
+    
+    inputs = sorted((i['name'],i['required'],i['value']) for i in H.get_inputs())
+    outputs = sorted(o['name'] for o in H.get_outputs())
+    
+    assert [i[0] for i in inputs]==['a','b','c','z'], 'invalid inputs name'
+    assert [i[1] for i in inputs]==[1,0,0,0], 'invalid inputs required flag'
+    assert [i[2] for i in inputs]==[None,2,3,42], 'invalid inputs default value'
+    assert outputs==['f','g']
+           
+    assert H.nodes_to_call(namespace=dict(b=0,d=0))==[G], 'invalid nodes to call'
 

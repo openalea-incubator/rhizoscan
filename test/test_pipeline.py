@@ -15,7 +15,7 @@ def arabidopsis_pipeline(output=None):
     
     if output:
         d.set_map_storage(output)
-        pipeline.run(namespace=d, stored_data=['pmask','rmask','seed_map','tree','rsa'])
+        pipeline.run(namespace=d, store=['pmask','rmask','seed_map','tree','rsa'])
     else:
         pipeline.run(namespace=d)
         

@@ -60,7 +60,7 @@ class RootEditorWidget(_TreeEditorWidget):
             return
             
         item = self.edited_item
-        _arabido_pl.run(namespace=item, compute='all', stored_data=['mtg'], verbose=True)
+        _arabido_pl.run(namespace=item, compute='all', store=['mtg'], verbose=True)
         item.dump()
         self._update_tree()
         

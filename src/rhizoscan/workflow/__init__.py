@@ -181,7 +181,7 @@ class node(object):
         return inputs, missing
         
     @staticmethod
-    def run(function, namespace=None, stored_data=[], update=None, verbose=False, **kargs):
+    def run(function, namespace=None, store=[], update=None, verbose=False, **kargs):
         """
         Call `function` with optional output IO functionality
         
@@ -195,7 +195,7 @@ class node(object):
               If not None, it should be an object with a dictionary interface   
               (implements `update`, `__contain__`, `get` and `has_key`) and is 
               used to retrieve inputs and store outputs of `function` node.
-          - `stored_data`:
+          - `store`:
               List of data name that are to be stored by `namespace`. In this
               case, `namespace` should implement `set(key,value,store)` method
               (such as datastructure.Mapping) which will be called with 
@@ -232,9 +232,9 @@ class node(object):
         else:
             outputs = dict((o['name'],namespace.get(o['name'])) for o in node.get_outputs(function))
         
-        if len(stored_data):   ## ... this should be done another way ... 
+        if len(store):   ## ... this should be done another way ... 
             for oname, ovalue in outputs.iteritems():
-                namespace.set(oname,ovalue,store=oname in stored_data)
+                namespace.set(oname,ovalue,store=oname in store)
             if hasattr(namespace,'dump') and getattr(namespace,'__file_object__',None):
                 namespace.dump()
         else:
@@ -478,6 +478,8 @@ class Pipeline(object):
         """
         function: the decorated function  ##to remove? (used only be decorator)
         outputs: the outputs of the pipeline. If None, use outputs of last node.
+        
+        TODO: check unicity of data names (input&output)
         """
         pl_name = function.func_name
         self.__name__ = pl_name
@@ -526,26 +528,24 @@ class Pipeline(object):
     def get_outputs(self):
         return node.get_attribute(self,'outputs')
     
-    def run(self, compute='missing', update=True, namespace=None, stored_data=[], **kargs):
+    def run(self, namespace={}, outdated=[], outputs=None, store=[], **kargs):
         """
-        Run the pipeline nodes to fill `namespace` with te nodes outputs
+        Run the "necessary" nodes of the pipeline
         
         :Inputs:
-          - `compute`:
-              - If 'all', compute all pipeline nodes
-              - If 'missing' (default) compute the nodes for which the outputs
-                are missing in `namespace`. -Those are always computed-
-              - If a list of node name: compute those nodes.
-          - `update`:
-              - If False, compute only the nodes given by the `compute` argument
-              - If True, compute also the nodes for which some of the inputs 
-                were updated by previous nodes.
           - `namespace`:
               - If None, initiate run with an empty namespace dictionary
-              - Otherwise, it should be an object with a dictionary interface
-                (i.e. implements `keys`, `update` and `__getitem__`) and is used
-                to store&get inputs and outputs of **all** the pipeline nodes.
-          - `stored_data`:
+              A dictionary-like object (i.e. implements `keys`, `update` and []) 
+              which is used to store and get inputs and outputs of all the nodes
+              
+          - outdated:
+             list of data names (string) that are outdated.
+             
+          - outputs:
+             list of the names (string) expected outputs.
+             None means to return the default pipeline outputs.
+             
+          - `store`:
               List of data name that are to be stored by `namespace`. In this
               case, `namespace` should implement `set(key,value,store)` method
               (such as datastructure.Mapping) which will be called with 
@@ -557,49 +557,106 @@ class Pipeline(object):
               
         :Output:
           Return the **dictionary** of this pipeline outputs
+          
+        :Called nodes:
+          By default only the nodes necessary to compute the pipeline outputs 
+          using the variables given in `namespace` are called. For example, if
+          those outputs are present in `namespace`, then no node is called.
+          The `outdated` (and `outputs`) argument can be used to enforce the 
+          recomputation of some data.
+          
+          In practive, the list of nodes to be called is obtained with the 
+          method `nodes_to_call` with `namespace`, `outdated` and `outputs` 
+          given as arguments.
+          
+          See the `node_to_call` documentation for more details.
         """
-        if namespace is None:
-            namespace = dict()
-            
+        # update namespace with kargs and default values
         namespace.update(kargs)
         
         for i in self.get_inputs():
             if not i.get('required',False):
                 namespace.setdefault(i['name'],i['value']) 
-        
-        # execute nodes in pipeline
-        for n in self._nodes_to_compute(compute, update, namespace):
-            if namespace.get('verbose',False):
-                print 'running:', n.__name__
-            node.run(n, namespace=namespace, stored_data=stored_data, update=1)
-                
-        return dict((out['name'],namespace[out['name']]) for out in self.get_outputs())
 
-    def _nodes_to_compute(self,compute, update, namespace):
-        """
-        Find the list of nodes to compute w.r.t run method arguments
+        # execute nodes in pipeline
+        to_call = self.nodes_to_call(namespace=namespace, outdated=outdated, outputs=outputs)
+        for nod in to_call:
+            if namespace.get('verbose',False):
+                print 'running:', nod.__name__
+            node.run(nod, namespace=namespace, store=store, update=1)
+                
+        if outputs is None:
+            outputs = (out['name'] for out in self.get_outputs())
+        return dict((out,namespace[out]) for out in outputs)
         
-        compute:   same values as the run method `compute` argument
-        udpate:    same values as the run method `update` argument
-        namespace: initial namespace the pipeline will run with. Same as the
-                   run method `namespace` argument to which kargs has been added
+    def nodes_to_call(self, namespace={}, outdated=[], outputs=None):
         """
-        if compute=='all':     
-            nodes = self.__pipeline__
-        else:
-            # check missing outputs names of pipeline nodes
-            nodes = []
-            names  = dict((k,None) for k in namespace.keys())
-            if compute=='missing': compute=[]
-            for n in self.__pipeline__:
-                if node.get_attribute(n,'name') in compute or node.is_update_required(n, names, test_input=update):
-                    nodes.append(n)
-                    if update:
-                        for out in node.get_outputs(n):
-                            names.pop(out['name'],None)
-                            
-                            
-        return nodes
+        Return the nodes that needs to be computed w.r.t to given arguments
+        
+        This function is used by `run` to select which pipeline nodes needs
+        to be computed given the same arguments.
+        
+        By default, this function returns all the nodes that should be run in 
+        order to get the pipeline outputs and namespace (missing) items.
+        
+        If `outdated` is not empty, the respective data as well as all their 
+        'descendent' are treated as outdated. Descendant are the output of nodes
+        that have them or intermediate descendant as input. 
+        Thus a data listed in `outdated` has the same effect as having them 
+        **and** their descendant missing in `namespace`. However, depending on 
+        the pipeline outputs, they might not be (re)computed.
+        
+        If not None, `outputs` indicates the name of alternative pipeline output 
+        
+        :Inputs:
+          - namespace:
+             dict-like object that the pipeline is executed into
+          - outdated:
+             list of data names (string) that are outdated.
+          - outputs:
+             list of the names (string) expected outputs of `Pipeline.run`.
+             None means the default pipeline outputs.
+             
+        :Outputs:
+          The list of pipeline node to be computed
+        """
+        # "propagate" outdated data
+        if len(outdated):
+            outdated = set(outdated)
+            for nod in self.__pipeline__:
+                nod_input_name = set(i['name'] for i in node.get_inputs(nod))
+                if nod_input_name.intersection(outdated):
+                    outdated.update(o['name'] for o in node.get_outputs(nod))
+                    
+        # valid namespace item
+        ns_names = set(namespace.keys()).difference(outdated)
+
+        # find output that need to be computed
+        #   i.e. which are not in namespace, or are outdated
+        if outputs is None:
+            outputs = (o['name'] for o in self.get_outputs())
+        data_to_compute = set(outputs).difference(ns_names)
+        
+        # Construct a dict of (data-name, node that output it)
+        #   note: nodes should not share any output name
+        node_of = {}
+        for nod in self.__pipeline__:
+            node_of.update((o['name'],nod) for o in node.get_outputs(nod))
+            
+        # make the list of nodes to compute
+        node_to_computes = []
+        for nod in self.__pipeline__[::-1]:
+            nod_outputs = [o['name'] for o in node.get_outputs(nod)]
+            
+            if len(data_to_compute.intersection(nod_outputs)):
+                node_to_computes.append(nod)
+                data_to_compute.difference_update(nod_outputs)
+                missing = set(i['name'] for i in node.get_inputs(nod))
+                missing.difference_update(ns_names)
+                data_to_compute.update(missing)
+        
+        return node_to_computes[::-1]
+                
     
     def __repr__(self):
         def full_name(x): return x.__module__ + '.' + x.__name__

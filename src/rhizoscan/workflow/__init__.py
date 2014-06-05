@@ -504,6 +504,9 @@ class Pipeline(object):
         node(name=pl_name, outputs=outputs, inputs=inputs)(self)
         ##del self.run #! remove node's run to have Pipeline.run again... 
     
+    get_inputs  = node.get_inputs
+    get_outputs = node.get_outputs
+    
     def __call__(self, *args, **kargs):
         """
         ---OUTDATED---
@@ -523,9 +526,6 @@ class Pipeline(object):
         if len(outputs)==1: return outputs[0]
         else:               return outputs
         
-    get_inputs  = node.get_inputs
-    get_outputs = node.get_outputs
-    
     def run(self, namespace={}, outdated=[], outputs=None, store=[], **kargs):
         """
         Run the "necessary" nodes of the pipeline

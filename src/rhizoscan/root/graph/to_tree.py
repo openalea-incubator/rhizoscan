@@ -15,7 +15,7 @@ from rhizoscan.root.graph.conversion import segment_to_digraph as _seg2digraph
 from rhizoscan.root.graph.conversion import digraph_to_DAG     as _digraph2dag
 
 
-def make_tree(graph, axe_selection=[('length',1),('min_tip_length',10)]):
+def make_tree(graph, axe_selection=[('longest',1),('min_tip_length',10)], init_axes=None):
     """ Construct a RootTree from given RootGraph `graph` """
     segment = graph.segment
     length = segment.length()
@@ -24,16 +24,17 @@ def make_tree(graph, axe_selection=[('length',1),('min_tip_length',10)]):
     
     # graph to DAG
     # ------------
-    dag, sdir = graph_to_dag(segment)
+    dag, sdir = graph_to_dag(segment, init_axes=init_axes)
 
     # tree path convering 
     # -------------------
-    parent = minimum_dag_branching(incomming=[nb[0] for nb in dag], cost=angle)
+    parent = minimum_dag_branching(incomming=[nb[0] for nb in dag], cost=angle, init_axes=init_axes)
     top_order = dag_topsort(dag=dag, source=src)
-    path_elt,elt_path = tree_covering_path(parent=parent, top_order=top_order)
+    path_elt,elt_path = tree_covering_path(parent=parent, top_order=top_order, init_axes=init_axes)[:2]
 
     # dag (mini/optimal) covering
     # ---------------------------
+    ##todo: select 1st order, then merge&select 2nd order (etc...?)
     p_length = _np.vectorize(lambda slist:length[slist].sum())(path_elt)
     
     path_elt,elt_path,n,debug = merge_tree_path(dag=dag, top_order=top_order, 
@@ -53,7 +54,119 @@ def make_tree(graph, axe_selection=[('length',1),('min_tip_length',10)]):
     t = RootTree(node=graph.node,segment=graph.segment, axe=axe)
     
     return t
+    
+class AxeBuilder(object):
+    """ use to construct AxeList iteratively """
+    def __init__(self, start_id=1):
+        self.segment = []
+        self.parent  = []
+        self.sparent = []
+        self.order   = []
+        self.plant   = []
+        self.ids     = []
+        
+        self.current_id = start_id
+        
+    def axe_index(self, axe_id):
+        return self.ids.index(axe_id)
+        
+    def append(self, segment, parent, sparent, order, plant=0, ids=0):
+        if ids==0:
+            ids = self.current_id
+            self.current_id += 1
+        
+        if plant=0:
+            plant = self.plant[self.axe_index(parent)]
+        
+        self.segment.append(segment)
+        self.parent.append(parent)
+        self.sparent.append(sparent)
+        self.order.append(order)
+        self.plant.append(plant)
+        self.ids.append(ids)
+        
+        return ids
+        
 
+def make_tree_2(graph, order1='longest', o1_param=1, order2='min_tip_length', o2_param=10, init_axes=None):
+    """ Construct a RootTree from given RootGraph `graph` """
+    segment = graph.segment
+    length = segment.length()
+    angle = segment.direction_difference()
+    src  = (graph.segment.seed>0) 
+    
+    # graph to DAG
+    # ------------
+    dag, sdir = graph_to_dag(segment, init_axes=init_axes)
+
+    # tree path convering 
+    # -------------------
+    parent = minimum_dag_branching(incomming=[nb[0] for nb in dag], cost=angle, init_axes=init_axes)
+    top_order = dag_topsort(dag=dag, source=src)
+    path_elt,elt_path,axe_map = tree_covering_path(parent=parent, top_order=top_order, init_axes=init_axes)
+
+    # select init_axes (grown) path
+    ##if init_axes:
+    ##    map_num = len(axe_map)
+    ##    axe_num = init_axes.number()-1
+    ##    if map_num!=axe_num:
+    ##        missing = set(range(1,axe_num+1)).difference(axe_map.keys())
+    ##        print "missing axe in tree covering path: "+str(missing)+" (%d/%d)" % (map_num, axe_num)
+    ##
+    ##    for ax_ind,path_ind in axe_map.iteritems():
+    ##        axe_map[ax_ind] = path_ind[0]  ##! arbitrarily select 1st path
+    ##        if len(path_ind)>1:
+    ##            print '%d possible path for axe %d' % (len(path_ind), ax_ind) ##
+
+        ## return tmp RootTree for visualization
+        #axes = [[] for i in range(init_axes.number())]
+        #for ax_ind,path_id in axe_map.iteritems():
+        #    axes[ax_ind] = path_elt[path_id]
+        #parent = init_axes.parent
+        #plant  = init_axes.plant
+        #order  = init_axes.order()
+        #psegm  = _np.zeros(init_axes.number(),dtype=int)
+        #ax_ids = init_axes.set_id()
+        #
+        #from rhizoscan.root.graph import RootTree
+        #from rhizoscan.root.graph import AxeList
+        #
+        #axe = AxeList(axes, graph.segment, parent=parent, parent_segment=psegm,
+        #              plant=plant, order=order, ids=ax_ids)
+        #
+        #return RootTree(node=graph.node,segment=graph.segment, axe=axe)
+        
+
+    # find order 1 axes
+    # -----------------
+    path_start = [p[0] if len(p) else 0 for p in path_elt]
+    path_plant = graph.segment.seed[path_start]
+    if order1=='longest':
+        o1 = longest_path(path_elt, length=graph.segment.length(),
+                          parent=path_plant, number=o1_param,
+                          init_axes=init_axes, axe_map=axe_map)
+        
+    else:
+        raise TypeError("unrecognized axe selection method "+str(order1))
+
+
+    # find order 2 axes
+    # -----------------
+    
+    
+    # Contruct RootTree  ## TODO: finish 
+    # -----------------
+    # construct AxeList object
+    from rhizoscan.root.dev_graph2tree import path_to_axes as p2a
+    from rhizoscan.root.graph import RootTree
+    graph.segment.parent = parent
+    axe = p2a(graph, path_elt, axe_selection=axe_selection)
+    
+    ##graph.segment.axe = axe.segment_axe                    
+    t = RootTree(node=graph.node,segment=graph.segment, axe=axe)
+    
+    return t
+    
 def graph_to_dag(segment, init_axes=None):
     """ Compute a DAG on "segment graph" `segment` """
     # find segment direction
@@ -83,7 +196,7 @@ def segment_direction(segment, cost=None, group_link=1.05, init_axes=None, callb
          (i.e. there is no other segment connected at the same node), and that
          have `cost` less than `group_link` value.
       - init_axes:
-         AxeList that are already set.
+         optional AxeList which are already set.
          If given, the direction of  those axes segments is *fixed* and selected
          to follow the segment order of each axe. If a segment appears in 
          several axes, the first the `init_axes.partial_order()` has priority. 
@@ -272,7 +385,7 @@ def segment_direction(segment, cost=None, group_link=1.05, init_axes=None, callb
     return _np.array(sdir), sgid
 
 
-def minimum_dag_branching(incomming, cost):
+def minimum_dag_branching(incomming, cost, init_axes=None):
     """
     Compute the minimum branching on the given DAG
     
@@ -285,10 +398,17 @@ def minimum_dag_branching(incomming, cost):
     
     :Inputs:
       - incomming:
-          The incomming edges as a list-of-set type
+          The incomming edges as a list-of-set type (*)
       - cost:
           A SxS array of the cost between any pair of segments : S = len(incomming)
+      - init_axes:
+         optional AxeList which are already set.
+         If given, the parent of segments on those axes are selected as the 
+         previous segment on the respective axes. If their are multiple such
+         parent/axes the selection follow `init_axes.partial_order()`.
 
+      (*) See `rhizoscan.root.graph.conversion` doc
+    
     :Outputs:
       The selected parent of each graph segment, as an array.
     """
@@ -297,7 +417,13 @@ def minimum_dag_branching(incomming, cost):
     x = _np.arange(parent_nbor.shape[0])
     y = cost[x[:,None],parent_nbor].argmin(axis=1)
     
-    return parent_nbor[x,y]
+    parent = parent_nbor[x,y]
+    
+    if init_axes is not None:
+        for aid in init_axes.partial_order()[::-1]:
+            parent[init_axes.segment[aid][1:]] = init_axes.segment[aid][:-1]
+            
+    return parent
 
 def dag_topsort(dag, source=None, fifo=True):
     """
@@ -305,7 +431,7 @@ def dag_topsort(dag, source=None, fifo=True):
     
     :Inputs:
       - dag:
-          A sided list-of-set segment graph type of the a DAG
+          A sided list-of-set segment graph type representing the DAG (*)
       - source:
           Optional list (or boolean mask) of starting elements.
           if None, use the list of elements with no incomming edge.
@@ -314,15 +440,18 @@ def dag_topsort(dag, source=None, fifo=True):
           If True, use a first-in-first-out queue data structure. Otherwise 
           use a last-in-first-out (LIFO) queue. 
           In most cases, topsort is not unique. Using a fifo makes the topsort
-          follow some kind of breath-first-order ("old" elements first), while
-          a lifo makes it follow some kind of depth-first-order.
+          follow some kind of breath-first-order, while a lifo makes it follow
+          some kind of depth-first-order.
             
+      (*) See `rhizoscan.root.graph.conversion` doc
+    
     :Output:
         The DAG topological order as a list of element ids.
         If given `source` does not allow to reach all elements, then the 
         unreachable one are not included in the returned list.
     
-    (*) A. B. Kahn. 1962. Topological sorting of large networks. Com. ACM 5
+    :Reference:
+        A. B. Kahn. 1962. Topological sorting of large networks. Com. ACM 5
     """
     from collections import deque
     
@@ -385,59 +514,147 @@ def axe_to_path(axe):
             #index of sparent in axe.segment[aparent]
             pass
     
-def tree_covering_path(parent, top_order, init_path=None, dummy=0):
+def tree_covering_path(parent, top_order, init_axes=None, dummy=0):
     """
     Find the path covering of the tree represented by `parent`
     
     :Inputs:
       - parent:
-          Id of parent of all element
+          `parent[e]` is the parent element of element `e`
       - top_order:
-          The topological order of the graph
-      - init_path: 
-          Optional list of path (segment list) which is used as starting base
-          ##NOT IMPLEMENTED
+          The topological order of the elements in given tree
+      - init_axes:
+          Optional axes which are already defined on the graph.
+          A dictionary of possible path-to-init_axes map is returned
+          See the 'initial axes' section below.
             
     :Output:
-      - A list of the list of the (sorted) segments contained in each path
-      - A list of the set  of the path going through each segment
+      - A list of the list of the (sorted) elements contained in each path
+      - A list of the set  of the path going through each elements
+      - A dict of (axe-index,list-of-possible-path)
       
-    :Covering path:
-      Tree covering path is a set of path that covers all element of the tree.
-      Starting at the leaves, a path is created each time an element is not 
-      already covered by a path. All path going through the same element
-      shares the same path from the root to this element.
+    :Algorithm:
+      A tree covering path is a set of path that covers all tree elements.
+      The algorithm process all tree elements in reverse order (starting at the
+      graph leaves). A path is created each time a processed element is not 
+      already covered by a path. Otherwise the element is added to all path 
+      constructed until the element children (i.e. such that parent[child]=e)
+      
+      As consequence, all path that share an element, share also all previous 
+      elements, except when passing through inital axes.
+      
+    :Initial axes:
+      If initial axes are given (`init_axes`), then when a constructed path 
+      reaches an element of such an initial axe, it will follow it (backward)
+      until reaching the first element of its further ancestor
+      
+      Hypothesis are done on given axes:
+        - `init_axe.parent_segment` are part of the parent axe, or 0.
+        - if multiple axes pass through a segment_parent, the parent axe appears
+          first in the initial axes partial order
+          
+      Expected behaviors:
+        - if a new path/axe merge on a segment of an initial axes, it will 
+          follow the axe that appears first in the axes partial order
     """
     """
     path are iteratively cosntructed from leaves to root (ie. reverse top_order)
-    and reverse before being returned
+    Path are then reversed before being returned
     """
     
+    # construct equivalent path of init_axes
+    ##init_path_elt = {}
+    init_path_tip = {}  # dict (tip-element, [axes-indices])
+    init_elt_path = {}  # keep the "main" init axe for each covered element
+    if init_axes is not None:
+        for ax_ind in init_axes.partial_order():
+            segment = init_axes.segment[ax_ind]
+            sparent = init_axes.parent_segment[ax_ind]
+            
+            ##print ax_ind, sparent, segment
+            # if init axe has a parent segment
+            if sparent>0:
+                segment = init_elt_path[sparent][1] + segment  #! expect parent axe (see hypothesis) 
+            ##init_path_elt[ax_ind] = segment
+            
+            # record tip-2-axes
+            init_path_tip.setdefault(segment[-1],[]).append(ax_ind) ## path is not necessary the axes!!
+
+            # record axe index and path for all segments 
+            # for which no path have been recorded yet
+            for i,s_ind in enumerate(segment):
+                if not init_elt_path.has_key(s_ind):
+                    init_elt_path[s_ind] = (ax_ind, segment[:i+1])
+                
     # init path data structure
-    path_elt = [[]]                                # elements in path
-    elt_path = [[] for i in xrange(len(parent))]   # path going through elements
+    path_elt = [[]]                                 # elements in path
+    elt_path = [set() for i in xrange(len(parent))] # path going through elts
+    closed_path = set()                       # path not to be processed anymore
     
     # create a new path starting a element `e`
     def new_path(e):
         path_elt.append([e])
         path_id = len(path_elt)-1
-        elt_path[e].append(path_id)
+        elt_path[e].add(path_id)
         return path_id
         
     # append element `dst` to path(s) ending at `src`
-    def merge_path(src, dst):
-        src_path = elt_path[src]
+    axe_map = {}
+    def append_path(src, dst):
+        src_path = elt_path[src].difference(closed_path)
         for p in src_path:
             path_elt[p].append(dst)
-        elt_path[dst].extend(src_path)
+        elt_path[dst].update(src_path)
+        
+    # path at e are possible axe of init_axes
+    def record_axes_map(e):
+        e_path = elt_path[e].difference(closed_path)  ##difference(closed)?
+        for a in init_path_tip[e]:
+            axe_map.setdefault(a,[]).extend(e_path)
         
     # create the covering path
     for e in top_order[::-1]:
-        if len(elt_path[e])==0: new_path(e)
-        p = parent[e]
-        if p!=dummy: merge_path(e,p)
+        e_path = elt_path[e]
+        if len(e_path)==0: 
+            new_path(e)
+        elif len(e_path.difference(closed_path))==0: 
+            continue
+        
+        if e in init_elt_path:
+            # record possible axe path (to do before closed_path update)
+            if e in init_path_tip:
+                record_axes_map(e)
+                
+            # if on init_axes, follow selected path 
+            init_path = init_elt_path[e][1]
+            src = e
+            for dst in init_path[len(init_path)-2::-1]:
+                append_path(src,dst)
+                src = dst
+            closed_path.update(elt_path[dst])
+            
+        else:
+            p = parent[e]
+            if p!=dummy: append_path(e,p)
 
-    return [p[::-1] for p in path_elt], map(set,elt_path)
+    return [p[::-1] for p in path_elt], elt_path, axe_map
+
+
+def identify_init_path(path_elt, init_axes):
+    """ identify which path can be an extension of `init_path` 
+    
+    :Inputs:
+     - path_elt:
+         A list of list of element ids for each path, sorted.
+     - init_axes:
+         An initial AxeList already set. It must have been used to contruct 
+         `path_elt` such that a path that contains the last element if an axe
+         in `init_axes` also contain all its predecessors.
+         Typically, of `path_elt` has been generated with `tree_covering_path`
+         that used a `parent` argument constructed with
+         ....
+    """
+    pass
 
 def merge_tree_path(dag, top_order, path_elt, elt_path, priority, clean_mask=None):
     """
@@ -551,180 +768,99 @@ def merge_tree_path(dag, top_order, path_elt, elt_path, priority, clean_mask=Non
     return path_elt, elt_path, del_path, debug
 
 
-def path_selection(criteria, parameter):
-    """ 
-    Create a path selection function used by `path_to_axes`
-    """
-    pass
 
-def longest_path(path, path_parent, parameter):
-    """" select longest path with same parent """
-    pass
-
-def path_to_axes(graph, path, priorities):
+def longest_path(path, length, parent, number=1, prev_ids=None):
+    """ select the longest `path` of each `parent`
+    
+    path: list of list of element per path
+    length: length of path elements
+    parent: integer identifying each path parent (parent=0 are not processed)
+    number: the number of path to select per parent
+    prev_ids: array of path ids which should be selected first
+    
+    return a mask array where non-zero item are the selected path, and the 
+    value is the path id which taken from `prev_ids` when possible.
     """
-    Branch path with same start into a hierarchical axe system
-    
-    :Inputs:
-      - graph:
-          a RootGraph object
-          `graph.segment` should have its 'parent' suitably set
-      - path:
-          list of ordered list of segment that represent the axes path
-      - parent_path:
-          id of parent path of all `path`
-      - parent_segment
-          id of parent segment of all `path`
-         
-    :Output:
-      an AxeList object
-    """
-    raise NotImplementedError()
-    
-
-def path_to_axes_0(graph, path, axe_selection=[('length',1),('min_tip_length',10)]):
-    """
-    Create an AxeList from a covering path set, selecting path/axe order
-    
-    :Inputs:
-      - graph:
-          a RootGraph object
-          `graph.segment` should have its 'parent' suitably set
-      - path:
-          list of order list of segment that represent the covering path
-      - axe_selection
-         ##...
-         
-    :Output:
-      the constructed AxeList
-    
-    *** warning: input `path` is changed in-place ***
-    """
-    from rhizoscan.root.graph import nsa
-    
-    segment = graph.segment
-    axe = path[:]  # to store segment list per axes
-    
-    sLength = segment.length()
-    aLength = _np.vectorize(lambda slist:sLength[slist].sum())(axe)
-    aPlant  = segment.seed[[a[0] if len(a) else 0 for a in axe]]
-    
-    # find axe order
-    # --------------
-    max_order = len(axe_selection)+1
-    aOrder = _np.ones_like(aPlant)*max_order
-    
-    for order, (method,param) in enumerate(axe_selection):
-        order += 1
+    if number!=1:
+        raise NotImplementedError("only longest_path with number=1 is implemented")
         
-        if method=='length':
-            if param==1:
-                puid = _np.unique(aPlant)
-                if puid[0]==0: puid=puid[1:]
-                for plant in puid:
-                    aid = _np.argmax(aLength*(aPlant==plant)*(aOrder==max_order))
-                    aOrder[aid] = order
-                    ##print 'order', order, ': plant', plant, 'axe:', aid
-            else:
-                raise NotImplementedError('axe order selection with', method, param, 'is not implemented')
-                
-        elif method=='radius':
-            from rhizoscan.stats import cluster_1d
-            aRadius = _np.vectorize(lambda slist:segment.radius[slist].mean())(axe)
-            aRadius[_np.isnan(aRadius)] = 0
-            main_axes = cluster_1d(aRadius, classes=2, bins=256)
-            aOrder[main_axes] = order
-            
-        elif method=='seminal':
-            from rhizoscan.stats import cluster_1d
-            adist = _axe_distance_to_seed(graph=graph,axe=axe,aPlant=aPlant, a2process=aOrder==max_order)
-            if param==1 or param=='max':
-                puid = _np.unique(aPlant)
-                if puid[0]==0: puid=puid[1:]
-                for plant in puid:
-                    aid = _np.argmax(adist*(aPlant==plant))
-                    aOrder[aid] = order
-            else:
-                seminal = cluster_1d(adist,classes=2, bins=256)
-                aOrder[seminal>0] = order
-           
-        elif method=='min_tip_length':
-            saxe = segment_axe_list(axe, segment.number())
-            saxe_num = _np.vectorize(len)(saxe)
-            
-            # test tip length all axes in order of decreasing length
-            sorted_axe = sorted(enumerate(axe),key=lambda x:aLength[x[0]],reverse=1)
-            for aid,slist in sorted_axe:
-                if aOrder[aid]<max_order: continue
-                    
-                # find contiguous axe parts that are owned only by this axe 
-                # these are considered potential axe tips 
-                own_seg   = _np.ma.masked_not_equal(saxe_num[slist],1)
-                own_slice = _np.ma.notmasked_contiguous(own_seg)
-                if isinstance(own_slice,slice):
-                    own_slice = [own_slice]
+    p_length = _np.vectorize(lambda slist:length[slist].sum())(path)
+    parent  = _np.asanyarray(parent)
+    
+    def masked_argmax(value, mask):
+        ind = _np.argmax(value[mask])
+        return mask.nonzero()[0][ind]
 
-                # For each tip, test if it has suffisent length
-                keep = False
-                for tip in own_slice[::-1]:
-                    if segment.length()[slist[tip]].sum()>param: 
-                        keep = True
-                        break
-                        
-                # if at least one tip is correct, set this axe to required order
-                if keep:
-                    axe[aid] = slist[:tip.stop]
-                    aOrder[aid] = order
-                    saxe_num[slist[tip.stop:]] -= 1
-                else:
-                    saxe_num[slist] -= 1
+    if prev_ids is None:
+        prev_ids = _np.zeros(p_length.size,dtype=int)
+    else:
+        prev_ids = _np.asanyarray(prev_ids)
+    prev_mask = prev_ids>0
 
-        elif axe_selection[0]=='all':
-            aOrder[:] = order
-    aOrder[0] = 0
-    
-    
-    # convert path to axes:
-    # ---------------------
-        # find axe order of segment: order of the axe passing with lowest order 
-    sOrder = _np.ones(segment.seed.size,dtype='uint8')*max_order
-    #sOrder[segment.seed>0] = 0 # remove seed from path
-    for i,a in enumerate(axe):
-        if i==0: continue
-        sOrder[a] = _np.minimum(sOrder[a],aOrder[i])
-    
-        # crop start of path that are also part of an axe with lower order
-    for i,a in enumerate(axe):
-        if i==0: continue
-        start = _np.argmax(sOrder[a]>=aOrder[i]) # 1st element with correct order
-        axe[i] = a[start:]
+    # select axes
+    # -----------
+    longest = _np.zeros(p_length.size,dtype=int)
+    cur_id  = prev_ids.max()+1
+    for par in sorted(set(parent).difference([0])):
+        mask = parent==par
         
-        # find parent segment and parent axe  ## not robust!?!
-    parent_seg = nsa.parent_segment(axe,segment.parent)
-    parent_axe = nsa.parent_axe(axe,parent_seg)
+        # check if longest path is in priority_mask
+        pmask = mask&prev_mask
+        if pmask.any():
+            mask = pmask
+            
+        # select longest path
+        order = masked_argmax(p_length,mask)
+        if prev_ids[order]:
+            longest[order] = prev_ids[order]
+        else:
+            longest[order] = cur_id
+            cur_id += 1
+        
+    return longest
+
+def min_path_tip_length(path_elt, elt_path, length, min_length=10):
+    """
+    Filter path whose tip length are less than `max_length`
     
-    ## for 2ndary+ axe with no parent, set (1st) axe with order-1 as parent axe 
-    invalid_parent = [aid for aid, parent in enumerate(parent_axe) if aOrder[aid]>1 and parent==0]
-    for aid in invalid_parent:
-        pid = aPlant[aid]
-        porder = aOrder[aid]-1
-        parent = [p for p in range(len(axe)) if aOrder[p]==porder and aPlant[p]==pid]
-        parent_axe[aid] = parent[0] if len(parent) else 0 ## if/else not necessary?
-
-    ##    # sort axes by decreasing length (after cropping), for priority in AxeList
-    ##aLength = _np.vectorize(lambda slist:segment.length()[slist].sum())(axe)
-    ##l_sort  = _np.roll(_np.argsort(aLength)[::-1],1)
-    ##axe    = [axe[i]    for i in l_sort]
-    ##aOrder = [aOrder[i] for i in l_sort]
-    ##aPlant = [aPlant[i] for i in l_sort]
-
-    axelist = _AxeList(axes=axe, segment_list=segment,
-                       parent=parent_axe, parent_segment=parent_seg,
-                       order=aOrder, plant=aPlant)
-
-    return axelist
+    the tip is the set of path element that are not covered by any other path
     
+    path_elt: list of sorted list of element per path
+    elt_path: list of (set of) path going through all elements
+    length: length of path elements
+    min_length: the minimum length allowed for path tip
+    
+    return a boolean array
+    """
+    ptip = path_tip(path_elt,elt_path)
+    tip_length = _np.vectorize(lambda elts:length[elts].sum())(ptip)
+    return tip_length>=min_length
 
+def path_tip(path_elt, elt_path):
+    """
+    Return the path tip: last path elements that are not covered by other path
+    
+    return a list of list of tip elements per path
+    """
+    path_tip = []
+    elt_path_number = _np.vectorize(len)(elt_path)
+    for path in path_elt:
+        if len(path)==0:
+            path_tip.append([])
+        else:
+            tip_start = elt_path_number[path]==1
+            tip_start = tip_start.size - _np.argmin(tip_start[::-1])
+            path_tip.append(path[tip_start:])
+        
+    return path_tip
+    
+def test_path_tip():
+    path = [[],[1,2,3,6],[2,4],[1,7,3,5,8]]
+    ep = [[] for i in range(9)]
+    for p,elts in enumerate(path):
+        for e in elts:
+            ep[e].append(p)
+    assert path_tip(path,ep)==[[], [6], [4], [5,8]]
 
 def set_downward_segment(graph):
     

@@ -32,75 +32,100 @@ Those of step 2 are in the `growth` module
 """
 import numpy as _np
 
-from rhizoscan.opencv   import descriptors as _descriptors
-from rhizoscan.geometry import transform   as _transform
-
+from rhizoscan import geometry as _geo
 from .projection import axe_projection
 
-def track_root(dseq, update=False, verbose=True, plot=False):
+def track_root(dseq, verbose=True):
     """
     TESTING / IN DEV
     
-    track root in dataset sequence `dseq`
+    track root in dataset (sorted) sequence `dseq`, with:
+     dseq[0].tree
+     dseq[i>0].graph
+     dseq[i].image_transform
     
-    each item in `dseq` should have attributes graph,tree,key_point,descriptor
-    
-    use rhizoscan.opencv stuff to estimate affine transform between image
+    use load_test_ds('simple') for a simple example
     """
-    from .projection import match_seed
-    from .projection import node_to_axe_distance
-    d0 = dseq[0].load()
-    d1 = dseq[1].load()
+    from rhizoscan.root.graph.to_tree import graph_to_dag
+    ##from rhizoscan.root.graph.to_tree import set_downward_segment
+    from rhizoscan.root.tracking.growth import simple_axe_growth
     
-    # image tracking
-    if not update and d1.has_key('image_transform'):
-        T = d1.image_transform
-    else:
-        kp0   = d0.key_point
-        desc0 = d0.descriptor
-        kp1   = d1.key_point
-        desc1 = d1.descriptor
+    d1 = dseq[0].copy().load()
+    if not d1.has_key('tree'):
+        raise TypeError("1st item of dataset has no 'tree' attribute")
+    if not d1.has_key('image_transform'):
+        raise TypeError("1st item of dataset has no 'image_transform' attribute")
+    
+    t1 = d1.tree
+    # add axe.id if not already set (deprecated?)
+    if not t1.axe.has_key('id'):
+        t1.axe.id = _np.arange(t1.axe.number())
+        d1.dump()
+    
+    for i,d2 in enumerate(dseq[1:]):
+        i +=1 
         
-        T,M = _descriptors.affine_match(kp0,desc0, kp1,desc1, verbose=verbose)
-        d1.image_transform = T
+        if verbose:
+            print 'root tracking of '+d1.__key__+' > '+d2.__key__
+            
+        # load d2
+        d2 = d2.copy().load()
+        if not d2.has_key('graph'):
+            raise TypeError("item %d of dataset has no 'graph' attribute" % i)
+        if not d2.has_key('image_transform'):
+            raise TypeError("item %d of dataset has no 'image_transform' attribute" % i)
+        g2 = d2.graph
+        
+        #project d1.tree axes onto d2.graph
+        T = _geo.dot(_geo.inv(d1.image_transform), d2.image_transform)
+        t2 = axe_projection(t1, g2, T)
+    
+        #"simple" axe growth  ## add as option of axe_projection?
+        dag2, sdir = graph_to_dag(t2.segment, t2.axe) 
+        axe2,daxe = simple_axe_growth(dag2, t2.axe) # update t2.axe in place
+        
+        from rhizoscan.root.graph.to_tree import make_tree_2
+        t2 = make_tree_2(g2, init_axes=t2.axe)
+        
+        #todo: "simple" add new branch
+        
+        #todo: store d2.tree_trk
+        d2.set('tree_trk',t2,store=1)
+        d2.dump()
+        
+        # d2.tree_trk become d1.tree for next iteration
+        t1 = d2.tree#t2
 
-    t = d0.tree
-    g = d1.graph
+def plot_track_root(dseq):
+    from matplotlib import pyplot as plt
+    for i in range(1,len(dseq)):
+        d1 = dseq[i-1].copy().load()
+        d2 = dseq[i].copy().load()
+        plt.subplot(1,2,1)
+        d1.tree.plot()
+        plt.subplot(1,2,2)
+        d2.tree_trk.plot()
+        k = raw_input(d1.__key__+' > '+d2.__key__+':')
+        
+        if k=='q':
+            return
 
-    # make a copy of g with transformed node position 
-    gnpos = _transform(T=T, coordinates=g.node.position)
-    g_input = g
-    g = g.copy()
-    g.node = g.node.copy()
-    g.node.position = gnpos
-
-    # compute g node to t segment distance
-    d,s,p = node_to_axe_distance(g.node.position, t)
-
-    if plot:
-        from matplotlib import pyplot as plt
-        g.plot(bg='k',sc=(g.segment.seed>0)+1)
-        t.plot(bg=None)
-        n = gnpos
-        I = _np.arange(p.shape[1])  # list of nodes index
-        k = _np.argmin(d,axis=1)    # best axe match for each node
-        plt.plot([n[0,:],p[0,I,k]],[n[1,:],p[1,I,k]], 'b')
+def load_test_ds(name='simple'):
+    """ return tracking dataset for testing purpose 
     
-    
-    # match seed
-    seed_match, unmatch_t, unmatch_g = match_seed(t,g)
-    
-    # get ids of first nodes of t 1st order axe 
-    
-    return t,g,seed_match
-    # match axe 0
-    # match axe i>0
-    
-def load_test_ds():
-    """ return tracking dataset for testing purpose """
+    name can be 'simple' or 'AR570'
+    """
     from rhizoscan.root.pipeline.dataset import make_dataset
-    ds,inv,out = make_dataset('/Users/diener/root_data/nacry/AR570/pando/pando_rsa.ini')
-    cds = ds.group_by(['genotype.name','nitrate','plate'],key_base='metadata')
+    
+    if name=='AR570':
+        ds,inv,out = make_dataset('/Users/diener/root_data/nacry/AR570/pando/pando_rsa.ini')
+        cds = ds.group_by(['genotype.name','nitrate','plate'],key_base='metadata')
+        
+    else:#if name=='simple':
+        ds,inv,out = make_dataset('/Users/diener/root_data/test/tracking/simple/simple.ini')
+        ds.ksort()
+        cds = [ds]
+        
     return cds
     
 def test_axe_projection(sds, start=0):
@@ -175,9 +200,13 @@ def mtest_axe_projection(cds, group=0, start=0, max_shift=2):
         # draw t1
         ax = plt.subplot(2,1,1)
         ax.set_position([0,.51,1,.49])
-        sc = unreachable(t1)
-        t1.plot(sc=sc, indices=sc&(t1.segment.node!=0).all(axis=1),linestyle=':', linewidth=2, transform=T1)
-        t1.plot(bg=None,max_shift=max_shift, corder=corder, linewidth=2, transform=T1)
+        sc = unreachable(t1)&(t1.segment.node!=0).all(axis=1)
+        
+        bg='w'
+        if any(sc):
+            t1.plot(sc=sc, indices=sc&(t1.segment.node!=0).all(axis=1),linestyle=':', linewidth=2, transform=T1)
+            bg=None
+        t1.plot(bg=bg,max_shift=max_shift, corder=corder, linewidth=2, transform=T1)
         
         # draw t2
         ax = plt.subplot(2,1,2, sharex=ax, sharey=ax)
@@ -189,8 +218,12 @@ def mtest_axe_projection(cds, group=0, start=0, max_shift=2):
         ##t2.plot(sc=7*(sc>0), linewidth=3, transform=T2)
         
         sc = uncover(t2, taxes, sdir)
-        t2.plot(sc=sc, indices=(sc>0)&(t2.segment.node!=0).all(axis=1),linestyle=':', linewidth=2, transform=T2)
-        t2.plot(bg=None,max_shift=max_shift, corder=corder, linewidth=2, transform=T2)
+        sc_mask = (sc>0)&(t2.segment.node!=0).all(axis=1)
+        bg='w'
+        if any(sc_mask):
+            t2.plot(sc=sc, indices=(sc>0)&(t2.segment.node!=0).all(axis=1),linestyle=':', linewidth=2, transform=T2)
+            bg=None
+        t2.plot(bg=bg,max_shift=max_shift, corder=corder, linewidth=2, transform=T2)
         
         # draw new tip
         taxes = [] + taxes

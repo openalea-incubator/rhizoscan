@@ -102,7 +102,7 @@ def compute_graph(rmask, seed_map, bbox=None, verbose=False):
     return graph
     
 @_node('tree')
-def compute_tree(graph, px_scale=1, axe_selection=[('length',1),('min_tip_length',10)], metadata={}):
+def compute_tree(graph, px_scale=1, axe_selection=[('longest',1),('min_tip_length',10)], metadata={}):
     #def compute_tree(graph, px_scale=1, to_tree=2, to_axe=2, metadata={}):
     #tree = _RootTree(node=graph.node, segment=graph.segment, to_tree=to_tree, to_axe=to_axe)
     tree = _make_root_tree(graph=graph, axe_selection=axe_selection)

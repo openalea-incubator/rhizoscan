@@ -609,7 +609,7 @@ def path_to_axes(graph, path, priorities):
     raise NotImplementedError()
     
 
-def path_to_axes_0(graph, path, axe_selection=[('length',1),('min_tip_length',10)]):
+def path_to_axes_0(graph, path, axe_selection=[('longest',1),('min_tip_length',10)]):
     """
     Create an AxeList from a covering path set, selecting path/axe order
     
@@ -644,7 +644,7 @@ def path_to_axes_0(graph, path, axe_selection=[('length',1),('min_tip_length',10
     for order, (method,param) in enumerate(axe_selection):
         order += 1
         
-        if method=='length':
+        if method=='longest':
             if param==1:
                 puid = _np.unique(aPlant)
                 if puid[0]==0: puid=puid[1:]

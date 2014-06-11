@@ -282,7 +282,7 @@ def merge_tree_path(incomming, out_going, top_order, path_elt, elt_path, priorit
     
     return path_elt, elt_path, del_num, tmp
 
-def path_to_axes(graph, path, axe_selection=[('length',1),('min_tip_length',10)]):
+def path_to_axes(graph, path, axe_selection=[('longest',1),('min_tip_length',10)]):
     """
     Create an AxeList from a covering path set, selecting path/axe order
     
@@ -307,7 +307,7 @@ def path_to_axes(graph, path, axe_selection=[('length',1),('min_tip_length',10)]
     for order, (method,param) in enumerate(axe_selection):
         order += 1
         
-        if method=='length':
+        if method=='longest':
             if param==1:
                 puid = _np.unique(aPlant)
                 if puid[0]==0: puid=puid[1:]
@@ -377,7 +377,7 @@ def path_to_axes(graph, path, axe_selection=[('length',1),('min_tip_length',10)]
     # convert path to axes:
     # ---------------------
         # find axe order of segment: order of the axe passing with lowest order 
-    sOrder = _np.ones(segment.seed.size,dtype='uint8')*max_order
+    sOrder = _np.ones(segment.number(),dtype='uint8')*max_order
     #sOrder[segment.seed>0] = 0 # remove seed from path
     for i,a in enumerate(axe):
         if i==0: continue

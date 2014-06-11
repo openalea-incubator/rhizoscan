@@ -2,10 +2,10 @@ import numpy as np
 import scipy as sp
 
 from rhizoscan.workflow import node as _node # to declare workflow nodes
-from rhizoscan.datastructure import Sequence as _Sequence 
-from rhizoscan.datastructure import Mapping  as _Mapping 
-from rhizoscan.datastructure import Data     as _Data
-from rhizoscan.tool          import _property
+from rhizoscan.datastructure   import Sequence as _Sequence 
+from rhizoscan.datastructure   import Mapping  as _Mapping 
+from rhizoscan.datastructure   import Data     as _Data
+from rhizoscan.misc.decorators import _property
 
 # measurments for unordered list of trees object having a metadata attribute
 # --------------------------------------------------------------------------

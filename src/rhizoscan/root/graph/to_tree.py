@@ -75,7 +75,7 @@ class AxeBuilder(object):
             ids = self.current_id
             self.current_id += 1
         
-        if plant=0:
+        if plant==0:
             plant = self.plant[self.axe_index(parent)]
         
         self.segment.append(segment)

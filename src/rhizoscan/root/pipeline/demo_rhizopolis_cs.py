@@ -3,7 +3,7 @@ import scipy as _sp
 from scipy import ndimage as _nd
 
 from rhizoscan.workflow import node as _node # to declare workflow nodes
-from rhizoscan.tool  import static_or_instance_method as _static_or_instance_method
+from rhizoscan.misc.decorators import static_or_instance_method as _static_or_instance_method
 
 from rhizoscan.ndarray.measurements import clean_label as _clean_label
 from rhizoscan.image                import Image as _Image

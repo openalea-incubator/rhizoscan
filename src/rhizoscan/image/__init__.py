@@ -19,9 +19,9 @@ from rhizoscan.datastructure import Data as _Data
 from rhizoscan.storage       import FileObject as _FileObject
 from rhizoscan.datastructure import Sequence as _Sequence   
 
-from rhizoscan.tool   import static_or_instance_method as _static_or_instance
-from rhizoscan.tool   import _property
-from rhizoscan.tool.path import assert_directory as _assert_directory
+from rhizoscan.misc.decorators import static_or_instance_method as _static_or_instance
+from rhizoscan.misc.decorators import _property
+from rhizoscan.misc.path       import assert_directory as _assert_directory
 
 class Image(_np.ndarray, _Data):
     """

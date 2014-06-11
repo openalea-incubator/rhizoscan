@@ -18,7 +18,7 @@ __icon__    = 'datastructure.png'   # package icon (for openalea)
 
 from copy   import copy as _copy
 
-from .tool     import static_or_instance_method, _property 
+from rhizoscan.misc.decorators import static_or_instance_method, _property 
 from .workflow import node as _node # to declare workflow nodes
 from .storage  import FileObject as _FileObject
 from .storage  import MapStorage as _MapStorage

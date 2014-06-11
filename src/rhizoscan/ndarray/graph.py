@@ -5,7 +5,7 @@ This is some abandoned code which is not updated and nor maintained
 import numpy as np
 from scipy   import ndimage as nd
 from .       import ravel_indices, unravel_indices, add_dim 
-from ..tool  import tic, toc
+from rhizoscan.misc import tic, toc
 
 from rhizoscan.workflow import node as _node # to declare workflow nodes## how to make a node out of a graph ? make an independant function for each method ?
 

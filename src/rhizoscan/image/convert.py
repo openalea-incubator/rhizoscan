@@ -8,8 +8,8 @@ a few image conversion tool
 ##add convert(img, dtype=None, color=None)
 
 import numpy as _np
-from ..tool  import printWarning
-from ..ndarray import add_dim
+from rhizoscan.misc.decorators import printWarning
+from rhizoscan.ndarray import add_dim
 
 def gray(image):
     """ 

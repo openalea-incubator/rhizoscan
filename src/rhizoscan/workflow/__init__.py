@@ -42,7 +42,7 @@ except:
 from types import MethodType   as _MethodType
 from types import FunctionType as _FunctionType
 
-from rhizoscan.tool import _property
+from rhizoscan.misc.decorators import _property
 
 # default printing functionality
 def _print_state(verbose, msg):

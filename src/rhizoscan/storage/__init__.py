@@ -19,9 +19,9 @@ import cPickle as _cPickle
 import os as _os
 from tempfile import SpooledTemporaryFile as _TempFile
 
-from rhizoscan.tool import _property
-from rhizoscan.tool import class_or_instance_method as _cls_inst_method
-from rhizoscan.tool.path import assert_directory as _assert_directory
+from rhizoscan.misc.decorators import _property
+from rhizoscan.misc.decorators import class_or_instance_method as _cls_inst_method
+from rhizoscan.misc.path import assert_directory as _assert_directory
 
 
 class Serializer(object):

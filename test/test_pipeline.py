@@ -76,7 +76,7 @@ def test_arabido_pipeline_with_storage():
         os.rmdir(tmp)
 
 def test_load_dataset():
-    from rhizoscan.tool.path import abspath
+    from rhizoscan.misc.path import abspath
     from rhizoscan.root.pipeline.dataset import make_dataset
     
     pfile = os.path.abspath(project_file)

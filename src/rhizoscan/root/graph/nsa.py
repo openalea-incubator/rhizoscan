@@ -4,7 +4,7 @@ used by RootGraph
 """
 import numpy as _np
 
-from rhizoscan.tool import _property
+from rhizoscan.misc.decorators import _property
 from rhizoscan.datastructure import Mapping as _Mapping
 
 from rhizoscan.root.graph.conversion import segment_to_neighbor as _seg2nbor

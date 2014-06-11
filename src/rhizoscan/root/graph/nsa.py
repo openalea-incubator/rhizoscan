@@ -219,7 +219,7 @@ class SegmentList(GraphList):
         return nbor
 
 class AxeList(GraphList):
-    def __init__(self, axes, segment_list, parent, plant=None, order=None, parent_segment='parent'):
+    def __init__(self, axes, segment_list, parent, plant=None, order=None, parent_segment='parent', ids=None):
         """
         Create an AxeList instance.
         
@@ -249,7 +249,10 @@ class AxeList(GraphList):
               The list of the parent segment of all axes. If a string is given, 
               use the the attribute with the name of `segment_list` to infer it.
               See notes.
-              ##todo: parent_segment - remove default value ('parent')
+              ##todo: remove default 'parent' value of parent_segment arg
+          - ids:
+              optional axe ids. Must be >0 for all axes but dummy
+              If None, set don't set axe id. If 'auto', set default ones. 
               
         :Notes:
             The AxeList constructor compute the "main axe" of each segment from
@@ -295,6 +298,20 @@ class AxeList(GraphList):
         else:
             self.parent = _np.asarray(parent)
             
+        self.set_id(ids=ids)
+        
+    def set_id(self, ids='auto'):
+        """ Set axe ids
+        
+        If `ids='auto'`, generate automatic ids **if none exist**
+        If `ids=None`, don't set ids and remove existing ones
+        Else, set axe.id to given `ids`
+        """
+        if ids is None:   self.pop('id')
+        elif ids=='auto': self.setdefault('id',_np.arange(self.number()))
+        else:             self.id = ids
+        
+        return self.get('id')
         
     def _update_version(self, verbose=False):
         """ update AxeList from older version """

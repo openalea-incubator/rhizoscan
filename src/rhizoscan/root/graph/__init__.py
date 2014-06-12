@@ -135,14 +135,15 @@ class RootTree(RootGraph):
         self.axe = axe
     
 
-    def plot(self, bg='k', ac=None, sc=None, max_shift=0, transform=None, cmap=None, corder=1, cstart=1, **kargs):
+    def plot(self, bg='k', ac='id', sc=None, max_shift=0, transform=None, cmap=None, corder=1, cstart=1, **kargs):
         """
         Plot tree on top of `bg`
         
         If `sc` is not None, call RootGraph.plot with it and all other arguments
         
         Otherwise, use `ac` to select color. POssible values are
-          -  None:   color is selected w.r.t. axe id
+          -  None:   color is selected w.r.t. axe index
+          -  id:     color is selected w.r.t. axe id
           - 'order': color is selected w.r.t. axe order
           - 'plant': color is selected w.r.t. axe plant id
           -  an array of shape (axe.number(),)
@@ -156,6 +157,8 @@ class RootTree(RootGraph):
         # manage color arguments
         if ac=='order':
             ac = self.axe.order()
+        elif ac=='id':
+            ac = self.axe.get_id()
         elif ac=='plant':
             ac = self.axe.plant
         

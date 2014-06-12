@@ -312,7 +312,15 @@ class AxeList(GraphList):
         else:             self.id = ids
         
         return self.get('id')
-        
+
+    def get_id(self):
+        """ return axe id, or default value """
+        if self.has_key('id'):
+            return self.id
+        else:
+            return _np.arange(self.number())
+            
+
     def _update_version(self, verbose=False):
         """ update AxeList from older version """
         # previous auto compute of parent segment (property sparent)

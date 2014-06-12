@@ -49,6 +49,7 @@ def track_root(dseq, verbose=True):
     from rhizoscan.root.graph.to_tree import graph_to_dag
     ##from rhizoscan.root.graph.to_tree import set_downward_segment
     from rhizoscan.root.tracking.growth import simple_axe_growth
+    from rhizoscan.root.graph.to_tree import make_tree_2
     
     d1 = dseq[0].copy().load()
     if not d1.has_key('tree'):
@@ -56,7 +57,7 @@ def track_root(dseq, verbose=True):
     if not d1.has_key('image_transform'):
         raise TypeError("1st item of dataset has no 'image_transform' attribute")
     
-    t1 = d1.tree
+    t1 = make_tree_2(d1.graph)
     # add axe.id if not already set (deprecated?)
     if not t1.axe.has_key('id'):
         t1.axe.id = _np.arange(t1.axe.number())
@@ -84,7 +85,6 @@ def track_root(dseq, verbose=True):
         dag2, sdir = graph_to_dag(t2.segment, t2.axe) 
         axe2,daxe = simple_axe_growth(dag2, t2.axe) # update t2.axe in place
         
-        from rhizoscan.root.graph.to_tree import make_tree_2
         t2 = make_tree_2(g2, init_axes=t2.axe)
         
         #todo: "simple" add new branch
@@ -94,21 +94,36 @@ def track_root(dseq, verbose=True):
         d2.dump()
         
         # d2.tree_trk become d1.tree for next iteration
-        t1 = d2.tree#t2
+        d1 = d2
+        t1 = t2
 
 def plot_track_root(dseq):
     from matplotlib import pyplot as plt
-    for i in range(1,len(dseq)):
+    
+    ac='id'
+    i = 1
+    while True:
         d1 = dseq[i-1].copy().load()
         d2 = dseq[i].copy().load()
+        t1 = d1.get('tree_trk', d1.tree)
+        t2 = d2.tree_trk
         plt.subplot(1,2,1)
-        d1.tree.plot()
+        t1.plot(ac=ac, max_shift=4)
         plt.subplot(1,2,2)
-        d2.tree_trk.plot()
-        k = raw_input(d1.__key__+' > '+d2.__key__+':')
+        t2.plot(ac=ac, max_shift=4)
         
+        k = raw_input(d1.__key__+' > '+d2.__key__+':')
         if k=='q':
             return
+        elif k=='o':
+            ac = 'order' if ac is 'id' else 'id'
+        else:
+            try:
+                i = int(k)
+            except:
+                i += 1
+            finally:
+                i = (i-1)%(len(dseq)-1) +1
 
 def load_test_ds(name='simple'):
     """ return tracking dataset for testing purpose 

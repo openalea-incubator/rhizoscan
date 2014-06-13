@@ -809,7 +809,7 @@ class PathSet(object):
 
     def cut_path(self, path, elt):
         """ remove `path` element previous to `e` """
-        elt_ind = self._path_index(path,elt)
+        elt_ind = self.path_index_of(path,elt)
         for e in self.path_elt[:elt_ind]:
             self.elt_path[e].remove(path)
             self.path_count[e] -= 1

@@ -332,10 +332,6 @@ def make_tree_2(graph, order1='longest', o1_param=1, order2='min_tip_length', o2
                                    fixed_path=builder.path_indices('all'))
     builder.update(path_elt)
     
-    print '**********'
-    print '**********'
-    print '**********'
-
     # find order 2 axes
     # -----------------
     if order2=='min_tip_length':

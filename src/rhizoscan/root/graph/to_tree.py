@@ -930,7 +930,7 @@ def merge_tree_path_2(dag, top_order, path_elt, elt_path, priority, clean_mask=N
         free_path      = sorted(free_path,      key=lambda p:  priority[p])
         incomming_path = sorted(incomming_path, key=lambda ip: priority[ip[0]])
         for (p1,c),p2 in zip(incomming_path,free_path):
-            path_set.cut_path(p2,e)
+            path_set.cut_path(p2,elt)
             path_set.merge_path(p1,p2)
             path_tip.pop(c)
             

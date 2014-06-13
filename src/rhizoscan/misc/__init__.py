@@ -86,39 +86,51 @@ def jedit(file=''):
         
 
 
-# special printing functionalities
-# --------------------------------
-def printMessage(msg,stack=False,header=''):
+# practical printing functionalities
+# ----------------------------------
+def printMessage(msg,stack=False,header='', color=None):
     """
     print a string. Allows to interspect all written print
         printMessage(msg, stack=False)
     if stack is True, also print the module, function and line where it has been called
     """
+    # color system: see http://stackoverflow.com/a/4332587/1206998
+    color_map = dict(black=30,red=31,green=32,yellow=33,blue=34,purple=35,cyan=36)
+    ESCAPE = '%s[' % chr(27)
+    RESET = '%s0m' % ESCAPE
+    FORMAT = '1;%dm'
+        
+    if color:
+        print ESCAPE + (FORMAT % color_map[color])
+        
     if stack:
         import inspect
-        s = inspect.stack()[1]
-        print "%s(%s.%s,l%s): %s " % (header,s[1],s[3],s[2],_message2string_(msg))
+        s = inspect.stack()[stack]
+        print "%s(%s.%s,l%s):\n  %s " % (header,s[1],s[3],s[2],_message2string_(msg)),
     else:
-        print header, _message2string_(msg)
+        print header, _message2string_(msg),
+    
+    if color:
+        print RESET
 
 def printWarning(msg,stack=True):
     """
     print a warning message in blue with (if stack) the module, 
     function name and line where the function has been called
     """
-    printMessage(msg=msg,stack=stack,header='\033[94m *** Warning')
+    printMessage(msg=msg,stack=stack*2,header='Warning',color='blue')
 
 def printError(msg,stack=True):
     """
     print a error message in red with (if stack) the module, 
     function name and line where the function has been called
     """
-    printMessage(msg=msg,stack=stack,header='\033[91m *** Error')
+    printMessage(msg=msg,stack=stack*2,header='Error', color='red')
 
 def printDebug(msg=''):
     import inspect
     s = inspect.stack()[1]
-    printMessage(msg=msg,stack=True,header='\033[94m ')
+    printMessage(msg=msg,stack=2,header='Debug',color='yellow')
 
 def _message2string_(msg):
     if isinstance(msg,basestring): return msg

@@ -83,7 +83,7 @@ class RootEditorWidget(_TreeEditorWidget):
             
     def set_dataset_item(self, index):
         """ change the current view/edited dataset item """
-        self.edited_item = self.dataset[index].copy().load()
+        self.edited_item = self.dataset[index].copy().load(attempt=True)
         item = self.edited_item
         
         # set image

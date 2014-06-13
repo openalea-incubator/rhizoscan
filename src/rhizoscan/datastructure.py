@@ -576,7 +576,7 @@ class Mapping(Data):
         self.__map_storage__ = storage
         self.__map_keys__ = set(keys)
         
-    def load(self, filename=None, overwrite=True):
+    def load(self, filename=None, overwrite=True, attempt=False):
         """
         Load data found in file 'filename' and merge it into the structure
 
@@ -591,6 +591,10 @@ class Mapping(Data):
               If True, loaded item overwrite existing one with same key. 
               Otherwise, it don't. (same as for the `update` method)
               
+          - attempt
+             if True, do not load if file does not exist, avoiding IOError
+             
+              
           ##not implemented
           ##  todo: should be some "container" stuff
           ##        ex: container have a __base_dir_num__ that says how many 
@@ -601,6 +605,11 @@ class Mapping(Data):
         """
         if filename is None:
             filename = self.get_file().url
+        
+        import os ## load(attempt=1) should be done through FileObject, so by Data.load (?)
+        if attempt and not os.path.exists(filename):
+            return self
+            
         loaded = Data.load(filename, update_file=True)
         
         self.update(loaded, overwrite=overwrite)

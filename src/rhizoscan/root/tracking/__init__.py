@@ -35,7 +35,7 @@ import numpy as _np
 from rhizoscan import geometry as _geo
 from .projection import axe_projection
 
-def track_root(dseq, verbose=True):
+def track_root(dseq, verbose=True, **kargs):
     """
     TESTING / IN DEV
     
@@ -44,6 +44,8 @@ def track_root(dseq, verbose=True):
      dseq[i>0].graph
      dseq[i].image_transform
     
+    **kargs to be passed to pipeline
+    
     use load_test_ds('simple') for a simple example
     """
     from rhizoscan.root.graph.to_tree import graph_to_dag
@@ -51,11 +53,16 @@ def track_root(dseq, verbose=True):
     from rhizoscan.root.tracking.growth import simple_axe_growth
     from rhizoscan.root.graph.to_tree import make_tree_2
     
-    d1 = dseq[0].copy().load()
-    if not d1.has_key('tree'):
-        raise TypeError("1st item of dataset has no 'tree' attribute")
+    from rhizoscan.root.pipeline.arabidopsis import pipeline
+    
+    from rhizoscan.misc import printWarning
+    
+    # retrieve dseq[0], and run pipeline
+    d1 = dseq[0].copy().load(attempt=True)
+    pipeline.run(namespace=d1,verbose=verbose, **kargs)
+    
     if not d1.has_key('image_transform'):
-        raise TypeError("1st item of dataset has no 'image_transform' attribute")
+        printWarning("1st item of dataset has no 'image_transform': use identity")
     
     t1 = make_tree_2(d1.graph)
     # add axe.id if not already set (deprecated?)
@@ -70,15 +77,16 @@ def track_root(dseq, verbose=True):
             print 'root tracking of '+d1.__key__+' > '+d2.__key__
             
         # load d2
-        d2 = d2.copy().load()
-        if not d2.has_key('graph'):
-            raise TypeError("item %d of dataset has no 'graph' attribute" % i)
+        d2 = d2.copy().load(attempt=True)
+        pipeline.run(namespace=d2,verbose=verbose, **kargs)
+        
         if not d2.has_key('image_transform'):
-            raise TypeError("item %d of dataset has no 'image_transform' attribute" % i)
+            printWarning("item %d of dataset has no 'image_transform': eye identity" % i)
         g2 = d2.graph
         
         #project d1.tree axes onto d2.graph
-        T = _geo.dot(_geo.inv(d1.image_transform), d2.image_transform)
+        I = _np.eye(3)
+        T = _geo.dot(_geo.inv(d1.get('image_transform',I)), d2.get('image_transform',I))
         t2 = axe_projection(t1, g2, T)
     
         #"simple" axe growth  ## add as option of axe_projection?
@@ -105,12 +113,19 @@ def plot_track_root(dseq):
     while True:
         d1 = dseq[i-1].copy().load()
         d2 = dseq[i].copy().load()
-        t1 = d1.get('tree_trk', d1.tree)
-        t2 = d2.tree_trk
+        t1 = d1.get('tree_trk')
+        if t1 is None:
+            print '*',
+            t1 = d1.tree
         plt.subplot(1,2,1)
         t1.plot(ac=ac, max_shift=4)
+        
+        t2 = d2.get('tree_trk')
         plt.subplot(1,2,2)
-        t2.plot(ac=ac, max_shift=4)
+        if t2 is None:
+            plt.cla()
+        else:
+            t2.plot(ac=ac, max_shift=4)
         
         k = raw_input(d1.__key__+' > '+d2.__key__+':')
         if k=='q':
@@ -136,8 +151,12 @@ def load_test_ds(name='simple'):
         ds,inv,out = make_dataset('/Users/diener/root_data/nacry/AR570/pando/pando_rsa.ini')
         cds = ds.group_by(['genotype.name','nitrate','plate'],key_base='metadata')
         
-    else:#if name=='simple':
+    elif name=='simple':
         ds,inv,out = make_dataset('/Users/diener/root_data/test/tracking/simple/simple.ini')
+        ds.ksort()
+        cds = [ds]
+    elif name=='superposition':
+        ds,inv,out = make_dataset('/Users/diener/root_data/test/tracking/superposition/superposition.ini')
         ds.ksort()
         cds = [ds]
         

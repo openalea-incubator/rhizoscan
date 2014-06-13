@@ -82,8 +82,11 @@ def axe_projection(tree, graph, transform, interactive=False):
 
     # compute distances from segment in g to axe in t
     d,s,p = node_to_axe_distance(g.node.position, t)   # d(g.node, t.axe)
-    g2t_area = segment_to_projection_area(g, p)        # shape (|gs|,|ta|)
-    g2t_area += g2t_area[1:].min()/g.segment.number()  # assert strict >0
+    g2t_area = d[g.segment.node,:].mean(axis=1)
+    min_diff = _np.diff(_np.unique(g2t_area)).min()
+    g2t_area += min_diff/g.segment.number()             # assert strict >0
+    ##g2t_area = segment_to_projection_area(g, p)        # shape (|gs|,|ta|)
+    ##g2t_area += g2t_area[1:].min()/g.segment.number()  # assert strict >0
     
     # shortest path graph
     # -------------------
@@ -231,12 +234,14 @@ def axe_projection(tree, graph, transform, interactive=False):
     axes_sparent = _np.array(to_list(axes_sparent, 0))
     axes_order   = _np.array(to_list(axes_order  , 0))
     axes_parent  = t.axe.parent
+    axes_id      = t.axe.get_id()
 
 
     # create axe then tree structure
     graph_axe = AxeList(axes=graph_axes, segment_list=graph.segment,
                         order=axes_order, plant=axes_plant, 
-                        parent=axes_parent, parent_segment=axes_sparent)
+                        parent=axes_parent, parent_segment=axes_sparent,
+                        ids=axes_id)
     
     tree = RootTree(node=graph.node, segment=graph.segment, axe=graph_axe)
     

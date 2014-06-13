@@ -91,13 +91,24 @@ class AxeBuilder(object):
         self.ids.append(id)
         
         self.path_ind.append(path_index)
+        ##print 'append path:%d as axe id:%d' % (path_index,id)
         
         return id
+
+    def update(self, path_elt):
+        for i,path in enumerate(self.path_ind):
+            if path is None: continue
+            elts = path_elt[path]
+            if elts!=self.segment[i]:
+                ##print 'update axe id:%d, path:%d' % (i, path) 
+                self.segment[i]=elts
 
     def get_segment(self, axe_id):
         return self.segment[self.axe_index(axe_id)]
         
     def path_indices(self, order):
+        if order=='all': return self.path_ind
+        
         ind = [k for k in range(len(self.ids)) if self.order[k]==order]
         return [self.path_ind[i] for i in ind]
         
@@ -111,8 +122,97 @@ class AxeBuilder(object):
                        order=_np.array(self.order), 
                        ids=_np.array(self.ids))
 
+class PathSet(object):
+    """ manage set of path """
+    def __init__(self, path_elt, elt_path):
+        self.path_elt = path_elt
+        self.elt_path = elt_path
+        self._count_path()
+        
+    def _count_path(self):
+        self.path_count = _np.vectorize(len)(self.elt_path)
+        
+    def path_index_of(self, path, elt):
+        """ return index of `elt` in `path` """
+        try:
+            return self.path_elt[path].index(elt)
+        except ValueError:
+            raise TypeError('element %d is not in path %d' % (elt,path))
+    
+    def path_at(self, elt, cutable=False):
+        """ return path going through element `elt` 
+        
+        If cutable=True: return only path for which element previous to `elt`
+        can be remove: where there are other path going through  
+        """
+        path = self.elt_path[elt]
+        
+        if cutable:
+            pelt     = self.path_elt
+            pcount   = self.path_count
+            index_of = self.path_index_of
+            path = [p for p in path if (pcount[pelt[p][:index_of(p,elt)]]>1).all()]
+            
+        return path
+        
+    def path_tip(self, uncovered=False):
+        """ return the path tip
+        
+        If uncovered is True, return the list of list of uncovered tip elements
+        If False, reutnr the list of path tip element, or 0 for empty path
+        """
+        if uncovered:
+            path_tip = []
+            for elts in self.path_elt:
+                if len(elts)==0:
+                    path_tip.append([])
+                else:
+                    tip_start = self.path_count[elts]==1
+                    if tip_start.all():
+                        path_tip.append(elts)
+                    else:
+                        tip_start = tip_start.size - _np.argmin(tip_start[::-1])
+                        path_tip.append(elts[tip_start:])
+        else:
+            path_tip = [elts[-1] if len(elts) else 0 for elts in self.path_elt]
+            
+        return path_tip
+
+    def cut_path(self, path, elt):
+        """ remove `path` element previous to `e` """
+        elt_ind = self.path_index_of(path,elt)
+        for e in self.path_elt[path][:elt_ind]:
+            self.elt_path[e].remove(path)
+            self.path_count[e] -= 1
+        self.path_elt[path] = self.path_elt[path][elt_ind:]
+        
+    def merge_path(self, path1, path2):
+        """ append `path2` at the end of `path1` (and remove `path2`) """
+        self.path_elt[path1] += self.path_elt[path2]
+        for elt in self.path_elt[path2]:
+            self.elt_path[elt].remove(path2)
+            self.elt_path[elt].add(path1)
+        self.path_elt[path2] = []
+        
+    def clean(self, mask=None):
+        if mask is not None:
+            del_path = set(i for i,p in enumerate(self.path_elt) if len(p)==0 or mask[p].all())
+        else:
+            del_path = set(i for i,p in enumerate(path_elt) if len(p)==0)
+        del_path.discard(0)
+            
+        self.path_elt = [p for i,p in enumerate(self.path_elt) if i not in del_path]
+        self.elt_path = [pset.difference(del_path) for pset in self.elt_path]
+        self._count_path()
+        
+        return del_path
+        
+
+
 def make_tree_2(graph, order1='longest', o1_param=1, order2='min_tip_length', o2_param=10, init_axes=None):
     """ Construct a RootTree from given RootGraph `graph` """
+    from rhizoscan.misc import printError
+    
     segment = graph.segment
     length = segment.length()
     angle = segment.direction_difference()
@@ -143,12 +243,12 @@ def make_tree_2(graph, order1='longest', o1_param=1, order2='min_tip_length', o2
         axe_num = init_axes.number()-1
         if map_num!=axe_num:
             missing = set(range(1,axe_num+1)).difference(axe_map.keys())
-            print "missing axe in tree covering path: "+str(missing)+" (%d/%d)" % (map_num, axe_num)
+            printError("missing axe in tree covering path: "+str(missing)+" (%d/%d)" % (map_num, axe_num),stack=0)
     
         for ax_ind,path_ind in axe_map.iteritems():
             axe_map[ax_ind] = path_ind[0]  ##! arbitrarily select 1st path
             if len(path_ind)>1:
-                print '%d possible path for axe %d' % (len(path_ind), ax_ind) ##
+                printError('%d possible path for axe %d' % (len(path_ind), ax_ind), stack=0)
 
         # add mapped path to builder
         init_id = init_axes.set_id()
@@ -191,14 +291,6 @@ def make_tree_2(graph, order1='longest', o1_param=1, order2='min_tip_length', o2
         raise TypeError("unrecognized axe selection method "+str(order1))
 
 
-    # merge axes
-    # ----------
-    p_length = _np.vectorize(lambda slist:length[slist].sum())(path_elt)
-    path_elt,elt_path,n,debug = merge_tree_path_2(dag=dag, top_order=top_order, 
-                                   path_elt=path_elt, elt_path=elt_path, 
-                                   priority=-p_length,
-                                   clean_mask=graph.segment.seed>0)
-    
     # find order1 parent (& remove overlaping segments)
     # ------------------
     # NOTE: after this step, `elt_path` is not valid anymore
@@ -222,7 +314,23 @@ def make_tree_2(graph, order1='longest', o1_param=1, order2='min_tip_length', o2
         # remove overlap
         sparent[path_ind]  = segment[start-1] if start else 0
         path_elt[path_ind] = segment[start:]
-        
+    
+    # update elt_path
+    elt_path = [set() for i in range(len(elt_path))]
+    for path,elts in enumerate(path_elt):
+        for e in elts:
+            elt_path[e].add(path)
+
+    # merge axes
+    # ----------
+    p_length = _np.vectorize(lambda slist:length[slist].sum())(path_elt)
+    path_elt,elt_path,n,debug = merge_tree_path_2(dag=dag, top_order=top_order, 
+                                   path_elt=path_elt, elt_path=elt_path, 
+                                   priority=-p_length,
+                                   clean_mask=graph.segment.seed>0,
+                                   fixed_path=builder.path_indices('all'))
+    builder.update(path_elt)
+    
 
     # find order 2 axes
     # -----------------
@@ -240,7 +348,7 @@ def make_tree_2(graph, order1='longest', o1_param=1, order2='min_tip_length', o2
                            parent_id=parent[path_ind], 
                            sparent=sparent[path_ind], 
                            order=2, path_index=path_ind)
-            
+        
     else:
         raise TypeError("unrecognized axe selection method "+str(order1))
     
@@ -734,110 +842,16 @@ def tree_covering_path(parent, top_order, init_axes=None, dummy=0):
     return [p[::-1] for p in path_elt], elt_path, axe_map
 
 
-def identify_init_path(path_elt, init_axes):
-    """ identify which path can be an extension of `init_path` 
+def tree_covering_path_2(parent, top_order, init_axes=None):
+    """ change output of tree_covering_path """
+    path_elt,elt_path,axe_map = tree_covering_path_2(parent=parent, top_order=top_order, init_axes=init_axes, dummy=0)
     
-    :Inputs:
-     - path_elt:
-         A list of list of element ids for each path, sorted.
-     - init_axes:
-         An initial AxeList already set. It must have been used to contruct 
-         `path_elt` such that a path that contains the last element if an axe
-         in `init_axes` also contain all its predecessors.
-         Typically, of `path_elt` has been generated with `tree_covering_path`
-         that used a `parent` argument constructed with
-         ....
-    """
-    pass
-
-
-class PathSet(object):
-    """ manage set of path """
-    def __init__(self, path_elt, elt_path):
-        self.path_elt = path_elt
-        self.elt_path = elt_path
-        self._count_path()
-        
-    def _count_path(self):
-        self.path_count = _np.vectorize(len)(self.elt_path)
-        
-    def path_index_of(self, path, elt):
-        """ return index of `elt` in `path` """
-        try:
-            return self.path_elt[path].index(elt)
-        except ValueError:
-            raise TypeError('element %d is not in path %d' % (elt,path))
+    path_set = PathSet(path_elt,elt_path)
     
-    def path_at(self, elt, cutable=False):
-        """ return path going through element `elt` 
-        
-        If cutable=True: return only path for which element previous to `elt`
-        can be remove: where there are other path going through  
-        """
-        path = self.elt_path[elt]
-        
-        if cutable:
-            pelt     = self.path_elt
-            pcount   = self.path_count
-            index_of = self.path_index_of
-            path = [p for p in path if (pcount[pelt[p][:index_of(p,elt)]]>1).all()]
-            
-        return path
-        
-    def path_tip(self, uncovered=False):
-        """ return the path tip
-        
-        If uncovered is True, return the list of list of uncovered tip elements
-        If False, reutnr the list of path tip element, or 0 for empty path
-        """
-        if uncovered:
-            path_tip = []
-            for elts in self.path_elt:
-                if len(elts)==0:
-                    path_tip.append([])
-                else:
-                    tip_start = self.path_count[elts]==1
-                    if tip_start.all():
-                        path_tip.append(elts)
-                    else:
-                        tip_start = tip_start.size - _np.argmin(tip_start[::-1])
-                        path_tip.append(elts[tip_start:])
-        else:
-            path_tip = [elts[-1] if len(elts) else 0 for elts in self.path_elt]
-            
-        return path_tip
-
-    def cut_path(self, path, elt):
-        """ remove `path` element previous to `e` """
-        elt_ind = self.path_index_of(path,elt)
-        for e in self.path_elt[:elt_ind]:
-            self.elt_path[e].remove(path)
-            self.path_count[e] -= 1
-        self.path_elt[path] = self.path_elt[path][e:]
-        
-    def merge_path(self, path1, path2):
-        """ append `path2` at the end of `path1` """
-        self.path_elt[path1] += self.path_elt[path2]
-        for elt in self.path_elt[path2]:
-            self.elt_path.remove(path2)
-            self.elt_path.add(path1)
-        self.path_elt[path2] = []
-        
-    def clean(self, mask=None):
-        if mask is not None:
-            del_path = set(i for i,p in enumerate(self.path_elt) if len(p)==0 or mask[p].all())
-        else:
-            del_path = set(i for i,p in enumerate(path_elt) if len(p)==0)
-        del_path.discard(0)
-            
-        self.path_elt = [p for i,p in enumerate(self.path_elt) if i not in del_path]
-        self.elt_path = [pset.difference(del_path) for pset in self.elt_path]
-        self._count_path()
-        
-        return del_path
-        
-
-def merge_tree_path_2(dag, top_order, path_elt, elt_path, priority, clean_mask=None):
+    return path_set,axe_map
+    
+    
+def merge_tree_path_2(dag, top_order, path_elt, elt_path, priority, fixed_path=[], clean_mask=None):
     """
     Merge tree covering path on given `dag`, following order of `priority`
     
@@ -911,10 +925,11 @@ def merge_tree_path_2(dag, top_order, path_elt, elt_path, priority, clean_mask=N
     # parse dag (from leaves to root) and detect and merge possible path
     for elt in top_order[::-1]:
         # find set of path (on elt) that can be merged
-        # ------------------------------------------
-        free_path = path_set.path_at(elt, cutable=True)
+        # --------------------------------------------
+        mergeable_path = path_set.path_at(elt, cutable=True)
+        mergeable_path = set(mergeable_path).difference(fixed_path)
         
-        if len(free_path)==0:
+        if len(mergeable_path)==0:
             debug[elt] = 'unique path'
             continue
 
@@ -927,18 +942,19 @@ def merge_tree_path_2(dag, top_order, path_elt, elt_path, priority, clean_mask=N
         
         
         # 1-to-1 match and merge incomming & free path in order of priority
-        free_path      = sorted(free_path,      key=lambda p:  priority[p])
+        mergeable_path = sorted(mergeable_path, key=lambda p:  priority[p])
         incomming_path = sorted(incomming_path, key=lambda ip: priority[ip[0]])
-        for (p1,c),p2 in zip(incomming_path,free_path):
+        for (p1,c),p2 in zip(incomming_path,mergeable_path):
+            ##print '---merge path', p1, p2, 'at', c, elt,'---'
             path_set.cut_path(p2,elt)
             path_set.merge_path(p1,p2)
-            path_tip.pop(c)
+            ##path_tip.pop(c)
             
-        debug[elt] = 'merge: '+str([(p1,p2) for (p1,c),p2 in zip(incomming_path,free_path)])
+        debug[elt] = 'merge: '+str([(p1,p2) for (p1,c),p2 in zip(incomming_path,mergeable_path)])
         
     
     # remove empty, and invalid, path
-    del_path = path_set.clean(mask=clean_mask)
+    del_path = None#path_set.clean(mask=clean_mask)
     
     return path_set.path_elt, path_set.elt_path, del_path, debug
 

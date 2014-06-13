@@ -346,10 +346,6 @@ def make_tree_2(graph, order1='longest', o1_param=1, order2='min_tip_length', o2
                                  selected=selected,
                                  masked=builder.path_indices(order=1))
         
-        print o2
-        for o in o2:
-            print '',path_elt[o]
-        
         for path_ind in set(o2).difference(selected):
             ##print 'new o2 axe', path_ind, builder.current_id
             builder.append(segment=path_elt[path_ind], 

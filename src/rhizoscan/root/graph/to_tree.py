@@ -212,6 +212,7 @@ class PathSet(object):
 def make_tree_2(graph, order1='longest', o1_param=1, order2='min_tip_length', o2_param=10, init_axes=None):
     """ Construct a RootTree from given RootGraph `graph` """
     from rhizoscan.misc import printError
+    from rhizoscan.root.graph import RootTree
     
     segment = graph.segment
     length = segment.length()
@@ -331,6 +332,9 @@ def make_tree_2(graph, order1='longest', o1_param=1, order2='min_tip_length', o2
                                    fixed_path=builder.path_indices('all'))
     builder.update(path_elt)
     
+    print '**********'
+    print '**********'
+    print '**********'
 
     # find order 2 axes
     # -----------------
@@ -342,6 +346,10 @@ def make_tree_2(graph, order1='longest', o1_param=1, order2='min_tip_length', o2
                                  selected=selected,
                                  masked=builder.path_indices(order=1))
         
+        print o2
+        for o in o2:
+            print '',path_elt[o]
+        
         for path_ind in set(o2).difference(selected):
             ##print 'new o2 axe', path_ind, builder.current_id
             builder.append(segment=path_elt[path_ind], 
@@ -352,23 +360,15 @@ def make_tree_2(graph, order1='longest', o1_param=1, order2='min_tip_length', o2
     else:
         raise TypeError("unrecognized axe selection method "+str(order1))
     
-    ##DEV
-    from rhizoscan.root.graph import RootTree
+    
+    # end
+    # ---
     return RootTree(node=graph.node,segment=graph.segment, axe=builder.make(graph.segment))
     
-    # Contruct RootTree  ## TODO: finish 
-    # -----------------
-    # construct AxeList object
-    from rhizoscan.root.dev_graph2tree import path_to_axes as p2a
-    from rhizoscan.root.graph import RootTree
-    graph.segment.parent = parent
-    axe = p2a(graph, path_elt, axe_selection=axe_selection)
-    
-    ##graph.segment.axe = axe.segment_axe                    
-    t = RootTree(node=graph.node,segment=graph.segment, axe=axe)
-    
-    return t
-    
+def make_tree(graph, axe_selection=[('longest',1),('min_tip_length',10)], init_axes=None):
+    return make_tree_2(graph=graph, order1=axe_selection[0][0], o1_param=axe_selection[0][1],
+                                    order2=axe_selection[1][0], o2_param=axe_selection[1][1])
+
 def graph_to_dag(segment, init_axes=None):
     """ Compute a DAG on "segment graph" `segment` """
     # find segment direction
@@ -841,15 +841,6 @@ def tree_covering_path(parent, top_order, init_axes=None, dummy=0):
 
     return [p[::-1] for p in path_elt], elt_path, axe_map
 
-
-def tree_covering_path_2(parent, top_order, init_axes=None):
-    """ change output of tree_covering_path """
-    path_elt,elt_path,axe_map = tree_covering_path_2(parent=parent, top_order=top_order, init_axes=init_axes, dummy=0)
-    
-    path_set = PathSet(path_elt,elt_path)
-    
-    return path_set,axe_map
-    
     
 def merge_tree_path_2(dag, top_order, path_elt, elt_path, priority, fixed_path=[], clean_mask=None):
     """
@@ -1131,7 +1122,8 @@ def min_path_tip_length(path, graph, parent, min_length=10, selected=[], masked=
     return a list of selected path indices (as a 1d numpy array)
     """
     ptip = path_tip(path)
-    length = graph.segment.length()
+    length = graph.segment.length().copy()
+    length[graph.segment.seed>0] = 0
     tip_length = _np.vectorize(lambda elts:length[elts].sum())(ptip)
 
     selection = tip_length>=min_length

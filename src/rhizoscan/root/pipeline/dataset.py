@@ -46,7 +46,7 @@ class Dataset(list, _Mapping):
         
     def kget(self, key, default=None):
         """ Return the (1st) item with attribute '__key__' equal to given `key` """
-        index = self.index(key)
+        index = self.keys().index(key)
         if index: return self[index]
         else:     return default
         

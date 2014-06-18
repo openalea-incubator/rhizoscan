@@ -16,7 +16,7 @@ def detect_sift(image, verbose=True):
     kp, desc = _descriptors.detect_sift(image)
     
     if desc.max()<256:
-        desc = _Image(desc,dtype='uint8')
+        desc = _Image(desc.astype('uint8'))
         desc.set_serializer(pil_format='PNG',ser_dtype='uint8',ser_scale=1,extension='.png')
     elif verbose:
         print '  descriptors cannot be serialized into png'

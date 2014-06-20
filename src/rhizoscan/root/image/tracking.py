@@ -16,7 +16,7 @@ def detect_sift(image, verbose=True):
     kp, desc = _descriptors.detect_sift(image)
     
     if desc.max()<256:
-        desc = _Image(desc.astype('uint8'))
+        desc = _Image(desc)##.astype('uint8'))
         desc.set_serializer(pil_format='PNG',ser_dtype='uint8',ser_scale=1,extension='.png')
     elif verbose:
         print '  descriptors cannot be serialized into png'
@@ -47,7 +47,7 @@ def sequence_transformation(ds, reference=0, verbose=False):
     """
     r = ds[reference].copy().load()
     r_kp   = r.key_points
-    r_desc = r.descriptors
+    r_desc = r.descriptors.astype(_np.float32, copy=False)
     for i,d in enumerate(ds):
         if i==reference:
             d.image_transform = _np.eye(3)
@@ -56,7 +56,7 @@ def sequence_transformation(ds, reference=0, verbose=False):
             
         d = d.copy().load()
         d_kp   = d.key_points
-        d_desc = d.descriptors
+        d_desc = d.descriptors.astype(_np.float32, copy=False)
         
         if verbose: 
             print 'find affine transfrom on item', d.__key__

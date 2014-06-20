@@ -45,7 +45,7 @@ def sequence_transformation(ds, reference=0, verbose=False):
     item coordinate frame *into* the reference one:
         `matched-key-point-in-reference = T * matched-key-point-in-item`
     """
-    r = ds[reference]
+    r = ds[reference].copy().load()
     r_kp   = r.key_points
     r_desc = r.descriptors
     for i,d in enumerate(ds):
@@ -54,6 +54,7 @@ def sequence_transformation(ds, reference=0, verbose=False):
             d.dump()
             continue
             
+        d = d.copy().load()
         d_kp   = d.key_points
         d_desc = d.descriptors
         

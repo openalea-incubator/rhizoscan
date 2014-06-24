@@ -168,7 +168,7 @@ class AxeBuilder(object):
         self.current_id += 1
         return id
         
-    def add_axe(self, path_index, order, plant=0, id=0):
+    def add_axe(self, path_index, order, plant=0, id=0, parent_id=0):
         """ add path `path_index` to axe """
         if id==0: id = self.new_id()
         segment = self.path_elt[path_index]
@@ -184,17 +184,28 @@ class AxeBuilder(object):
         else:
             def non_overlap(path1,path2):
                 """ return index of 1st element of path1 that is not in path2 """
-                return map(lambda x,y: x!=y, path1,path2).index(True)
+                path_cmp = map(lambda x,y: x!=y, path1,path2)
+                if True in path_cmp:
+                    return path_cmp.index(True)
+                else:
+                    return 0
                 
             segment = self.path_elt[path_index]
             start_parent = {}
-            for parent_ind in self.path_indices(order=1):
+            if parent_id:
+                possible_parent = [self.ids.index(parent_id)]
+            else:
+                possible_parent = self.path_indices(order=1)
+                
+            for parent_ind in possible_parent:
                 s = non_overlap(segment,self.path_elt[parent_ind])
                 start_parent[s] = parent_ind
             start  = max(start_parent.keys())
             
             # record axe id of parent
-            if start:
+            if parent_id:
+                parent = possible_parent[0]            
+            elif start:
                 pp_ind = start_parent[start]
                 parent = [i for i,pind in enumerate(self.axes) if pind==pp_ind][0]
             else:
@@ -203,13 +214,6 @@ class AxeBuilder(object):
             # remove overlap
             sparent = segment[start-1] if start else 0
             
-        if 0:##plant==0:
-            if parent_id:
-                plant = self.plant[self.axe_index(parent_id)]
-            else:
-                segment = self.path_elt[path_ind]
-                plant = self.graph.segment.seed[segment[0]]
-        
         self.axes.append(path_index)
         self.parent.append(parent)
         self.sparent.append(sparent)
@@ -419,6 +423,17 @@ def make_tree_2(graph, order1='longest', o1_param=1, order2='min_tip_length', o2
     if init_axes:
         map_num = len(axe_map)
         axe_num = init_axes.number()-1
+        
+        # rm pruned path
+        empty_path = builder.empty_path()
+        for ax_ind,path_ind in axe_map.iteritems():
+            path = [p for p in path_ind if not empty_path[p]]
+            if len(path)==0:
+                printError("[TRK] all path removed for axe:"+str(ax_ind)+" (rm:"+str(path_ind)+")")
+                axe_map.pop(ax_ind)
+            else:
+                axe_map[ax_ind] = path
+            
         if map_num!=axe_num:
             missing = set(range(1,axe_num+1)).difference(axe_map.keys())
             printError("missing axe in tree covering path: "+str(missing)+" (%d/%d)" % (map_num, axe_num),stack=0)
@@ -435,20 +450,10 @@ def make_tree_2(graph, order1='longest', o1_param=1, order2='min_tip_length', o2
             parent = init_id[parent]
             order  = init_axes.order()[axe_index]
             plant  = init_axes.plant[axe_index]
-            
             path_ind = axe_map[axe_index]
-            segment  = path_elt[path_ind]
-            if parent:
-                psegment = builder.get_segment(parent)
-                start = non_overlap(segment,psegment)
-                sparent = segment[start-1] if start else 0
-                segment = segment[start:]
-            else:
-                sparent = 0
                 
-            builder.append(segment=segment, parent_id=parent, sparent=sparent, 
-                           order=order, plant=plant, id=init_id[axe_index],
-                           path_index=path_ind)
+            builder.add_axe(path_index=path_ind, order=order, plant=plant,
+                            id=init_id[axe_index], parent_id=parent)
 
     # find order 1 axes
     # -----------------
@@ -481,31 +486,7 @@ def make_tree_2(graph, order1='longest', o1_param=1, order2='min_tip_length', o2
             
     return builder.make()
 
-    # find order 2 axes
-    # -----------------
-    if order2=='min_tip_length':
-        # find (new) axes
-        selected = builder.path_indices(order=2)
-        o2 = min_path_tip_length(path_elt, graph=graph, parent=None,
-                                 min_length=o2_param, 
-                                 selected=selected,
-                                 masked=builder.path_indices(order=1))
-        
-        for path_ind in set(o2).difference(selected):
-            ##print 'new o2 axe', path_ind, builder.current_id
-            builder.append(segment=path_elt[path_ind], 
-                           parent_id=parent[path_ind], 
-                           sparent=sparent[path_ind], 
-                           order=2, path_index=path_ind)
-        
-    else:
-        raise TypeError("unrecognized axe selection method "+str(order1))
-    
-    
-    # end
-    # ---
-    return RootTree(node=graph.node,segment=graph.segment, axe=builder.make(graph.segment))
-    
+  
 def make_tree(graph, axe_selection=[('longest',1),('min_tip_length',10)], init_axes=None):
     return make_tree_2(graph=graph, order1=axe_selection[0][0], o1_param=axe_selection[0][1],
                                     order2=axe_selection[1][0], o2_param=axe_selection[1][1])

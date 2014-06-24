@@ -47,7 +47,7 @@ def sequence_transformation(ds, reference=0, verbose=False):
     """
     r = ds[reference].copy().load()
     r_kp   = r.key_points
-    r_desc = r.descriptors.astype(_np.float32, copy=False)
+    r_desc = _np.asanyarray(r.descriptors,dtype=_np.float32)
     for i,d in enumerate(ds):
         if i==reference:
             d.image_transform = _np.eye(3)
@@ -56,7 +56,7 @@ def sequence_transformation(ds, reference=0, verbose=False):
             
         d = d.copy().load()
         d_kp   = d.key_points
-        d_desc = d.descriptors.astype(_np.float32, copy=False)
+        d_desc = _np.asanyarray(d.descriptors,dtype=_np.float32)
         
         if verbose: 
             print 'find affine transfrom on item', d.__key__

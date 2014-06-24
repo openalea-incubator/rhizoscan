@@ -53,7 +53,7 @@ def segment_image(image, pmask=None, root_max_radius=15, min_dimension=50, smoot
     # image binary segmentation
     _print_state(verbose,'segment binary mask')
     rmask = _segment_root(img)
-    rmask = nd.binary_closing(rmask,structure=np.ones((3,3)) # smooth/close a little
+    rmask = nd.binary_closing(rmask,structure=np.ones((3,3))) # smooth/close a little
     if pmask is not None:
         rmask[-pmask] = 0
     if min_dimension>0:

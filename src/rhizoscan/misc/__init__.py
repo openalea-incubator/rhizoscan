@@ -88,49 +88,62 @@ def jedit(file=''):
 
 # practical printing functionalities
 # ----------------------------------
-def printMessage(msg,stack=False,header='', color=None):
+_ESCAPE = '%s[' % chr(27)
+_RESET = '%s0m' % _ESCAPE
+_FORMAT = _ESCAPE+'1;%dm'
+_print_cmp = {'\$':_RESET,    '\K':_FORMAT%30,'\R':_FORMAT%31,'\G':_FORMAT%32,
+              '\Y':_FORMAT%33,'\B':_FORMAT%34,'\P':_FORMAT%35,'\C':_FORMAT%36}
+def printMessage(msg,header='',stack=False):
     """
-    print a string. Allows to interspect all written print
+    print a (colored) string with option string
         printMessage(msg, stack=False)
-    if stack is True, also print the module, function and line where it has been called
+        
+    To use color, insert the following into the `msg` string:
+      - '\R': red
+      - '\B': blue
+      - '\G': green
+      - '\K': black
+      - '\C': cyan
+      - '\P': purple
+      - '\Y': yellow
+      - '\$': default color
+      
+    If stack=i>0, print the module, function and line if the stack ith element
     """
     # color system: see http://stackoverflow.com/a/4332587/1206998
-    color_map = dict(black=30,red=31,green=32,yellow=33,blue=34,purple=35,cyan=36)
-    ESCAPE = '%s[' % chr(27)
-    RESET = '%s0m' % ESCAPE
-    FORMAT = '1;%dm'
-        
-    if color:
-        print ESCAPE + (FORMAT % color_map[color])
-        
+    
+    msg = _message2string_(msg)
     if stack:
         import inspect
         s = inspect.stack()[stack]
-        print "%s(%s.%s,l%s):\n  %s " % (header,s[1],s[3],s[2],_message2string_(msg)),
+        msg = "%s(%s.%s,l%s):\n  %s " % (header,s[1],s[3],s[2],msg)
     else:
-        print header, _message2string_(msg),
+        msg = header +' '+ msg
     
-    if color:
-        print RESET
+    for k,v in _print_cmp.iteritems():
+        msg = msg.replace(k,v)
+        
+    print msg+_RESET
+
 
 def printWarning(msg,stack=True):
     """
     print a warning message in blue with (if stack) the module, 
     function name and line where the function has been called
     """
-    printMessage(msg=msg,stack=stack*2,header='Warning',color='blue')
+    printMessage(msg=msg,stack=stack*2,header='\BWarning')
 
 def printError(msg,stack=True):
     """
     print a error message in red with (if stack) the module, 
     function name and line where the function has been called
     """
-    printMessage(msg=msg,stack=stack*2,header='Error', color='red')
+    printMessage(msg=msg,stack=stack*2,header='\RError')
 
 def printDebug(msg=''):
     import inspect
     s = inspect.stack()[1]
-    printMessage(msg=msg,stack=2,header='Debug',color='yellow')
+    printMessage(msg=msg,stack=2,header='\YDebug')
 
 def _message2string_(msg):
     if isinstance(msg,basestring): return msg

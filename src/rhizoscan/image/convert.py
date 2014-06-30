@@ -8,7 +8,7 @@ a few image conversion tool
 ##add convert(img, dtype=None, color=None)
 
 import numpy as _np
-from rhizoscan.misc.decorators import printWarning
+from rhizoscan.misc import printWarning
 from rhizoscan.ndarray import add_dim
 
 def gray(image):

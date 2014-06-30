@@ -72,9 +72,15 @@ try:
 	if entry:
 		entry_points['wralea'] = entry
 
-except ImportError:
-	print("WARNING: Relaunch the setup.py because VisuAlea packages have not been generated.")
-
+except ImportError as e:
+    import sys, traceback
+    exc_type, exc_value, exc_traceback = sys.exc_info()
+    
+    print("********************************************************")
+    print("                     WARNING:") 
+    print("The wralea generation has failed due to an import error:")
+    traceback.print_exception(exc_type, exc_value, exc_traceback)
+    print("********************************************************")
 
 
 # call setup

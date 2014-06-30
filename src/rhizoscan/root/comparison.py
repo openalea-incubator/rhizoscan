@@ -36,7 +36,7 @@ class TreeCompare(_Mapping):
             self.dump()
         
     def _set_key(self):
-        self.key = self.cmp.get_file().url.split('/')[-1]
+        self.key = self.cmp.get_file().get_url().split('/')[-1]
         
     def match_plants(self, max_distance=None):
         """
@@ -74,8 +74,8 @@ class TreeCompare(_Mapping):
             
             return pid,x,y
             
-        rpid, rx, ry = seed_position(self.ref)
-        cpid, cx, cy = seed_position(self.cmp)
+        rpid, rx, ry = seed_position(self.get('ref'))
+        cpid, cx, cy = seed_position(self.get('cmp'))
         
         d = distance_matrix(rx,ry,cx,cy)
         ##s1 = set(zip(range(d.shape[0]),np.argmin(d,axis=1)))
@@ -101,8 +101,8 @@ class TreeCompare(_Mapping):
         
         This method loads the ref&cmp trees - call `clear()` to unload them.
         """
-        compute_tree_stat(self.ref, stat_names=stat_names, mask=mask)
-        compute_tree_stat(self.cmp, stat_names=stat_names, mask=mask)
+        compute_tree_stat(self.get('ref'), stat_names=stat_names, mask=mask)
+        compute_tree_stat(self.get('cmp'), stat_names=stat_names, mask=mask)
         if save:
             self.dump()
            
@@ -116,10 +116,10 @@ class TreeCompare(_Mapping):
         """
         from rhizoscan.root.graph.mtg import tree_to_mtg
         from os.path import sep
-        c = self.cmp
-        r = self.ref
+        c = self.get('cmp')
+        r = self.get('ref')
         
-        f = sep.join(c.get_file().url.split(sep)[-1:])
+        f = sep.join(c.get_file().get_url().split(sep)[-1:])
         
         print '--- comparing file: .../%s ---' % f
         print '============================' + '='*len(f)
@@ -155,13 +155,11 @@ class TreeCompare(_Mapping):
         add the comparison fields for stat entries:
         'axe1_length','axe2_length_mean','axe2_length_total','axe2_number','plant_hull','total_length'
         """
-        #stats = set(self.cmp.stat.keys()).intersection(self.ref.stat.keys())
-        #stats = filter(lambda s: not s.startswith('_'), stats)
         stats = ['axe1_length','axe2_length_mean','axe2_length_total','axe2_number','plant_hull','total_length']
         for s in stats:
             dif = {}
-            r = self.ref.stat[s]
-            c = self.cmp.stat[s]
+            r = self.get('ref').stat[s]
+            c = self.get('cmp').stat[s]
             for pid in set(r.keys()).intersection(c.keys()):
                 dif[pid] = c[pid]/max(r[pid],2**-16)
             self.add_comparison(s,dif)
@@ -178,8 +176,8 @@ class TreeCompare(_Mapping):
         
     def clear(self):
         """ replace trees by their loader """
-        if not _Mapping.is_loader(self.__dict__['ref']): self.ref = self.ref.loader()
-        if not _Mapping.is_loader(self.__dict__['cmp']): self.cmp = self.cmp.loader()
+        if not _Mapping.is_loader(self.__dict__['ref']): self.ref = self.ref.get_loader()
+        if not _Mapping.is_loader(self.__dict__['cmp']): self.cmp = self.cmp.get_loader()
 
 
 # statistical root tree comparison
@@ -212,7 +210,7 @@ class TreeCompareSequence(_Mapping):
     def match_plants(self, max_distance=None, save=True, verbose=False):
         """ ##consider doing the match directly through compute_stat """
         for tc in self.tc_list:
-            if verbose: print 'match plant of:', tc.cmp.get_file().url
+            if verbose: print 'match plant of:', tc.cmp.get_file().get_url()
             tc.match_plants(max_distance=max_distance)
             if verbose:
                 missed = (len(tc.mapping.plant_missed_ref),len(tc.mapping.plant_missed_cmp))
@@ -229,7 +227,7 @@ class TreeCompareSequence(_Mapping):
         
     def compute_stat(self, stat_names='all', mask=None, save=True, verbose=False):
         for tc in self.tc_list: 
-            if verbose: print 'compute stat of:', tc.cmp.get_file().url
+            if verbose: print 'compute stat of:', tc.cmp.get_file().get_url()
             tc.compute_stat(stat_names=stat_names, mask=mask, save=tc.get_file() is not None)
         if save and self.get_file():
             self.dump()
@@ -249,7 +247,7 @@ class TreeCompareSequence(_Mapping):
         Call compare of all TreeCompare in tc_list
         """
         for tc in self.tc_list: 
-            if verbose: print 'comparison of:', tc.cmp.get_file().url
+            if verbose: print 'comparison of:', tc.cmp.get_file().get_url()
             tc.compare(stat_names=stat_names, mask=mask, save=tc.get_file() is not None)
         
         if save and self.get_file():
@@ -260,7 +258,7 @@ class TreeCompareSequence(_Mapping):
         Call compare_stat of all TreeCompare in tc_list
         """
         for tc in self.tc_list: 
-            if verbose: print 'comparison of stats of:', tc.cmp.get_file().url
+            if verbose: print 'comparison of stats of:', tc.cmp.get_file().get_url()
             tc.compare_stat()
         
         if save and self.get_file():
@@ -278,8 +276,8 @@ def plot_stat(vs, value='axe1_length', title=None, prefilter=None, split=None, l
     plantid = []
     if prefilter is None: prefilter = lambda st: st
     for tc in vs.tc_list:
-        sr = tc.ref.stat[value]
-        sc = tc.cmp.stat[value]
+        sr = tc.get('ref').stat[value]
+        sc = tc.get('cmp').stat[value]
 
         tc_flat.extend([tc]*len(tc.mapping.plant))
         ref_val.extend([prefilter(sr[pid]) for pid in tc.mapping.plant.keys()])
@@ -453,8 +451,8 @@ def _plot_axe_selected_tree(event):
     
     tc  = data.tc[match]
     pid = data.plant_id[match]
-    ref_tree = tc.ref
-    cmp_tree = tc.cmp
+    ref_tree = tc.get('ref')
+    cmp_tree = tc.get('cmp')
 
     # just in case
     tc.ref.segment.node_list = tc.ref.node
@@ -509,23 +507,20 @@ def make_tree_compare(reference, compared, keys=None, file_object=None, verbose=
      - (once loaded) have the 'tree' attribute
      
     `keys` is a list of the metadata attributes used to match dataset elements
-    if None, use all metadata
+    if None, use dataset __key__ (with '/' replaced by '_')
     """
     # remove extra element of 'compared'
     if keys:
         def multiget(x,multiattr): 
             return reduce(lambda a,b: getattr(a,b,None), multiattr.split('.'), x)
-        def to_key(x):
-            return tuple(map(lambda attr: repr(multiget(x,attr)), keys))
+        def get_key(x):
+            return tuple(map(lambda attr: repr(multiget(x.metadata,attr)), keys))
     else:
-        def to_key(x):
-            return repr(x)##x.multilines_str(max_width=2**60)#repr(to_tuple(x))
+        def get_key(x):
+            return x.__key__.replace('/','_')
     
-    ##for r in reference:
-    ##    print to_key(r.metadata)
-    ##raise Exception()
-    compared = dict([(to_key(c.metadata),c) for c in compared])
-    compared = [compared.get(to_key(r.metadata),None) for r in reference]
+    compared = dict([(get_key(c),c) for c in compared])
+    compared = [compared.get(get_key(r),None) for r in reference]
     
     # find tree that are not found
     missing = []
@@ -533,15 +528,17 @@ def make_tree_compare(reference, compared, keys=None, file_object=None, verbose=
     ref = []
     cpr = []
     for r,c in zip(reference,compared):
-        rt = r.load().__dict__.get('tree', None)
-        ct = c.load().__dict__.get('tree', None)
+        rt = r.load().get('tree', None)
+        ct = c.load().get('tree', None)
         if rt and ct:
             if verbose>1: print 'adding trees for', c.filename
             image.append(c.filename)
             rt.metadata = r.metadata
             ct.metadata = c.metadata
-            ref.append(rt)
-            cpr.append(ct)
+            rt.__loader_attributes__ = ['metadata']
+            ct.__loader_attributes__ = ['metadata']
+            ref.append(rt.get_loader())
+            cpr.append(ct.get_loader())
         else:
             if verbose: print 'unavailable trees for', c.filename
             missing.append(c.filename)
@@ -616,11 +613,11 @@ def compare_structure_sequence(vs, display=True, slices=slice(None), file_id_par
     res = []
     
     for i,tc in np.array(list(enumerate(vs.tc_list)))[slices]:
-        c = tc.cmp
-        r = tc.ref
+        c = tc.get('cmp')
+        r = tc.get('ref')
         tc.clear()
         
-        f = sep.join(c.get_file().url.split(sep)[-file_id_part:])
+        f = sep.join(c.get_file().get_url().split(sep)[-file_id_part:])
         
         print '--- comparing file: ...', f, '---'
         r.segment.radius = np.zeros(r.segment.number())

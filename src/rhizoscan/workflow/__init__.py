@@ -32,9 +32,6 @@ _node_parser = []
 try:
     from . import openalea
     _workflows.append(openalea.declare_node)
-except:
-    pass
-try:
     _node_parser.append(openalea.attributes_parser)
 except:
     pass
@@ -437,10 +434,6 @@ class node(object):
         
         return g
 
-class class_node(node):
-    def __call__(self, cls):
-        node.__call__(self,cls)
-        ##...
 
 
 class pipeline(object):

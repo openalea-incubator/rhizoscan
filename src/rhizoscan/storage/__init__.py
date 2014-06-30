@@ -9,7 +9,7 @@ FileEntry:
     Manages IO for file for given communication protocol (eg. local file, sftp) 
     implements __init__(url), dump() and load()
 
-MapStorage:
+FileStorage:
     Manages a set of FileObject related to an id (name)
     implements ...
               
@@ -148,7 +148,7 @@ class RegisteredEntry(type):
         return RegisteredEntry.register.keys()
         
     @staticmethod
-    def create_entry(url):
+    def create_entry(url, container=None):
         """
         Create the suitable FileEntry for the given `url`
         
@@ -158,9 +158,13 @@ class RegisteredEntry(type):
         if isinstance(url, FileEntry):
             entry = url
         else:
-            scheme = _urlsplit(url)[0]
+            if container: base_url = container
+            else:         base_url = url
+            if hasattr(base_url,'get_url'):
+                base_url = base_url.get_url()
+            scheme = _urlsplit(base_url)[0]
             cls    = RegisteredEntry.get(scheme)
-            entry  = cls(url)
+            entry  = cls(url, container)
         
         return entry
 
@@ -182,28 +186,42 @@ class FileEntry(object):
     __metaclass__ = RegisteredEntry
     __scheme__ = ('file', '')  # manages local file & undefined scheme
     
-    def __init__(self, url):
-        if len(url): 
-            self.url = _os.path.abspath(_urlsplit(url)[1])
-        else:
-            print '*** invalid url for FileEntry ***' ## remove undefined url?
-            self.url = url
+    def __init__(self, url, container=None):
+        self.set_container(container=container)
+        self.set_url(url=url)
+        
+    def set_container(self, container):
+        if container is not None:
+            container = _os.path.abspath(_urlsplit(container)[1])
+        self._container = container
+    def get_container(self):
+        self._container = getattr(self,'_container',None)  ## deprecated
+        return self._container
+            
+    def set_url(self, url):
+        self._url = url
+    def get_url(self):
+        from rhizoscan.misc.path import abspath
+        url = self._url if hasattr(self,'_url') else self.url   ## deprecated
+        return abspath(_urlsplit(url)[1], self.get_container())
         
     def open(self, mode):
+        url = self.get_url()
         if 'w' in mode:
-            _assert_directory(self.url)
-        return open(self.url, mode=mode)
+            _assert_directory(url)
+        return open(url, mode=mode)
     def remove(self):
-        if _os.path.exists(self.url):
-            _os.remove(self.url)
+        url = self.get_url()
+        if _os.path.exists(url):
+            _os.remove(url)
     def exists(self):
-        return _os.path.exists(self.url)
+        return _os.path.exists(self.get_url())
     
     def sibling(self, filename):
         """
         Create a FileEntry for the file `filename` in the same directory 
         """
-        dirname, selfname = _os.path.split(self.url)
+        dirname, selfname = _os.path.split(self.get_url())
         sibling = _os.path.join(dirname,filename)
         return self.__class__(sibling)
 
@@ -232,17 +250,18 @@ class SFTPEntry(FileEntry):
     
     connections = {}  # static list of connection already established
     
-    def __init__(self, url):
-        """
-        Create a SFTPEntry from an url or a ParseResult object
-        """
+    def __init__(self, url,container):
+        """ Create a SFTPEntry from an url or a ParseResult object """
+        FileEntry.__init__(self, url,container)
+        
+    def set_url(self, url):
         import urlparse
         if isinstance(url,urlparse.ParseResult):
-            self.url = url.geturl()
-            self.urlparse = url
+            self._url = url.geturl()
+            self._urlparse = url
         else:
-            self.url = url
-            self.urlparse = urlparse.urlparse(url)
+            self._url = url
+            self._urlparse = urlparse.urlparse(url)
             
         self._connect()
         
@@ -320,20 +339,24 @@ class FileObject(object):
     """
     __meta_file__ = '__storage__.meta'  # name of 'header' file storing metadata 
     
-    def __init__(self, url):
+    def __init__(self, url, container=None):
         """
         Create the FileObject related to file at `url`
         """
-        self.entry = RegisteredEntry.create_entry(url)
+        self.entry = RegisteredEntry.create_entry(url,container)
         
-    @_property
-    def url(self):
-        return self.entry.url
+    def set_container(self, container):
+        self.entry.set_container(container)
+        
+    def get_url(self):
+        return self.entry.get_url()
+    def get_container(self):
+        return self.entry.get_container()
         
     def get_extension(self):
         """ return this fileObject extension """
         from os.path import splitext
-        return splitext(self.url)[1]
+        return splitext(self.get_url())[1]
         
     def exists(self):
         return self.entry.exists()
@@ -359,7 +382,7 @@ class FileObject(object):
     def save(self,data):
         stream = _TempFile(mode='w+b')
         serializer = getattr(data,'__serializer__',None)
-        serializer = Serializer.get_serializer_for(data, self.url)
+        serializer = Serializer.get_serializer_for(data, self.get_url())
         head = serializer.dump(data, stream)
         with self.entry.open(mode='wb') as f:
             stream.seek(0)
@@ -378,7 +401,7 @@ class FileObject(object):
         self.rem_metadata()
         
     def __repr__(self):
-        return self.__class__.__name__+"('"+self.url+"')"
+        return self.__class__.__name__+"('"+self.get_url()+"')"
         
 
     # manage file entry IO on metadata file
@@ -386,7 +409,7 @@ class FileObject(object):
     def _metadata(self):
         """ return metadata file and the key for this entry """
         meta_file = self.entry.sibling(FileObject.__meta_file__)
-        entry_key = _os.path.split(self.entry.url)[-1]  
+        entry_key = _os.path.split(self.entry.get_url())[-1]  
         return meta_file, entry_key
         
     def set_metadata(self, metadata, update=True):
@@ -426,7 +449,7 @@ class FileObject(object):
                 meta_head = _cPickle.load(f)
                 f.close()
             except EOFError:
-                raise EOFError('FileEntry: invalid content in metadata file ' + meta_file.url)
+                raise EOFError('FileEntry: invalid content in metadata file ' + meta_file.get_url())
                 meta_head = dict()
         else:
             meta_head = dict()
@@ -451,16 +474,16 @@ class FileObject(object):
                 meta_head = _cPickle.load(f)
                 f.close()
 
-class MapStorage(object):
+class FileStorage(object):
     """
-    A MapStorage allows automated IO to storage entries related to a unique id
-    The interface is done using `set_data(name,data)` and `load_data(name)`
+    A FileStorage allows automated generation of FileObject w.r.t to a unique id
+    The interface is done using `get_file(name,data=None)`
     
-    MapStorage use a url generator function to relate identifiers to file url  
+    FileStorage use a url generator function to relate identifiers to file url  
     """
     def __init__(self, url_generator):
         """
-        Create a MapStorage based `url_generator`
+        Create a FileStorage from `url_generator`
         
         `url_generator` should be a string that can be used with the python 
         format functionality to get the url: 
@@ -473,33 +496,26 @@ class MapStorage(object):
             url_generator += "{}"
         self.url_generator = url_generator
         
-    def set_data(self, name, data):
-        """ stores `data` to the FileObject related to key = `name` """
-        serializer = Serializer.get_serializer_for(data)
-        extension  = getattr(serializer,'extension', '') 
-        
-        # create file object, and save
-        url = self.url_generator.format(name)+extension
-        fobj = FileObject(url)
-        self.__dict__[name] = fobj
-        fobj.save(data)
-        
-        return fobj
-        
-    def get_data(self,name):
-        """ retrieve data from the MapStorage object (i.e. load it) """
-        fobj = self.get_file(name)
-        fobj.load(data)
-        
-    def get_file(self, key):
+    def get_file(self, key, data=None):
         """
-        Return the entry related to `key` if it exist
+        Return the FileObject related to `key`
+        
+        If `data` is None: return the respective stored FileObject, if it exists
+        Otherwise, create one for data and store it
         """
+        if data is not None:
+            serializer = Serializer.get_serializer_for(data)
+            extension  = getattr(serializer,'extension', '') 
+            
+            # create file object, and store it
+            url = self.url_generator.format(key)+extension
+            fobj = FileObject(url)
+            self.__dict__[key] = fobj
+            
         return self.__dict__[key]
         
     def has_entry(self, key):
         return self.__dict__.has_key(key)
-
 
     def __repr__(self):
         cls = self.__class__
@@ -508,3 +524,4 @@ class MapStorage(object):
     def __str__(self):
         return self.__repr__()
 
+MapStorage = FileStorage ## deprecated

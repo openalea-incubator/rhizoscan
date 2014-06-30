@@ -14,7 +14,7 @@ def arabidopsis_pipeline(output=None):
                 fg_smooth=1, border_width=.08,leaf_bbox=[0,0,1,.4],root_max_radius=5, verbose=1)
     
     if output:
-        d.set_map_storage(output)
+        d.set_storage(output)
         pipeline.run(namespace=d, store=['pmask','rmask','seed_map','tree','rsa'])
     else:
         pipeline.run(namespace=d)
@@ -54,7 +54,7 @@ def arabidopsis_pipeline(output=None):
         
         # test file extension
         def ext(attr):
-            return os.path.splitext(d[attr].__file_object__.url)[1]
+            return d[attr].__file_object__.get_extension()
         assert ext('pmask')   =='.png',    "stored pmask has not the '.png' extension"
         assert ext('rmask')   =='.png',    "stored rmask has not the '.png' extension"
         assert ext('seed_map')=='.png',    "stored seed_map has not the '.png' extension"
@@ -89,7 +89,7 @@ def test_load_dataset():
         assert len(invalid)==1, "invalid number of invalid file in test project"
         assert hasattr(ds[0], 'filename'), "dataset item has not 'filename' attribute"
         assert hasattr(ds[0], 'metadata'), "dataset item has not 'metadata' attribute"
-        assert hasattr(ds[0], '__map_storage__'), "dataset item has not output map storage set"
+        assert hasattr(ds[0], '__storage__'), "dataset item has not external storage set"
         
         assert out==exp_out
 

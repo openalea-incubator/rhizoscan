@@ -20,8 +20,8 @@ from copy   import copy as _copy
 
 from rhizoscan.misc.decorators import static_or_instance_method, _property 
 from .workflow import node as _node # to declare workflow nodes
-from .storage  import FileObject as _FileObject
-from .storage  import MapStorage as _MapStorage
+from .storage  import FileObject  as _FileObject
+from .storage  import FileStorage as _FileStorage
 
 class Data(object):
     """ 
@@ -107,7 +107,7 @@ class Data(object):
         self.set_serializer(serializer)
         
     @static_or_instance_method
-    def set_file(self, file_url):
+    def set_file(self, file_url, container=None):
         """
         set the FileObject of this Data object
         
@@ -126,8 +126,11 @@ class Data(object):
             if old_file:
                 old_file.remove()
             file_url = None
-        if file_url is not None and not isinstance(file_url,_FileObject):
-            file_url = _FileObject(file_url)
+        else:
+            if not isinstance(file_url,_FileObject):
+                file_url = _FileObject(file_url, container=container)
+            elif container is not None:
+                file_url.set_container(container)
             
         self.__file_object__ = file_url
         
@@ -194,13 +197,13 @@ class Data(object):
         :Inputs:
           - `file_object`
             Can be either a `FileObject` instance or the url of a file.
-            If it is not a FileObject, the value of `file_object` is passed to 
-            `storage.FileObject()` (see FileObject doc)
+            In the 2nd case, a FileObject is constructed from the `file_object`
+            (see FileObject doc)
             
             In the case (1), `file_object` argument is mandatory. 
-            In the case (2) and (3),  if `file_object` is not given (None) the 
-            instance Data `__file_object__` attribute is used. In this case, 
-            `file_object` becomes the `__file_object__` attribute of `data`.
+            In the case (2) and (3),  if `file_object` is given, it is set as 
+            the data object `__file_object__` attribute. If not given, the same
+            attribute is use as storage file.
         
         :Outputs:
             Return an empty Data object that can be use to load the stored data
@@ -208,28 +211,31 @@ class Data(object):
         if 'w' not in getattr(data,'__io_mode__','w'):
             raise IOError("This Data object is not writable. mode is {}".format(getattr(data,'__io_mode__')))
         
-        io_api = Data.has_IO_API(data)
+        set_file = data.set_file.im_func if hasattr(data,'set_file') else Data.set_file
+        get_file = data.get_file.im_func if hasattr(data,'get_file') else Data.get_file
+        
         if file_object is None:
-            if io_api:
-                file_object = data.get_file()
-            else:
-                raise TypeError("argument 'file_object' should be given when 'data' does not have the __file_object__ attribute")
+            file_object = Data.get_file(data)
+            if file_object is None:
+                raise TypeError("'data' __file_object__ attribute is empty")
 
-        if io_api:
-            data.set_file(file_object)
-            file_object = data.get_file()
-        elif not isinstance(file_object, _FileObject):
+        try:
+            set_file(data,file_object)  ## can be repetitive
+            file_object = get_file(data)
+        except AttributeError:
             file_object = _FileObject(file_object)
             
+        if Data.has_IO_API(data) and hasattr(data,'get_loader'): 
+            loader = data.get_loader()
+        else:
+            loader = Data(file_object).get_loader()
+        
         if Data.has_store_API(data): to_store = data.__store__()
         else:                        to_store = data
         
         file_object.save(to_store)
         
-        if io_api and hasattr(data,'loader'): 
-            return data.loader()
-        else:
-            return Data(file_object).loader()  ## if lookup in 'Data'base => equiv to return self
+        return loader
         
     @static_or_instance_method
     def load(url_or_data, update_file=True):
@@ -251,6 +257,8 @@ class Data(object):
         
         if Data.has_IO_API(data):
             file_object = data.get_file()
+        elif isinstance(data,_FileObject):
+            file_object = data
         else:
             file_object = _FileObject(data)
             
@@ -262,12 +270,12 @@ class Data(object):
         if update_file and Data.has_IO_API(data):
             data.set_file(file_object)
            
-        if Data.is_loader(data):
-            io_mode = getattr(data,'__io_mode__','').split(':')[-1]
-            if len(io_mode): 
-                data.__io_mode__ = io_mode
-            else:
-                del data.__io_mode__
+        ## deprecated
+        io_mode = getattr(data,'__io_mode__',"")
+        if io_mode.startswith('loader:'):#self.is_loader(data):
+            io_mode = io_mode.split(':')[-1]
+            if len(io_mode):  data.__io_mode__ = io_mode
+            else:             del data.__io_mode__
         
         return data
        
@@ -310,12 +318,11 @@ class Data(object):
           - self.__store__() if it has no __file_object__ set
           - its loader if it does
         """
-        if self.get_file() is None:
-            return self.__store__()
-        else:
-            return self.loader()
+        if self.get_file(): return self.get_loader()
+        else:               return self.__store__()
+            
         
-    def loader(self):
+    def get_loader(self):
         """
         Return an empty object which can be used to load the stored object
         
@@ -324,6 +331,8 @@ class Data(object):
         
         *** if the object has no __file_object__ set, the loader won't load ***
         """
+        return DataLoader(obj=self)
+        
         loader = Data(file_url=self.get_file(),serializer=self.get_serializer())
         loader.__io_mode__ = 'loader:' + getattr(self,'__io_mode__','')
         loader.__load_class__ = self.__class__
@@ -332,14 +341,12 @@ class Data(object):
         return loader
     @staticmethod
     def is_loader(obj):
-        return getattr(obj,'__io_mode__',"").startswith('loader:')
+        return isinstance(obj,DataLoader) or\
+               getattr(obj,'__io_mode__',"").startswith('loader:') ## deprecated
         
     def __str__(self):
-        if Data.is_loader(self):
-            cls = 'Data loader'
-        else:
-            cls = self.__class__
-            cls = cls.__module__ +'.'+ cls.__name__
+        cls = self.__class__
+        cls = cls.__module__ +'.'+ cls.__name__
         return  cls + ' with file: ' + str(self.get_file())
             
 
@@ -353,6 +360,25 @@ def save_data(data, filename):
 
         
 
+
+class DataLoader(Data):
+    """ class that point to the file of a Data object """
+    def __init__(self, obj=None, url=None):
+        if obj is not None:
+            Data.__init__(self, file_url=obj.get_file(), serializer=obj.get_serializer())
+        elif url is not None:
+            Data.__init__(self, file_url=url)
+        else:
+            raise TypeError('DataLoader: either obj or url is required')
+            
+        self.__load_class__ = obj.__class__
+        for attr in getattr(obj,'__loader_attributes__',[]):
+            setattr(self,attr,getattr(obj,attr,None))
+            
+    def dump(self):
+        raise TypeError('A DataLoader cannot be dumped')
+        
+        
 # Data subclass with dictionary interface
 # ---------------------------------------
 class Mapping(Data):
@@ -389,12 +415,6 @@ class Mapping(Data):
      2. Mapping can be use as a container through the `set_container` method,
         then using the function `set` and  `get` (see docs for details)
     """
-    ##TODO Mapping:
-    ##  - dump doc (for now it's the Data.dump doc)
-    ##  - saving using pyyaml/json (by default, keeping pickle saving in option)
-    ##  - what about saving to intermediate file when in a container ?
-    #      > useful ?
-    #      > then needs some 'update' flag ?
     def __init__(self, *args, **kwds):
         """
         Create a Mapping object 
@@ -410,13 +430,7 @@ class Mapping(Data):
         
     # accessors
     # ---------
-    def __getattribute__(self, attribute):
-        value = Data.__getattribute__(self,attribute)
-        if Data.is_loader(value):
-            value = value.load()
-            setattr(self,attribute,value)
-        return value
-    __getitem__ = __getattribute__
+    __getitem__ = Data.__getattribute__
     __setitem__ = Data.__setattr__
    
     def __len__(self):
@@ -443,15 +457,12 @@ class Mapping(Data):
         """
         self.__dict__[key] = value
         if store:
-            Data.set_file(value,None)                               ## wrong way of doing it?!
-            if hasattr(value,'__parent_store__'):                   ##
-                val_to_store = value.__parent_store__()             ##  should just call value.__store__()?
-            else:                                                   ##
-                val_to_store = value                                ##
-            self.__map_storage__.set_data(key, val_to_store)        ##
-            self.__map_keys__.add(key)                              ##
-            Data.set_file(value,self.__map_storage__.get_file(key)) ##
+            if not hasattr(value,'__dict__'):
+                raise TypeError('cannot externally store object with no __dict__')
+            fobj = self.__storage__.get_file(key, value)
+            Data.dump(value, fobj)
         return self
+        
     def setdefault(self,key, value=None):
         """ 
         M.setdefault(key,value) = M.get(key,value), with M[key]=value if key not in M
@@ -460,13 +471,37 @@ class Mapping(Data):
         
     def get(self,key,default=None):
         """ return the value related to `key`, or `default` if `key` doesn't exist
-        
-        Note: this method simply calls `__getitem__`
+
+        Note: If the item value is a DataLoader, it loads it
         """
         if not self.__dict__.has_key(key):
-            return default
+            value = default
         else:
-            return self.__getattribute__(key)
+            value = self.__getattribute__(key)
+            if self.is_loader(value):
+                # try changing the file container
+                fobj = value.get_file()
+                container = fobj.get_container()
+                self_fobj = self.get_file()
+                if self_fobj:
+                    self_container = self_fobj.get_container()
+                    
+                    # if no container is defined set it to file dir ## deprecated?
+                    if container is None:
+                        import os
+                        from rhizoscan.storage import FileObject
+                        ctn,url = os.path.split(fobj.get_url())
+                        fobj2 = _FileObject(url=url,container=self_container)
+                    else:
+                        fobj2 = _FileObject(url=fobj.entry._url,container=self_container)
+                        
+                    if fobj2.exists():
+                        value.set_file(fobj2)
+                    
+                value = value.load()
+                setattr(self,key,value)
+        return value
+            
     def pop(self,key,default=None):
         """ remove `key` and return its value or default if it doesn't exist' """ 
         return self.__dict__.pop(key,default)
@@ -527,6 +562,62 @@ class Mapping(Data):
     
     # manage storage for (de)serializer
     # ---------------------------------
+    def set_file(self, file_url, container=None, storage=True):
+        """
+        set the FileObject of this Mapping object
+        
+        :Inputs:
+         - `file_url`
+              can be either:
+                - a filename, url string or FileObject
+                - None, to remove storage link
+                - -1 for (attempted) removale of the file
+        - `container`
+              The base directory of the file. If not given, use the dirname of
+              `file_url` (which is remove from `file_url`)
+        - `storage`
+              FileStorage or generator url that is used to create the FileObject
+              used to store external attributes
+              If True, use `container`/`file_url-w\out-ext`_{}
+              If not an absolute path, it is appended to `container`. 
+              
+        See `storage` documentation. 
+        """
+        if container is None and file_url!=-1 and file_url is not None:
+            from os.path import split
+            if hasattr(file_url,'get_url'):
+                file_url = file_url.get_url()
+            container, file_url = split(file_url)
+        Data.set_file(self, file_url, container=container)
+
+        if self.get_file() is None:
+            self.__storage__ = None
+            return
+        
+        if storage is True:
+            from os.path import splitext 
+            storage = splitext(self.get_file().get_url())[0]+'_{}'
+        if storage:
+            self.set_storage(storage)
+
+    def set_storage(self, storage):
+        """
+        Attach FileStorage for automatized external I/O of selected attributes
+        
+        :Inputs:
+          - `storage`: 
+                Either a FileStorage object, a valid input of its constructor
+                (ie. format-type string), or `None` to remove current FileStorage
+          - `keys`:
+                Either a list of keys which are to be stored in this storage
+                or 'all', to use this storage for all keys
+        
+        :See also: storage.FileStorage
+        """
+        if not isinstance(storage, _FileStorage) and storage is not None:
+            storage = _FileStorage(storage)
+        self.__storage__ = storage
+        
     def __store__(self):
         """
         Return a copy of it-self and call recursively __store__ on all 
@@ -538,9 +629,21 @@ class Mapping(Data):
         s.clear_temporary_attribute()
         
         d = s.__dict__
+        storage = getattr(self,'__storage__',None)
+        if storage is None and hasattr(self,'__map_storage__'):
+            self.__storage__ = storage = self.__map_storage__
+            del self.__map_storage__
+            
+        if storage is not None:
+            storage_keys = storage.__dict__.keys()
+        else:
+            storage_keys = []
+            
         for key,value in d.iteritems():
-            if hasattr(value,'__parent_store__'):
-                d[key] = value.__parent_store__()
+            if hasattr(value,'get_loader') and value.get_file() is not None:
+                d[key] = value.get_loader()
+            elif key in storage_keys:
+                d[key] = DataLoader(url=self.__storage__.get_file(key))
             
         return s
 
@@ -557,25 +660,6 @@ class Mapping(Data):
             
         return self
     
-    def set_map_storage(self, storage, keys=[]):
-        """
-        Attach MapStorage for automatized I/O of contained attributs objects.
-        
-        :Inputs:
-          - `storage`: 
-                Either a MapStorage object, a valid input of its constructor
-                (ie. format-type string), or `None` to remove current MapStorage
-          - `keys`:
-                Either a list of keys which are to be stored in this storage
-                or 'all', to use this storage for all keys
-        
-        :See also: storage.MapStorage
-        """
-        if not isinstance(storage, _MapStorage) and storage is not None:
-            storage = _MapStorage(storage)
-        self.__map_storage__ = storage
-        self.__map_keys__ = set(keys)
-        
     def load(self, filename=None, overwrite=True, attempt=False):
         """
         Load data found in file 'filename' and merge it into the structure
@@ -604,13 +688,15 @@ class Mapping(Data):
             return it-self, updated with loaded content
         """
         if filename is None:
-            filename = self.get_file().url
+            fobj = self.get_file()
+        else:
+            fobj = _FileObject(filename)
         
         import os ## load(attempt=1) should be done through FileObject, so by Data.load (?)
-        if attempt and not os.path.exists(filename):
+        if attempt and not fobj.exists():
             return self
             
-        loaded = Data.load(filename, update_file=True)
+        loaded = Data.load(fobj, update_file=True)
         
         self.update(loaded, overwrite=overwrite)
             
@@ -667,7 +753,7 @@ class Mapping(Data):
         # update self file
         self_file = self.get_file()
         if self_file:
-            new_file = change_if_required(self_file.url)
+            new_file = change_if_required(self_file.get_url())
             if new_file:
                 self.set_file(new_file)
                 if verbose: print _base,'file url:',new_file
@@ -675,11 +761,11 @@ class Mapping(Data):
         if load:
             self.attempt_load()
             
-        # update __map_storage__
-        if hasattr(self,'__map_storage__'):
-            new_gen = change_if_required(self.__map_storage__.url_generator)
+        # update __storage__
+        if hasattr(self,'__storage__'):
+            new_gen = change_if_required(self.__storage__.url_generator)
             if new_gen:
-                self.__map_storage__.url_generator = new_gen
+                self.__storage__.url_generator = new_gen
                 if verbose: print _base,'url gen',new_gen
                 
         # update attributes (including strings)
@@ -693,7 +779,7 @@ class Mapping(Data):
                 f = v.get_file()
                 if f is None: continue
                 
-                new_url = change_if_required(f.url)
+                new_url = change_if_required(f.get_url())
                 if new_url:
                     v.set_file(new_url)
                     if verbose: print base,':',new_url

@@ -154,7 +154,7 @@ class Dataset(list, _Mapping):
             base = _base+'.'+k if len(_base) else k
             if hasattr(v,'__change_dir__'):
                 if load>=3 and v.get_file():
-                    v = v.loader().load()
+                    v = v.get_loader().load()
                 v.__change_dir__(old_dir=old_dir, new_dir=new_dir, load=load, verbose=verbose, _base=base)
                 if load>=2 and v.get_file():
                     v.dump()
@@ -169,7 +169,7 @@ def _mget(item,key, default=None):
         return value
         
 @_node('image_list', 'invalid_file', 'output_directory', OA_hide=['verbose'])
-def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir=None, out_suffix='_', verbose=False):
+def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir=None, verbose=False):
     """
     Return a list of dataset item following parsing rules found in `ini_file`
     
@@ -188,8 +188,6 @@ def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir=None, out_suffi
           Directories to set output into              (see 'directories' below)
           If not given, use the value in the ini file, or `base_dir`
           If it is not an absolute path, preppend it with `base_dir`
-      - `out_suffix':
-          String to append to output files            (see 'directories' below)
       - `verbose`:
           If >0, print some message on loaded dataset
     
@@ -204,19 +202,19 @@ def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir=None, out_suffi
     
     :directories:
         All output files and directories are set following the values of given 
-        `base_dir`, `data_dir`, `out_dir` and `out_suffix`.
+        `base_dir`, `data_dir`, and `out_dir`
         
         The associated file of output `Mapping` items are set to:
           "[out_dir]/[item-end].namespace"
            
-        The output items have their MapStorage set (see Mapping doc) to:
-          "[out_dir]/[item-end][out_suffix]{}"
+        The output items have their FileStorage set (see Mapping doc) to:
+          "[out_dir]/[item-end]_{}"
           
         Where `item-end` is the remaining part of the filename of found items 
         after removing `data_dir` from the start and the file extension.
         
         See datastruture.Data and Mapping documentations for details on `Data` 
-        associated file and `Mapping` MapStorage
+        associated file and `Mapping` FileStorage
         
     :ini format:
         ##todo
@@ -337,8 +335,8 @@ def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir=None, out_suffi
             else:        subf = f 
             subf = subf.replace('\\','/')   # for windows
             fkey = splitext(subf)[0]
-            out_store = pjoin(out_dir, fkey) + out_suffix + '{}'
             out_file  = pjoin(out_dir, fkey) + '.namespace'
+            
             meta_value = meta_parser.match(subf).groups()
             if verbose>1:
                 print '   ' + str(meta_value) + ' from ' + subf + str(rm_len)
@@ -355,8 +353,7 @@ def make_dataset(ini_file, base_dir=None, data_dir=None, out_dir=None, out_suffi
                 
             ds_item = _Mapping(filename=f, metadata=meta, __key__=fkey, **global_attr)
             ds_item.__loader_attributes__ = ['filename','metadata']
-            ds_item.set_map_storage(out_store)
-            ds_item.set_file(out_file)
+            ds_item.set_file(out_file, storage=True)
             img_list.append(ds_item)
         except Exception as e:
             invalid.append((type(e).__name__,e.message, f))
@@ -376,9 +373,9 @@ def make_dataset_item(filename, metadata=None, base_dir=None, data_dir=None, out
      - attribute 'filename': the given value
      - attribute '__key__':  the filename with data_dir & extension removed
      - item file (used by dump&load):        out_dir/__key__+'.namespace'
-     - map storage (for external attribute): out_dir/__key__+'_{}'
+     - __storage__ (for external attribute): out_dir/__key__+'_{}'
      
-    returns the dataset item
+    returns the constructed dataset item
     """
     import os
     file_dir, file_base = os.path.split(filename)
@@ -397,8 +394,7 @@ def make_dataset_item(filename, metadata=None, base_dir=None, data_dir=None, out
     
     item = _Mapping(filename=filename, metadata=metadata, __key__=key)
     item.__loader_attributes__ = ['filename','metadata']
-    item.set_map_storage(map_store)
-    item.set_file(item_file)
+    item.set_file(item_file, storage=True)
     
     return item
     

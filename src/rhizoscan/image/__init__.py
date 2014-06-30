@@ -248,7 +248,7 @@ class Image(_np.ndarray, _Data):
                 dtype = 'uint8'
             elif image.dtype in (bool,'uint8'): 
                 dtype = None
-            elif pil_format=='TIFF' or fobj.url.lower().endswith(('.tif','.tiff')):
+            elif pil_format=='TIFF' or fobj.get_extension().lower() in ('.tif','.tiff'):
                 dtype = 'float32'
             else:
                 dtype = 'uint8'
@@ -258,9 +258,6 @@ class Image(_np.ndarray, _Data):
         
         # save image
         # ----------
-        ## file/dir preparation to be transfered to Data (_open, _close ?)
-        _assert_directory(fobj.url) ## should FileObject do it? 
-        
         # check for pnginfo in pil_param
         if pil_param.has_key('pnginfo'):
             from PIL.PngImagePlugin import PngInfo
@@ -270,11 +267,15 @@ class Image(_np.ndarray, _Data):
                 info.add_text(astr(key), astr(value)) 
             pil_param['pnginfo'] = info
             
+        ## file/dir preparation to be transfered to Data (_open, _close ?)
+        furl = fobj.get_url()
+        _assert_directory(furl) ## should FileObject do it? 
+        
         img = fromarray(img,mode=pil_mode)
-        img.save(fobj.url, format=pil_format, **pil_param)
+        img.save(furl, format=pil_format, **pil_param)
         
         #loader = Image([])
-        loader = image.loader()
+        loader = image.get_loader()
         loader.from_color = color
         loader.set_file(fobj)
         if scale=='normalize':                 loader.scale = 'dtype'
@@ -519,7 +520,7 @@ class PILSerializer(object):
         
         # load image storage type
         from PIL import Image
-        img = Image.open(fobj.url)
+        img = Image.open(fobj.get_url())
         s.pil_format = img.format
         s.pil_mode   = img.mode
         s.pil_param  = dict()

@@ -23,16 +23,29 @@ from rhizoscan.root.pipeline.dataset import make_dataset as _make_dataset
 
 from rhizoscan.root.pipeline.arabidopsis import pipeline as _arabido_pl
 
+_DEBUG = None
 
 class RootEditorWidget(_TreeEditorWidget):
-    def __init__(self):
-        _TreeEditorWidget.__init__(self, parent=None, tree=None, background='default',theme=None)
+    def __init__(self, theme=None):
+        _TreeEditorWidget.__init__(self, parent=None, tree=None, background='default',theme=theme)
+        root  = _RootPresenter(editor=self,theme=self.theme)
+        self.attach_viewable('tree',  root)
+        self.set_edited_presenter('tree')
+        
+        ##DEBUG
+        global _DEBUG
+        _DEBUG = self
+        
+    
+class RhizoScanEditorWidget(_TreeEditorWidget):
+    def __init__(self, theme=None):
+        _TreeEditorWidget.__init__(self, parent=None, tree=None, background='default',theme=theme)
         
         image_viewer = _ImagePresenter(editor=self,theme=self.theme)
         pmask_viewer = _ImagePresenter(editor=self,theme=self.theme)
         rmask_viewer = _ImagePresenter(editor=self,theme=self.theme)
         seed_viewer  = _ImagePresenter(editor=self,theme=self.theme)
-        tree_viewer  = _RootPresenter( editor=self,theme=self.theme)
+        tree_viewer  = _RootPresenter( editor=self,theme=self.theme, set_file_action=False)
         self.attach_viewable('image_viewer', image_viewer)
         self.attach_viewable('pmask_viewer', pmask_viewer)
         self.attach_viewable('rmask_viewer', rmask_viewer)
@@ -135,9 +148,9 @@ class RootEditorWidget(_TreeEditorWidget):
         return tb
 
 
-class RootEditor(_TreeEditor):
-    def __init__(self):
-        editor = RootEditorWidget()
+class RhizoScanEditor(_TreeEditor):
+    def __init__(self, theme=None):
+        editor = RhizoScanEditorWidget(theme=theme)
         _TreeEditor.__init__(self, editor)
         self.addToolBar(editor.get_toolbar())
         self.show()

@@ -17,6 +17,9 @@ from rhizoscan.ndarray import reshape       as _reshape
 from rhizoscan.image.measurements   import color_label as _color_label
 from rhizoscan.datastructure        import Mapping as _Mapping
 
+_aleanodes_ = []           # openalea wrapped packages
+
+
 """
 TODO:                                                        
   - N/S/A List: required used of set_node/segment_list?

@@ -38,7 +38,7 @@ class RootModel(_PASModel):
         o = self.mtg.property('order').get(axe,None)
         if o is None:
             p = self.mtg.parent(axe)
-            if p: o =  self.order(p)+1
+            if p and p!=axe: o =  self.order(p)+1  ## avoid bug leading to infinit loop
         
         return o if o else 0
         

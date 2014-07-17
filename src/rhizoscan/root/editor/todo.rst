@@ -13,11 +13,14 @@ TODO:
  - what about oa plugin 
  
 3. controls?
+
+4. change Ctrl+Shift+O/S to Ctrl+O/S
+ - keep Ctrl+Shift+S for "save as"
+ - Ctrl+S call "save as" when no filename is set
+ - when "save as", add file to current project
+ - when save and save as, call project.save 
+ 
  
 Known bugs:
 ===========
- - reparent on another plants, if reparent is not done on branching
-     * dont change plant of sub-axes
-     * ----------- order -----------
-     => subaxe parent don't change to created one !
- - reparent don't update color
+ - some time, unset edge_type appears. I don't know how to reproduce this...

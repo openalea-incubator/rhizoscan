@@ -84,8 +84,11 @@ except ImportError as e:
 
 
 # add OpenAleaLab RootEditor widget
-entry_points['oalab.applet'] = ['RootEditorApp = rhizoscan.root.editor.plugins:RootEditorWidgetPlugin'],
-entry_points['oalab.lab'] = ['RootEditorLab = rhizoscan.root.editor.plugins:RootEditorLabPlugin']
+entry_points['oalab.applet'] =\
+        ['RootEditorApp = rhizoscan.root.editor.plugins:RootEditorWidgetPlugin',
+         'SeedMapEditor = rhizoscan.root.editor.plugins:SeedMapWidgetPlugin'],
+entry_points['oalab.lab'] =\
+        ['RootEditorLab = rhizoscan.root.editor.plugins:RootEditorLabPlugin']
 
 
 # call setup

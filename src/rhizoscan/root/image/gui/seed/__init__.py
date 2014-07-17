@@ -115,6 +115,7 @@ class SeedMapEditor(list):
             # create mask
             mask = _np.zeros((bmax-bmin)[::-1],dtype=bool)
             mask = fill_polygon(mask=mask.astype('uint8'),polygon=polygon-bmin)[0]>0
+            mask = mask&self.root_mask[slices]
             
             value = self._get_new_seed_id()
             print "*** add seed %d ***" % value

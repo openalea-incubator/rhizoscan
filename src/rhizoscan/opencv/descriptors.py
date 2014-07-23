@@ -4,7 +4,12 @@ Using opencv descriptors
 The code here is taken, or inspired from:
 https://opencv-python-tutroals.readthedocs.org/en/latest/py_tutorials/py_tutorials.html
 """
-import cv2
+try:
+    import cv2
+except ImportError:
+    import warnings
+    warnings.warn("opencv cannot be imported: related functionalities won't work")
+    
 import numpy as np
 
 from rhizoscan.datastructure import Data  as _Data

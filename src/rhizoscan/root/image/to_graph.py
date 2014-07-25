@@ -59,7 +59,11 @@ def linear_label(mask, seed_map=None, compute_segment_map=True):
     """
     # compute labeled skeleton  
     segment_skl,node_map = _skeleton_label(mask, closing=0, fill_node=False, terminal=True)[:2]
-    
+    # don't use file_node=True:
+    #   it created segments pixels in the middle of "long" node because it 
+    #   touched a segments. however the segments then touches the 2 (splitted)
+    #   nodes on one side... 
+
     ##tmp_node_map = node_map.copy()
     ##tmp_segment_skl = segment_skl.copy()
     if seed_map is not None:

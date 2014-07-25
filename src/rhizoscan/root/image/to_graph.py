@@ -58,8 +58,10 @@ def linear_label(mask, seed_map=None, compute_segment_map=True):
     *** Require scikits.image ***
     """
     # compute labeled skeleton  
-    segment_skl,node_map = _skeleton_label(mask, closing=0, fill_node=True, terminal=True)[:2]
+    segment_skl,node_map = _skeleton_label(mask, closing=0, fill_node=False, terminal=True)[:2]
     
+    ##tmp_node_map = node_map.copy()
+    ##tmp_segment_skl = segment_skl.copy()
     if seed_map is not None:
         # remove segment and node from seed area
         seed_mask = seed_map>0
@@ -68,27 +70,55 @@ def linear_label(mask, seed_map=None, compute_segment_map=True):
             # make it contiguous labels
         tmp = segment_skl>0
         segment_skl[tmp] = _clean_label(segment_skl[tmp])
-        tmp = node_map>0
-        node_map[tmp]    = _clean_label(node_map[tmp])
+        ##tmp = node_map>0
+        ##node_map[tmp]    = _clean_label(node_map[tmp])
         
-        # add nodes at seed area border
+        # find connections with seed area
+        #   and add them to node
         dil_smap = _nd.grey_dilation(seed_map,size=(3,3))
-        ny,nx = ((dil_smap>0)&(segment_skl>0)).nonzero()
-        nid   = node_map.max() + _np.arange(1,ny.size+1)
-        node_map[ny,nx] = nid
-        segment_skl[ny,nx] = 0
-        ## new node don't touch existing nodes?
-        #  two connected new node is not a problem
-        ## any other unexpected error ?
+        contact = (dil_smap>0)&((segment_skl|node_map)>0)
+        node_map = _nd.label((node_map>0)|contact)[0]
         
+        # identify node connection
+        ny,nx  = ((dil_smap>0)&(node_map>0)).nonzero()
+            # keep a unique (arbitrary) px per node
+        s_nid = dict(zip(node_map[ny,nx],dil_smap[ny,nx]))
+        n_sid = s_nid.values()
+        s_nid = s_nid.keys()
+        print s_nid, len(s_nid)  ##
+        print n_sid, len(n_sid)  ##
+        
+        ##    # 1. seed pixel touching seed area
+        ##    #    replace segment px touching seed area by new nodes
+        ##dil_smap = _nd.grey_dilation(seed_map,size=(3,3))
+        ##ny,nx = ((dil_smap>0)&(segment_skl>0)).nonzero()
+        ##s_nid = node_map.max() + _np.arange(1,ny.size+1)    # id of seed *nodes*
+        ##n_sid = dil_smap[ny,nx]                             # id of *seed* node
+        ##node_map[ny,nx] = s_nid
+        ##segment_skl[ny,nx] = 0
+        ##    ## new node don't touch existing nodes?
+        ##    ##   two connected nodes is not a problem (...?)
+        ##    ## any other unexpected error ?
+        ##    
+        ##    # 2. node touching seed area
+        ##ny,nx  = ((dil_smap>0)&(node_map>0)).nonzero()
+        ##    # keep a unique (arbitrary) px per node
+        ##s_nid2 = dict(zip(node_map[ny,nx],dil_smap[ny,nx]))
+        ##n_sid2 = s_nid2.values()
+        ##s_nid2 = s_nid2.keys()
+        ##print s_nid2, len(s_nid2)
+        ##print n_sid2, len(n_sid2)
+        ##s_nid  = _np.hstack((s_nid, s_nid2))
+        ##n_sid  = _np.hstack((n_sid, n_sid2))
+
         # create output seed structure
         seed = dict()
             # compute seed  positions
         obj  = _nd.find_objects(seed_map)
         spos = _np.array([[(sl.stop+sl.start)/2. for sl in o] for o in obj])
         seed['position'] = spos
-        seed['nodes'] = nid
-        seed['sid']   = dil_smap[ny,nx]
+        seed['nodes'] = _np.array(s_nid)
+        seed['sid']   = _np.array(n_sid)
         
         if compute_segment_map:
             mask = mask - seed_mask
@@ -167,7 +197,7 @@ def image_graph(segment_skeleton, node_map, segment_map=None, seed=None):
         
     
     segNum = smap.max()
-    
+                                     
     # List all segments in neighborhood of all nodes
     # ----------------------------------------------
     # create a set ns_set of all (node,segment) pairs
@@ -190,7 +220,7 @@ def image_graph(segment_skeleton, node_map, segment_map=None, seed=None):
     segNum_no_seed = segNum
     if seed is not None:
         # add a segment (id) for all seed border nodes
-        seed_id = seed['sid']
+        seed_id = seed['sid']        
         seg_id  = segNum + _np.arange(1, seed_id.size+1)
         sseed   = _np.zeros(segNum+seg_id.size+1,dtype=seed_id.dtype) # segment.seed
         sseed[-seg_id.size:] = seed_id                              #  attribute

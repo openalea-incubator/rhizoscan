@@ -89,8 +89,6 @@ def linear_label(mask, seed_map=None, compute_segment_map=True):
         s_nid = dict(zip(node_map[ny,nx],dil_smap[ny,nx]))
         n_sid = s_nid.values()
         s_nid = s_nid.keys()
-        print s_nid, len(s_nid)  ##
-        print n_sid, len(n_sid)  ##
         
         ##    # 1. seed pixel touching seed area
         ##    #    replace segment px touching seed area by new nodes

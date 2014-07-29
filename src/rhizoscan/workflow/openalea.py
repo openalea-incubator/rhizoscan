@@ -608,7 +608,7 @@ def wrap_package(pkg, pkg_attrib={}, wrap_name=None, wrap_path=None, entry_point
             module   = __import__(pkg_name + '.' + name, globals(), locals(),[''])
         except ImportError as e:
             print " Module parsing Failure: "
-            print "   >  %s failed with to import error: %s" % (pkg_name + '.' + name,str(e)) 
+            print "   >  %s failed with import error: %s" % (pkg_name + '.' + name,str(e)) 
             continue
 
         mod_name  = wrap_name  + '.' + name

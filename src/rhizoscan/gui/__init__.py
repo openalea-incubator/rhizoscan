@@ -77,4 +77,5 @@ else:
             
             
 # declare getOpenFileName as an aleanode
-_node("file_path")(getOpenFileName)
+if BACKEND is not None:
+    _node("file_path")(getOpenFileName)

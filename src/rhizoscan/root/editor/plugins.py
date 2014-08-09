@@ -10,9 +10,8 @@ class RootEditorWidgetPlugin(object):
         """ Create widget """
         
         # widget
-        import treeeditor
         from rhizoscan.root.editor import RootEditorWidget
-        self._applet = RootEditorWidget(theme=treeeditor.OATHEME)
+        self._applet = RootEditorWidget()
         mainwindow.add_applet(self._applet, self.alias, area='outputs')
 
         # actions
@@ -58,8 +57,8 @@ class SeedMapWidgetPlugin(object):
         # Write your code here
         pass
 
-class RootEditorLabPlugin(object):
-    name = 'rooteditor'
+class RhizoScanLab(object):
+    name = 'rhizoscan'
     applet_names = [
         'RootEditor',
         'SeedMapEditor',
@@ -70,7 +69,6 @@ class RootEditorLabPlugin(object):
         'Logger',
         'HelpWidget',
         'HistoryWidget',
-        'Viewer3D',
         'World',
         'Plot2d',
         ]

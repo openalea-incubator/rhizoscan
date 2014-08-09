@@ -14,6 +14,7 @@ from rhizoscan.workflow import node as _node # to declare workflow nodes
 @_node('rsa')
 def tree_to_mtg(tree, max_order=None):
     """ create a mtg from given RootTree `tree` """
+    from rsml.metadata   import add_property_definition
     # - parse axe in partial order
     # - keep mapping (plant/axe/node id in tree) to (vertex id in mtg)
     #   for parent and complex look up
@@ -77,7 +78,9 @@ def tree_to_mtg(tree, max_order=None):
             mtg_nid[(axe_id,nid)] = vid
             mtg_axe = None # next node is a successor
             
+    add_property_definition(g, label='order', type=int)
     g.__serializer__ = '.rsml'
+    
     return g
 
 
@@ -85,13 +88,12 @@ def tree_to_mtg(tree, max_order=None):
 class RSMLSerializer(object):
     """ Class to serialize/deserialize root mtg into rsml file """
     extension = '.rsml'
-    def __init__(self):
-        pass
     
     def dump(self, mtg, stream):
         from rsml import io
         from rsml.continuous import discrete_to_continuous
         cmtg = discrete_to_continuous(mtg.copy())
+        
         io.mtg2rsml(cmtg, stream)
     
     def load(self,stream):

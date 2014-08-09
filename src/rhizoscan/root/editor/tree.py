@@ -22,6 +22,7 @@ class RootModel(_PASModel):
     """ manage edition of a RootMTG """
     open_title = 'Open rsml file'
     save_title = 'Save rsml file'
+    saveas_title = 'Save rsml file as'
     opened_extension = '.rsml'
     
     def __init__(self, presenter=None, mtg=None, position='position', radius='radius'):
@@ -75,21 +76,13 @@ class RootModel(_PASModel):
         
     def save_model(self,filename):
         """ Save the mtg in rsml file `filename` """ 
-        import os.path,shutil
         from rsml.io import mtg2rsml
         from rsml.continuous import discrete_to_continuous as d2c
         
-        filename = str(filename)
-        ext = os.path.splitext(filename)[1]
-        if len(ext)==0:
-            ext = '.rsml'
-            filename += ext
-            
-        if os.path.exists(filename):
-            shutil.copy(filename,filename+'~')
+        filename,ext = self.save_model_assert_filename(filename, '.rsml')
             
         # save
-        self.mtgfile = filename
         cmtg = d2c(self.mtg.copy())
         mtg2rsml(cmtg, filename)
+        self.mtgfile = filename
 

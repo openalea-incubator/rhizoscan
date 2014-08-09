@@ -89,7 +89,7 @@ entry_points['oalab.applet'] =\
         ],
         # 'SeedMapEditor = rhizoscan.root.editor.plugins:SeedMapWidgetPlugin'],
 entry_points['oalab.lab'] =\
-        ['RootEditorLab = rhizoscan.root.editor.plugins:RootEditorLabPlugin']
+        ['RhizoScanLab = rhizoscan.root.editor.plugins:RhizoScanLab']
 
 
 # call setup

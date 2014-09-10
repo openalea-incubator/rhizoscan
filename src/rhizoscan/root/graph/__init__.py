@@ -66,7 +66,8 @@ class RootGraph(_Mapping):
             axis = None
         else:
             plt.cla()
-            plt.imshow(bg)
+            h = plt.imshow(bg)
+            h.set_interpolation('nearest')
             axis = plt.axis()
         
         plt.gca().add_collection(collection)

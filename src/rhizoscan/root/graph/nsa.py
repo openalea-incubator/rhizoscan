@@ -223,10 +223,6 @@ class AxeList(GraphList):
         """
         Create an AxeList instance.
         
-        :Warning:
-            For backward compatibility, it is possible to make an empty AxeList
-            without argument, but this will most probably become deprecated
-            
         :Inputs:
           - axes:
               A list or array, of the **sorted** list of segment id each 

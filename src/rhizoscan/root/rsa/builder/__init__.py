@@ -491,7 +491,7 @@ class RSA_Builder(object):
         plant    = _np.zeros(axe_num, dtype=int)
         order    = _np.zeros(axe_num, dtype='uint8')
         ids      = _np.zeros(axe_num, dtype=int)
-        bids     = _np.zeros(axe_num, dtype=int)##[None]*axe_num
+        bids     = _np.zeros(axe_num, dtype=int)##[None]*axe_num   #debug
         
         for i, (axe_id, axe) in enumerate(fork.axe_iter()):
             i += 1
@@ -502,13 +502,13 @@ class RSA_Builder(object):
             plant[i]    = axe.plant
             order[i]    = axe.order
             ids[i]      = int_id[axe_id]
-            bids[i]     = axe_id[0]
+            bids[i]     = axe_id[0]  #debug
         
         graph = fork.graph
         axe = AxeList(axes=segments, segment_list=graph.segment, 
                       parent=parent, parent_segment=sparent,
                       plant=plant,   order=order,    ids=ids)
-        axe.builder_id = bids
+        axe.builder_id = bids  #debug
         
         return RootTree(node=graph.node,segment=graph.segment, axe=axe)
 

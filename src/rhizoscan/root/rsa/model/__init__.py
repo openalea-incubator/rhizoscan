@@ -4,43 +4,76 @@ Implements model to be optimized during RSA estimation
 
 def get_model(name):
     if name.lower()=='arabidopsis':
-        return ArabidopsisModel()
+        return Model(evaluators=[ConstantGrowthEvaluator(), 
+                                 MinBranchingSuperpositionEvaluator()],
+                     coefficients=[1,1])
     else:
         raise TypeError('unrecognized model with name ' + str(name))
 
-class ArabidopsisModel(object):
-    """ Simple architecture model for arabidopsis
-    
-    Axe type:
-      - one 'primary' root per plants - the longest
-      - all others are 'lateral'
-     
-    Architecture model (for lateral merging optimization):
-      - model lateral-length/branching-to-main-axe-tip as a normal districution
-      - thus, merge probability is maximized when close to this ratio
-      
-    """
-    from .distributions import NormalDistribution as distribution
-    
-    measure_name = '_AM'
-    
-    def __init__(self, parameters=[], history=[]):
-        self.param   = parameters
+class Model(object):
+    def __init__(self, evaluators, coefficients, history=[]):
+        self.evaluators   = evaluators
+        self.coefficients = coefficients
         self.history = history
+    
+    def copy(self):
+        from copy import copy
+        cp = self.__class__(evaluators=[e.copy() for e in self.evaluators],
+                            coefficients=copy(self.coefficients),
+                            history=copy(self.history))
+        return cp
+        
+    def fit(self, builder, axes):
+        axes = tuple(axes)
+        for e in self.evaluators:
+            e.fit(builder=builder, axes=axes)
+            
+    def value(self, params=None):
+        """ return Model value from param, or model evaluator param """
+        v = 0
+        c = self.coefficients
+        for i,e in enumerate(self.evaluators):
+            v += c[i]*e.value(param=params[i] if params else None)
+            
+        return v
+            
+    def evaluate_merge(self, builder, axe1, axe2, merged):
+        """ Evaluate Model evaluators if merging axe1 and axe2 into merged 
+        
+        Return model value and evaluators parameter
+        """
+        up_params = []
+        for e in self.evaluators:
+            up_params.append(e.evaluate_merge(builder, axe1, axe2, merged))
+            
+        return self.value(up_params), up_params
+
+    def update(self, modification, parameters):
+        """ Update evaluators with given `parameters` and record it """
+        self.history.append(modification)
+        for e,p in zip(self.evaluators,parameters):
+            e.set_parameters(p)
+        
+
+class AbstractEvaluator(object):
+    """ Abstract base class for evaluators """
+    def __init__(self, parameters=[]):
+        self.param=parameters
         
     def copy(self):
-        from copy import copy as c, deepcopy as dc
-        return self.__class__(parameters=dc(self.param), history=c(self.history))
-            
-    # get and compute axe value
-    # -------------------------
+        from copy import deepcopy as dc
+        return self.__class__(parameters=dc(self.param))
+
+    def set_parameters(self, parameters):
+        self.param = parameters
+
+    # automated axe measurment
+    # ------------------------
+    #   a class attribure 'measure_name' should be defined
+    #   used only for measure that are only dependent on the axe
     @staticmethod
     def measure(axe, parent):
-        axe_len = axe.branch_length
-        overlap = axe.length - axe_len
-        tip_dist = parent.length - overlap
-        
-        return (tip_dist-axe_len)/parent.length
+        raise NotImplementedError('Abstract class method')
         
     def axe_measurement(self, axe, builder):
         value = getattr(axe, self.measure_name,None)
@@ -53,29 +86,76 @@ class ArabidopsisModel(object):
         """ return value of all `axes` using axe_measurement """
         return map(self.axe_measurement, axes, [builder]*len(axes))
 
-    # fit model parameter
+    
+
+    # pure astract method
     # -------------------
     def fit(self, builder, axes):
+        """ set Evaluator param from `axes` in `builder` """
+        raise NotImplementedError('Abstract class method')
+        
+    def value(self, param=None):
+        """ get Evalutor value for given param or self param if not given """
+        raise NotImplementedError('Abstract class method')
+        
+    def evaluate_merge(self, builder, axe1, axe2, merged):
+        """ Evaluate Evaluator param if merging axe1 and axe2 into merged """
+        raise NotImplementedError('Abstract class method')
+    
+class ConstantGrowthEvaluator(AbstractEvaluator):
+    """ Architecture model expected from a constant growth hypothesis
+
+    The hypothesis are:
+      - All root axes have constant growth
+      - Laterals are initiated at a constant distance/delay of the primary tip 
+      
+    The consequence is that the following ratio should be constant:
+    
+        lateral-length / ramification-to-primary-tip-length
+        
+    This evaluator value is the standard deviation of this ratio on all axes
+    """
+    """
+    Note:
+      Even with constant growth, lateral speed are different from primary
+      thus the ratio is proportional to branching position
+      
+      This model is not quite good meaningful until the end
+      => should add some evaluator that influence iteration locally
+      
+      what about weighting axes?
+       - w.r.t own/tip_length? 
+       - if depends on current axe set, then it should be updated for all at
+         each step&evaluation...
+    """
+    from .distributions import NormalDistribution as distribution
+    
+    # axe length ratio
+    # ----------------
+    measure_name = '_CGE'
+    @staticmethod
+    def measure(axe, parent):
+        axe_len = axe.branch_length
+        overlap = axe.length - axe_len
+        tip_dist = parent.length - overlap
+        
+        return (tip_dist-axe_len)/parent.length
+        
+    # model API
+    # ---------
+    def fit(self, builder, axes):
         """ Fit model on `builder` and return model distribution object """
-        samples = []
-        for axe in axes:
-            samples.append(self.axe_measurement(axe,builder))
-                                       
+        samples = self.axes_measurement(axes,builder)
         self.param = self.distribution.fit(samples)
     
     def value(self, param=None):
         if param is None: param = self.param
-        return param[2]
         return self.distribution.std(param)
         
-    # merges
-    # ------
     def evaluate_merge(self, builder, axe1, axe2, merged):
         """ evaluate std diff of merging `axe1` & `axe2` by `merged`
         
-        :Outputs:
-          - difference of standard deviation if merge is done
-          - the updated parameter set to be updated if merge is done  
+        Return the updated parameter set to be updated if merge is done  
         """
         from copy import deepcopy
         
@@ -85,22 +165,10 @@ class ArabidopsisModel(object):
         
         dist.replace(up_param, remove=values[:2], add=[values[2]])
         
-        return self.value(up_param), up_param
+        return up_param
     
-    def update(self, modification, parameters):
-        #Ds = self.distribution.std                     #debug
-        #Dp = self.distribution.fit(parameters[3])      #debug
-        #D
-        #Dsp_cur = s(parameters)
-        #Dsp_ref = s(p)
-        #Dsp_err = abs(sp_cur-sp_ref)/sp_ref                          #debug
-        #Dif sp_err>0.0001:                                           #debug
-        #D    print '  >ERR updated!=fitted: %f-%f'%(sp_cur,sp_ref)   #debug
-            
-        self.history.append(modification)
-        self.param = parameters
 
-    # axe order and parenting
+    # axe order and parenting ##DEPRECATED
     # -----------------------
     @staticmethod
     def set_axe_type(builder):
@@ -150,22 +218,51 @@ class ArabidopsisModel(object):
         
 
 #--------------------------
-class GeometricalModel(object):
-    """ Probabilistic model that "push" toward logical geometrical branching """
-    def __init__(self, crossing_length):
-        """ Make a GeometricalModel 
+class MinBranchingSuperpositionEvaluator(AbstractEvaluator):
+    """ Evaluator that penalizes having several branching on same segment
+    
+    The cost is the sum of multiple branching on same segment:
+      value = sum( branching_number-1 for all branching segment )
+    """
+    """
+    Note:
+      Quite simplistic evaluator but has finally good effect:
+        - reduce total number of axes
+        - reduce number of axe branching at same place
+      
+      Todo?
+        - count instead overlapping axes at branching segment
+        - take into account superpostion length, ... or not
+        - look at distance between (closest) branching
+    """
+    def fit(self, builder, axes):
+        from collections import Counter
+        branch = self.axes_measurement(axes,builder)
+        branch = Counter(branch)
+        self.param = self._make_param(branch)
+
+    @staticmethod
+    def _make_param(branch):
+        value = sum(max(count-1,0) for count in branch.viewvalues())
+        return (branch,value)
+
+    def value(self, param=None):
+        if param is None: param = self.param
+        return param[1]
+
+    def evaluate_merge(self, builder, axe1, axe2, merged):
+        dbranch = self.axes_measurement([axe1,axe2,merged],builder)
+        branch = self.param[0].copy()
+        branch.subtract(dbranch[:2])
+        branch[dbranch[2]] += 1
+        return self._make_param(branch)
+    
+    # axe branch segment
+    # ------------------
+    measure_name = '_MBSE'
+    @staticmethod
+    def measure(axe, parent):
+        b_ind = axe.branch_index
+        if b_ind: return axe.segments[b_ind]
+        else:     return 0
         
-        `crossing_length` 
-            length under which root superposition are expected to be crossings
-        """
-        self.crossing_length = crossing_length
-        
-    def fit(self, builder):
-        pass
-    
-    def evaluate(self, builder):
-        pass
-    
-    def merge(self, builder, axes):
-        pass
-    

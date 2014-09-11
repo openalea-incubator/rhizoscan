@@ -35,6 +35,7 @@ class RSA_Builder(object):
         self.graph = graph
         self.model = model
         self.min_own_length = 0
+        self.primary_segments = set()
         
         if path is not None:
             self.segment_angle = (graph.segment.direction()+(2-segment_direction)*_np.pi)%(2*_np.pi)
@@ -90,6 +91,7 @@ class RSA_Builder(object):
         fork.axes = self.axes
         fork.merges = self.merges
         fork.segment_angle = self.segment_angle
+        fork.primary_segments = self.primary_segments
 
         # deep copy
         # ---------
@@ -121,6 +123,7 @@ class RSA_Builder(object):
             axe = self.get_axe(axe_id)
             axe.set_parent(None,0)
             axe.set_type('primary')
+            self.primary_segments.update(axe.segments)
         
         # set attributes of order 2 axes
         for axe_id, axe in self.axe_iter():
@@ -339,6 +342,9 @@ class RSA_Builder(object):
                 axe1 = self.get_axe(axe1_id)
                 
                 merge_seg  = merging.keys()[0]
+                
+                if merge_seg in self.primary_segments: continue
+                
                 merge_axe_ids = merging[merge_seg]
                 merge_axes = map(self.axes.get,merge_axe_ids)
                 merge_curves = (axe.get_curve_from(merge_seg) for axe in merge_axes)

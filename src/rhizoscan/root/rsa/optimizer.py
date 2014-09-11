@@ -87,8 +87,7 @@ def parse_all(builder, update_model, coef=1, front_width=10, max_iter=1000, cons
         coef=1
     
     def find_next(builder, best_value):
-        if coef=='best': max_value = ''
-        else:            max_value = coef*builder.value()
+        max_value = coef*builder.value()
         best, states = _find_next(builder, queue, done, max_value, constraint)
         if best<best_value:
             best_value = best
@@ -106,21 +105,25 @@ def parse_all(builder, update_model, coef=1, front_width=10, max_iter=1000, cons
         sort_queue = sorted(((q['value'],st,q) for st,q in queue.iteritems()))
         
         if front_width and len(queue)>front_width:
-            queue = dict((st,q) for v,st,q in sort_queue[:front_width]) 
-
-        processed = queue.pop(sort_queue[0][1])
+            to_process = [st for v,st,q in sort_queue[:front_width]]
+            queue = dict((st,queue[st]) for st in to_process)
+        else:
+            to_process = queue.keys()
         
-        builder = processed['builder']
-        key     = processed['key']
-        merge   = processed['merge']
-        
-        if verbose>1:
-            print '%4d (queue:%2d) - best %.8f >>' % (count,len(queue),best_value), key, 'last:', builder.model.history[-1:]
-        
-        builder = builder.apply_merge(merge_key=key, merge=merge, update=update_model)
+        for key in to_process:
+            processed = queue.pop(key)##sort_queue[0][1])
+            
+            builder = processed['builder']
+            key     = processed['key']
+            merge   = processed['merge']
+            
+            if verbose>1:
+                print '%4d (queue:%2d) - best %.8f >>' % (count,len(queue),best_value), key, 'last:', builder.model.history[-1:]
+            
+            builder = builder.apply_merge(merge_key=key, merge=merge, update=update_model)
+            best_value, added = find_next(builder, best_value)
+            
         count += 1
-        
-        best_value, added = find_next(builder, best_value)
     
     
     # return best

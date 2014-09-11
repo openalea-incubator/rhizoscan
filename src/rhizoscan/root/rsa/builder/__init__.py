@@ -126,12 +126,13 @@ class RSA_Builder(object):
             self.primary_segments.update(axe.segments)
         
         # set attributes of order 2 axes
+        plant_primary = dict((self.get_axe(pid).plant,pid) for pid in primary)
         for axe_id, axe in self.axe_iter():
             if axe_id in primary: continue
             
             # find parent with biggest overlap
-            parent = None
-            start  = -1
+            parent = plant_primary[axe.plant] # default to primary of same plant
+            start  = 0
             for parent_id in primary:
                 p_axe = self.get_axe(parent_id)
                 s = find_split_segment(axe.segments,p_axe.segments)
@@ -176,27 +177,30 @@ class RSA_Builder(object):
         slength[gsegment.seed>0] = 0
         
         if terminal: 
-            prunable = [axe_id for axe_id, axe in builder.axe_iter() if len(axe.out_segments)==0]
+            prunable = [axe_id for axe_id, axe in builder.lateral_axes() if len(axe.out_segments)==0]
             
             def min_length():
                 axe_tip = builder.axe_tip(True)
                 tip_len = dict((aid,slength[slist].sum()) for aid,slist in axe_tip.iteritems() if aid in prunable)
-                axe_min = min(tip_len,key=tip_len.get)
-                
-                return axe_min, tip_len[axe_min]
+                if len(tip_len):
+                    axe_min = min(tip_len,key=tip_len.get)
+                    return axe_min, tip_len[axe_min]
+                else:
+                    return None, None
             
         else:
             def min_length():
                 slen = slength * (builder.axe_count<2)
-                own_len = dict((aid,slen[axe.segments].sum()) for aid,axe in builder.axe_iter())
-                axe_min = min(own_len,key=own_len.get)
-                
-                return axe_min, own_len[axe_min]
-            
+                own_len = dict((aid,slen[axe.segments].sum()) for aid,axe in builder.lateral_axes())
+                if len(own_len):
+                    axe_min = min(own_len,key=own_len.get)
+                    return axe_min, own_len[axe_min]
+                else:
+                    return None, None
         
         while True:
             axe_id, own_len = min_length()
-            if own_len>builder.min_own_length: break
+            if axe_id is None or own_len>builder.min_own_length: break
             builder.remove_axe(axe_id)
             
         return builder
@@ -216,7 +220,7 @@ class RSA_Builder(object):
         return ((aid,self.axes[aid]) for aid in self.axe_ids)
         
     def lateral_axes(self):
-        return (self.axes[aid] for aid in self.axe_ids if self.axes[aid].order>1) 
+        return ((aid,self.axes[aid]) for aid in self.axe_ids if self.axes[aid].order>1) 
         
     def axe_tip(self, uncovered=False):
         """ return the dict of tip segments of all axes

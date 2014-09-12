@@ -52,15 +52,18 @@ class RSA_Builder(object):
                     
             new_primary = set()
             sorted_path = []
+            path_index_map = {}
             for s in segment_order:
                 if s in path_tip:
                     for p in path_tip[s]:
                         if p in primary:
                             new_primary.add(len(sorted_path))
+                        path_index_map[p] = len(sorted_path)
                         sorted_path.append(path[p])
 
             path = sorted_path
             primary = new_primary
+            self.path_index_map = path_index_map
             
             # construct initial axes from paths
             for axe_id,segments in enumerate(path):
@@ -131,7 +134,11 @@ class RSA_Builder(object):
             if axe_id in primary: continue
             
             # find parent with biggest overlap
-            parent = plant_primary[axe.plant] # default to primary of same plant
+            try:
+                parent = plant_primary[axe.plant] # default to primary of same plant
+            except:
+                import pdb      ####
+                pdb.set_trace()
             start  = 0
             for parent_id in primary:
                 p_axe = self.get_axe(parent_id)

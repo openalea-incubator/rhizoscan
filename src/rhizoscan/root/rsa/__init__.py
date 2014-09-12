@@ -63,21 +63,18 @@ def estimate_RSA(graph, model='arabidopsis', min_length=10, init_axes=None, verb
     #     1. possible primary axes per plant
     #     2. select longest
     #     3. update/create init_axes with select primary
-    primary = set()  # path indices of selected primary
-    
     def path_len(path_ind):
         return path_ind, length[path_elt[path_ind]].sum()
 
     if init_axes:
         path_plant = {}
-        init_primary = (init_axes.order()==1).nonzero()
+        primary_axes = (init_axes.order()==1).nonzero()
         
-        for axe_ind in init_primary:  # 1 primary per plant expected
+        for axe_ind in primary_axes:  # 1 primary per plant expected
             plant = init_axes.plant[axe_ind]
             plant_path[plant] = dict(map(path_len, init_map[axe_ind]))
             
             selected = max(path_length, key=path_length.get)
-            primary.add(selected)
             
             # update init_axes
             init_axes.segment[axe_ind] = path_elt[selected]
@@ -85,6 +82,7 @@ def estimate_RSA(graph, model='arabidopsis', min_length=10, init_axes=None, verb
         init_axes.clear_temporary_attribute()
         
     else:
+        primary = set()  # path indices of selected primary
         plant_path = {}
         for path_ind,elt_list in enumerate(path_elt):
             if len(elt_list)==0: continue
@@ -108,6 +106,7 @@ def estimate_RSA(graph, model='arabidopsis', min_length=10, init_axes=None, verb
                             parent=zeros,
                             order=ones,
                             parent_segment=zeros.copy())
+        primary_axes = range(1,len(primary)+1)
     
     # find secondary axes
     # -------------------
@@ -115,6 +114,12 @@ def estimate_RSA(graph, model='arabidopsis', min_length=10, init_axes=None, verb
     parent = minimum_dag_branching(incomming=dag_in, cost=angle, init_axes=init_axes)
     path_elt,elt_path,init_map = tree_covering_path(parent=parent, top_order=top_order, init_axes=init_axes)
     
+    # find path indices of primary axes
+    primary = set()
+    for a_ind in primary_axes:
+        p_ind = init_map[a_ind][0] # len should be = to 1
+        init_map[a_ind] = [p_ind]
+        primary.add(p_ind)
     
     # construct builder
     builder = RSA_Builder(graph, path=path_elt, primary=primary, 

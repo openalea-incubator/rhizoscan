@@ -496,7 +496,7 @@ def tree_covering_path(parent, top_order, init_axes=None, dummy=0):
             for i,s_ind in enumerate(segment):
                 if not init_elt_path.has_key(s_ind):
                     init_elt_path[s_ind] = (ax_ind, segment[:i+1])
-                
+
     # init path data structure
     path_elt = [[]]                                 # elements in path
     elt_path = [set() for i in xrange(len(parent))] # path going through elts
@@ -524,22 +524,32 @@ def tree_covering_path(parent, top_order, init_axes=None, dummy=0):
             axe_map.setdefault(a,[]).extend(e_path)
         
     # create the covering path
+    #   parse all element in inverse top order
+    #    - if no axe exist, create one
+    #    - add path to the current element parent
     for e in top_order[::-1]:
+        
         e_path = elt_path[e]
         if len(e_path)==0: 
+            # if no path already exist, create one
             new_path(e)
+            
         elif len(e_path.difference(closed_path))==0: 
+            # if all path are closed, continue to next element
             continue
         
         if e in init_elt_path:
-            # record possible axe path (to do before closed_path update)
+            # all path reaching an init_axes follows it til the seed
+            #   then is set as "closed"
+            
             if e in init_path_tip:
+                # record as possible axe (to do before closed_path update)
                 record_axes_map(e)
                 
-            # if on init_axes, follow selected path 
+            # if on init_axes, follow selected path
             init_path = init_elt_path[e][1]
             src = e
-            for dst in init_path[len(init_path)-2::-1]:
+            for dst in init_path[:-1][::-1]:
                 append_path(src,dst)
                 src = dst
             closed_path.update(elt_path[dst])

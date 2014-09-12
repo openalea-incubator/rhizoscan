@@ -100,9 +100,10 @@ def estimate_RSA(graph, model='arabidopsis', min_length=10, init_axes=None, verb
         
         # create init_axes with selected primary        
         from rhizoscan.root.graph import AxeList
-        zeros = _np.zeros(len(primary),dtype=int)
-        ones  = _np.ones(len(primary),dtype=int)
-        init_axes = AxeList(axes=[path_elt[s] for s in primary],
+        zeros = _np.zeros(len(primary)+1,dtype=int)
+        ones  = _np.ones(len(primary)+1,dtype=int)
+        ones[0] = 0
+        init_axes = AxeList(axes=[[]]+[path_elt[s] for s in primary],
                             segment_list=segment,
                             parent=zeros,
                             order=ones,

@@ -37,7 +37,6 @@ def arabidopsis_pipeline(output=None):
     pos_on_parent = t.axe.position_on_parent()
     assert abs(np.sort(pos_on_parent[:8])-[0,0,0,35,36,76,95,129]).max()<2, 'incorrect axe position_on_parent'
 
-
     # test mtg
     g = d.rsa
     plant_number = len(g.vertices(scale=1))

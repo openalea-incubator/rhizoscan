@@ -358,7 +358,7 @@ def shortest_axe_tree(outgoing, source, length, init_axes=None):
     nbor = _los2nbor(outgoing, sided=False)
 
     # cost
-    c = add_dim(length, axis=-1, size=nbor.shape[-1])
+    c = add_dim(length.copy(), axis=-1, size=nbor.shape[-1])
     
     return shortest_path_tree(neighbors=nbor, source=source, cost=c, init_axes=init_axes)
     

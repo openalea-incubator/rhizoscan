@@ -25,7 +25,8 @@ def estimate_RSA(graph, model='arabidopsis', min_length=10, init_axes=None, verb
     """
     import numpy as _np
     from rhizoscan.root.rsa.dag import graph_to_dag
-    from rhizoscan.root.rsa.dag import least_curvature_tree
+    ##from rhizoscan.root.rsa.dag import least_curvature_tree
+    from rhizoscan.root.rsa.dag import shortest_axe_tree
     from rhizoscan.root.rsa.dag import minimum_dag_branching
     from rhizoscan.root.rsa.dag import dag_topsort
     from rhizoscan.root.rsa.dag import tree_covering_path
@@ -56,7 +57,8 @@ def estimate_RSA(graph, model='arabidopsis', min_length=10, init_axes=None, verb
     # select primary axes
     # -------------------
     #   find path which minimize cumulative curvature from seed
-    parent,curv = least_curvature_tree(dag_out,src,angle,length, init_axes=init_axes)
+    ##parent,curv = least_curvature_tree(dag_out,src,angle,length, init_axes=init_axes)
+    parent,curv = shortest_axe_tree(dag_out,src,length, init_axes=init_axes)
     path_elt,elt_path,init_map = tree_covering_path(parent=parent, top_order=top_order, init_axes=init_axes)
     
     #   select "best" primary ##TODO: move that somewhere else...
@@ -125,6 +127,7 @@ def estimate_RSA(graph, model='arabidopsis', min_length=10, init_axes=None, verb
     builder = RSA_Builder(graph, path=path_elt, primary=primary, 
                           segment_order=top_order, segment_direction=sdir, 
                           outgoing=dag_out, model=model)
+    
     builder = builder.prune_axes(min_length=min_length)
     
     # optimization of lateral root merging
@@ -135,6 +138,6 @@ def estimate_RSA(graph, model='arabidopsis', min_length=10, init_axes=None, verb
     
     # build and return TreeGraph
     # --------------------------
-    return builder.make_tree()
+    return builder.make_tree(init_axes=init_axes, init_map=init_map)
     
     

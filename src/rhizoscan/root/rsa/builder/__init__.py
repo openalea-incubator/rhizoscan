@@ -95,6 +95,7 @@ class RSA_Builder(object):
         fork.merges = self.merges
         fork.segment_angle = self.segment_angle
         fork.primary_segments = self.primary_segments
+        fork.path_index_map = self.path_index_map
 
         # deep copy
         # ---------
@@ -183,33 +184,40 @@ class RSA_Builder(object):
         slength = gsegment.length().copy()
         slength[gsegment.seed>0] = 0
         
-        if terminal: 
-            prunable = [axe_id for axe_id, axe in builder.lateral_axes() if len(axe.out_segments)==0]
+        non_term = [axe_id for axe_id, axe in builder.lateral_axes() if len(axe.out_segments)==0]
             
-            def min_length():
-                axe_tip = builder.axe_tip(True)
-                tip_len = dict((aid,slength[slist].sum()) for aid,slist in axe_tip.iteritems() if aid in prunable)
-                if len(tip_len):
-                    axe_min = min(tip_len,key=tip_len.get)
-                    return axe_min, tip_len[axe_min]
-                else:
-                    return None, None
+        def min_length_terminal():
+            axe_tip = builder.axe_tip(True)
+            tip_len = dict((aid,slength[slist].sum()) for aid,slist in axe_tip.iteritems() if aid in non_term)
+            if len(tip_len):
+                axe_min = min(tip_len,key=tip_len.get)
+                return axe_min, tip_len[axe_min]
+            else:
+                return None, None
             
-        else:
-            def min_length():
-                slen = slength * (builder.axe_count<2)
-                own_len = dict((aid,slen[axe.segments].sum()) for aid,axe in builder.lateral_axes())
-                if len(own_len):
-                    axe_min = min(own_len,key=own_len.get)
-                    return axe_min, own_len[axe_min]
-                else:
-                    return None, None
+        def min_length_all():
+            slen = slength * (builder.axe_count<2)
+            own_len = dict((aid,slen[axe.segments].sum()) for aid,axe in builder.lateral_axes() if axe.weight)
+            if len(own_len):
+                axe_min = min(own_len,key=own_len.get)
+                return axe_min, own_len[axe_min]
+            else:
+                return None, None
+                    
+        def process(min_length, function):
+            while True:
+                axe_id, own_len = min_length()
+                if axe_id is None or own_len>builder.min_own_length: break
+                function(axe_id)
+                
+        if terminal: process(min_length_terminal, builder.remove_axe)
+        else:        process(min_length_all,      builder.remove_axe)
         
-        while True:
-            axe_id, own_len = min_length()
-            if axe_id is None or own_len>builder.min_own_length: break
-            builder.remove_axe(axe_id)
-            
+        if terminal: 
+            def flag(axe_id):
+                builder.get_axe(axe_id).weight = 0
+            process(min_length_all, flag)
+
         return builder
               
     # utilities
@@ -312,6 +320,8 @@ class RSA_Builder(object):
                                  out_segments=axe2.out_segments, 
                                  type=axe1.get_type())
             new_axe.set_parent(axe1.parent, axe1.branch_index)
+            
+            new_axe.weight = max(axe1.weight, axe2.weight)
             
             self.axes[new_axe_id] = new_axe
             
@@ -485,47 +495,107 @@ class RSA_Builder(object):
         return fork
 
     # make RootTree
-    def make_tree(self, prune='min_own_length'):
+    def make_tree(self, prune='min_own_length', init_axes=None, init_map=None):
         """ Make a RootTree from this builder """
         from rhizoscan.root.graph import AxeList
         from rhizoscan.root.graph import RootTree
         
-        #fork = self.fork()
+        # prune too little axes
+        # ---------------------
         if prune=='min_own_length':
             prune = self.min_own_length
         
+        ##! reset weight to avoid unprunable axe with weight==0
+        for axe_id, axe in self.axe_iter():
+            axe.weight=1
         fork = self.prune_axes(min_length=prune, terminal=False)
         
-        int_id = {}
-        for ind, (axe_id,axe) in enumerate(fork.axe_iter()):
-            int_id[axe_id] = ind+1
-
-        axe_num = len(fork.axe_ids)+1
         
+        # init var
+        # --------
+        axe_num = len(fork.axe_ids)+1
         segments = [[] for i in range(axe_num)]
         parent   = _np.zeros(axe_num, dtype=int)
         sparent  = _np.zeros(axe_num, dtype=int)
         plant    = _np.zeros(axe_num, dtype=int)
         order    = _np.zeros(axe_num, dtype='uint8')
         ids      = _np.zeros(axe_num, dtype=int)
-        bids     = _np.zeros(axe_num, dtype=int)##[None]*axe_num   #debug
         
-        for i, (axe_id, axe) in enumerate(fork.axe_iter()):
-            i += 1
+        # compute axe index in constructed AxeList
+        axe_ind = {}
+        for ind, (axe_id,axe) in enumerate(fork.axe_iter()):
+            axe_ind[axe_id] = ind+1
+
+        # select axe id & matching from init_axes
+        # ---------------------------------------
+        if init_axes is None:
+            axe_new_ids = axe_ind
+            
+        else:
+            axe_new_ids = {}
+            
+            # for all init axes, get possible match sorted by length
+            axes_by_start = {}
+            #   new axes starting at same base axe/path
+            for axe_id, axe in self.axe_iter():
+                axes_by_start.setdefault(axe_id[0],[]).append((axe.length,axe_id))
+            
+            #   sorted by length
+            for axe_id, len_axe in axes_by_start.iteritems():
+                axes_by_start[axe_id] = [axe for l,axe in sorted(len_axe)]
+            
+            #   select new axis matching init ones
+            #     iter init axes by partial order
+            #     select longest new one that is still not matched
+            #     (selection consist is using same axe id) 
+            matched = set()
+            init_ids = init_axes.set_id()
+            for init_ind, path_indices in init_map.iteritems():
+                path_indices = map(self.path_index_map.get,path_indices)  # ind after path sort
+                path_indices = filter(axes_by_start.has_key, path_indices)
+                
+                if len(path_indices)==0:## not in axes_by_start:
+                    raise TypeError('No match for initial axe with id %d' % init_ids[init_ind])
+                    
+                else:
+                    possible = [a_id for path_ind in path_indices
+                                       for a_id in axes_by_start[path_ind]
+                                         if  a_id not in matched]
+                    
+                    if len(possible)==0:
+                        raise TypeError('All matches already taken for initial axe with id %d' % init_ids[init_ind])
+                    
+                    else:
+                        matched_axe_id = possible[0]
+                        matched.add(matched_axe_id)
+                        axe_new_ids[matched_axe_id] = init_ids[init_ind]
+            
+                
+        # construct axes arrays
+        # ---------------------
+        cur_new_id = max(axe_new_ids.values())+1
+        for axe_id, i in axe_ind.iteritems():
+            axe = fork.get_axe(axe_id)
+            
             branch_ind  = axe.branch_index
             segments[i] = axe.segments[branch_ind:]
-            parent[i]   = int_id[axe.parent] if axe.parent is not None else 0
+            parent[i]   = axe_ind[axe.parent] if axe.parent is not None else 0
             sparent[i]  = axe.segments[branch_ind-1] if branch_ind else 0
             plant[i]    = axe.plant
             order[i]    = axe.order
-            ids[i]      = int_id[axe_id]
-            bids[i]     = axe_id[0]  #debug
+            if axe_id in axe_new_ids:
+                ids[i] = axe_new_ids[axe_id]
+            else:
+                ids[i] = cur_new_id
+                cur_new_id += 1
         
+        
+        # make axe and return tree
+        # ------------------------
         graph = fork.graph
         axe = AxeList(axes=segments, segment_list=graph.segment, 
                       parent=parent, parent_segment=sparent,
                       plant=plant,   order=order,    ids=ids)
-        axe.builder_id = bids  #debug
         
         return RootTree(node=graph.node,segment=graph.segment, axe=axe)
 
@@ -562,6 +632,8 @@ class BuilderAxe(object):
         
         # compute axe length
         self.length = seg_len.sum()
+        
+        self.weight = 1
         
         # set type
         self.set_type(type)

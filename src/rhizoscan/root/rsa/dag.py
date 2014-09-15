@@ -324,14 +324,71 @@ def least_curvature_tree(outgoing, source, angle, length, init_axes=None):
       - array of the parent indices (0 for unset)
       - array of lest cumulative curvature at all elements 
     """
+    # curvature neighbor graph
+    nbor = _los2nbor(outgoing, sided=False)
+
+    # cost
+    x = _np.arange(nbor.shape[0])[:,None]
+    a = angle[x,nbor]
+    c = a*(length[:,None]+length[nbor])/2           # local curvature
+    
+    return shortest_path_tree(neighbors=nbor, source=source, cost=c, init_axes=init_axes)
+
+def shortest_axe_tree(outgoing, source, length, init_axes=None):
     """
-    element edge is defined as the angle between those elements divbut
-      - SP on curvature is hill-defined cuz adding a element to a path can 
-        actually reduce curvature (however curvature is always >=0)
-      - the path is chosen from seed to tip, following top_order
-      - at each step
-           - if current segment not processed
-           - get its parent, sibling, and oncle 
+    Call shortest_path_tree with segment length as cost
+    
+    :Inputs:
+      outgoing:
+        A sided list-of-set graph of the forward neighbor of all elements
+      source
+        Indices of bool array indicating the possible sources of tree axes 
+      length
+        Length of all elements
+      init_axes:
+        Optional AxeList of previously found axes.
+        The parent are taken for all segment of all axes following partial order
+        
+    :Outputs:
+      - array of the parent indices (0 for unset)
+      - array of path length at all elements 
+    """
+    from rhizoscan.ndarray import add_dim
+    # curvature neighbor graph
+    nbor = _los2nbor(outgoing, sided=False)
+
+    # cost
+    c = add_dim(length, axis=-1, size=nbor.shape[-1])
+    
+    return shortest_path_tree(neighbors=nbor, source=source, cost=c, init_axes=init_axes)
+    
+
+def shortest_path_tree(neighbors, source, cost, init_axes=None):
+    """
+    Compute the shortest path tree minimizing given `cost`
+    
+    Compute parent element using shortest path using curvature as edge cost. 
+    The curvature of edge (e1,e2) is computed as::
+    
+        c(e1,e2) = angle(e1,e2)/length(e2)
+        
+    It is null for edge starting at a source element
+    
+    :Inputs:
+      neighbor:
+        A nieghbor-type graph of the forward neighbor of all elements
+      source
+        Indices of bool array indicating the possible sources of tree axes 
+      cost
+        2d array of the cost of all neighbors (same shape as neighbors)
+        *** cost of source elements are set to 0 in-place *** 
+      init_axes:
+        Optional AxeList of previously found axes.
+        The parent are taken for all segment of all axes following partial order
+        
+    :Outputs:
+      - array of the parent indices (0 for unset)
+      - array of lest cumulative cost at all elements 
     """
     from scipy.sparse.csgraph import dijkstra
     
@@ -339,16 +396,9 @@ def least_curvature_tree(outgoing, source, angle, length, init_axes=None):
     source = _np.asarray(source)
     if source.dtype==bool:
         source = source.nonzero()[0]
+    cost[source,:] = 0
 
-    # curvature neighbor graph
-    nbor = _los2nbor(outgoing, sided=False)
-
-    x = _np.arange(nbor.shape[0])[:,None]
-    a = angle[x,nbor]
-    c = a*(length[:,None]+length[nbor])/2           # local curvature
-    c[source,:] = 0
-    
-    G = _nbor2csg(nbor, value=c)
+    G = _nbor2csg(neighbors, value=cost)
     
     # shortest path
     D,P = dijkstra(G, indices=source, return_predecessors=True)
@@ -357,14 +407,14 @@ def least_curvature_tree(outgoing, source, angle, length, init_axes=None):
     parent = P[best,_np.arange(best.size)]
     parent[parent<0] = 0
     
-    curvature = D[best,_np.arange(best.size)]
+    path_cost = D[best,_np.arange(best.size)]
     
     if init_axes is not None:
         for aid in init_axes.partial_order()[::-1]:
             parent[init_axes.segment[aid][1:]] = init_axes.segment[aid][:-1]
             
-    return parent, curvature
-
+    return parent, path_cost
+    
 def dag_topsort(dag, source=None, fifo=True):
     """
     Compute the topological order of a directed acyclic graph `dag`

@@ -126,11 +126,10 @@ class Data(object):
             if old_file:
                 old_file.remove()
             file_url = None
-        else:
-            if not isinstance(file_url,_FileObject):
-                file_url = _FileObject(file_url, container=container)
-            elif container is not None:
-                file_url.set_container(container)
+        elif not isinstance(file_url,_FileObject):
+            file_url = _FileObject(file_url, container=container)
+        elif container is not None:
+            file_url.set_container(container)
             
         self.__file_object__ = file_url
         
@@ -267,8 +266,8 @@ class Data(object):
         if Data.has_store_API(data):
             data = data.__restore__()
             
-        if update_file and Data.has_IO_API(data):
-            data.set_file(file_object)
+        if update_file:## and Data.has_IO_API(data):
+            Data.set_file(data,file_object)
            
         ## deprecated
         io_mode = getattr(data,'__io_mode__',"")
@@ -365,7 +364,7 @@ class DataLoader(Data):
     """ class that point to the file of a Data object """
     def __init__(self, obj=None, url=None):
         if obj is not None:
-            Data.__init__(self, file_url=obj.get_file(), serializer=obj.get_serializer())
+            Data.__init__(self, file_url=Data.get_file(obj), serializer=Data.get_serializer(obj))
         elif url is not None:
             Data.__init__(self, file_url=url)
         else:
@@ -552,7 +551,7 @@ class Mapping(Data):
     def clear_temporary_attribute(self, name='all', raise_missing=None):
         """ clear the temporary attributs list, and optinally delete associated data """ 
         if name=='all': name = list(self.temporary_attribute)
-        if isinstance(name,basestring): name = [name]
+        elif isinstance(name,basestring): name = [name]
         for attr in name:
             if hasattr(self,attr):
                 delattr(self,attr)
@@ -642,9 +641,11 @@ class Mapping(Data):
         for key,value in d.iteritems():
             if hasattr(value,'get_loader') and value.get_file() is not None:
                 d[key] = value.get_loader()
-            elif key in storage_keys:
-                d[key] = DataLoader(url=self.__storage__.get_file(key))
-            
+            elif Data.get_file(value) is not None: ##if key in storage_keys:
+                try:
+                    d[key] = DataLoader(value)##url=self.__storage__.get_file(key))
+                except:
+                    pass
         return s
 
     def __restore__(self):
@@ -886,6 +887,7 @@ def get_key(data={}, key='metadata', default=None):
 # Data that manages sequence
 class Sequence(Data):
     """
+    **** DEPRECATED ****
     Simple read-write interface for a sequence of Data objects
     
     :TODO: 

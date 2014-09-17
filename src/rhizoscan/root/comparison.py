@@ -547,6 +547,7 @@ def make_tree_compare(reference, compared, keys=None, file_object=None, verbose=
     return TreeCompareSequence(reference=ref, compared=cpr, image=image, filename=file_object), missing
 
 
+
 # simple matching from distance matrix
 # ------------------------------------
 def direct_matching(d, max_d=None):

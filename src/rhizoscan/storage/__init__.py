@@ -374,6 +374,9 @@ class FileObject(object):
                 serializer = Serializer.get_registered(ext)
             else:
                 serializer = Serializer
+        elif isinstance(serializer,basestring):
+            serializer = Serializer.get_registered(serializer)
+            
         data = serializer.load(stream)
         stream.close()
         

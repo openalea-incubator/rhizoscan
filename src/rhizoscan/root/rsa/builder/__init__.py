@@ -135,11 +135,7 @@ class RSA_Builder(object):
             if axe_id in primary: continue
             
             # find parent with biggest overlap
-            try:
-                parent = plant_primary[axe.plant] # default to primary of same plant
-            except:
-                import pdb      ####
-                pdb.set_trace()
+            parent = plant_primary[axe.plant] # default to primary of same plant
             start  = 0
             for parent_id in primary:
                 p_axe = self.get_axe(parent_id)

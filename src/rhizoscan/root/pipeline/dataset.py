@@ -160,6 +160,23 @@ class Dataset(list, _Mapping):
                     v.dump()
 
 
+    def __store__(self):
+        """
+        Return a copy of it-self and call recursively __store__ on all 
+        contained objects that have the __store__ method, such as Data objects. 
+        
+        Note: This is what is really save by the 'save' method.
+        """
+        s = _Mapping.__store__(self)
+        
+        for value in self:
+            if hasattr(value,'__store__'):
+                value = value.__store__()
+            s.append(value)
+                
+        return s
+
+
 def _mget(item,key, default=None):
     """ recursive getattr for given list of attributes `key`"""
     value = reduce(lambda x,f: getattr(x,f,'__MISSING_ATTR'),[item]+key)

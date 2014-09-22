@@ -263,12 +263,15 @@ class Data(object):
             
         data = file_object.load(getattr(data,'__serializer__',None))
         
+        if update_file:
+            if Data.has_IO_API(data):
+                data.set_file(file_object)  ## for Mapping: set default container...
+            else:
+                Data.set_file(data,file_object)
+           
         if Data.has_store_API(data):
             data = data.__restore__()
             
-        if update_file:## and Data.has_IO_API(data):
-            Data.set_file(data,file_object)
-           
         ## deprecated
         io_mode = getattr(data,'__io_mode__',"")
         if io_mode.startswith('loader:'):#self.is_loader(data):
@@ -343,10 +346,20 @@ class Data(object):
         return isinstance(obj,DataLoader) or\
                getattr(obj,'__io_mode__',"").startswith('loader:') ## deprecated
         
-    def __str__(self):
+    def __repr__(self):
         cls = self.__class__
         cls = cls.__module__ +'.'+ cls.__name__
-        return  cls + ' with file: ' + str(self.get_file())
+        return  cls + ' with file: ' + str(self.get_file()) +')'
+        
+    def __str__(self):
+        cls = self.__class__.__name__
+        fobj = self.get_file()
+        if fobj is None:
+            url = 'None'
+        else:
+            url = fobj.get_url()
+            if len(url)>60: url = '...'+url[-57:]
+        return  cls + '(file=' + url     +')'
             
 
             
@@ -561,7 +574,7 @@ class Mapping(Data):
     
     # manage storage for (de)serializer
     # ---------------------------------
-    def set_file(self, file_url, container=None, storage=True):
+    def set_file(self, file_url, container=True, storage=True):
         """
         set the FileObject of this Mapping object
         
@@ -582,11 +595,8 @@ class Mapping(Data):
               
         See `storage` documentation. 
         """
-        if container is None and file_url!=-1 and file_url is not None:
-            from os.path import split
-            if hasattr(file_url,'get_url'):
-                file_url = file_url.get_url()
-            container, file_url = split(file_url)
+        if hasattr(file_url,'get_url'):
+            file_url = file_url.get_url()
         Data.set_file(self, file_url, container=container)
 
         if self.get_file() is None:
@@ -595,11 +605,11 @@ class Mapping(Data):
         
         if storage is True:
             from os.path import splitext 
-            storage = splitext(self.get_file().get_url())[0]+'_{}'
+            storage = splitext(self.get_file().get_url(full=False))[0]+'_{}'
         if storage:
-            self.set_storage(storage)
+            self._set_storage(storage)
 
-    def set_storage(self, storage):
+    def _set_storage(self, storage):
         """
         Attach FileStorage for automatized external I/O of selected attributes
         
@@ -615,6 +625,7 @@ class Mapping(Data):
         """
         if not isinstance(storage, _FileStorage) and storage is not None:
             storage = _FileStorage(storage)
+        storage.set_container(self.get_file().get_container())
         self.__storage__ = storage
         
     def __store__(self):
@@ -657,7 +668,8 @@ class Mapping(Data):
             if hasattr(value,'__restore__') and hasattr(value.__restore__,'__call__'):
                 try:
                     self[key] = value.__restore__()
-                except: pass##print 'no data file'
+                except:
+                    pass##print 'no data file'
             
         return self
     
@@ -691,7 +703,7 @@ class Mapping(Data):
         if filename is None:
             fobj = self.get_file()
         else:
-            fobj = _FileObject(filename)
+            fobj = _FileObject(filename, container=True)
         
         import os ## load(attempt=1) should be done through FileObject, so by Data.load (?)
         if attempt and not fobj.exists():
@@ -700,6 +712,7 @@ class Mapping(Data):
         loaded = Data.load(fobj, update_file=True)
         
         self.update(loaded, overwrite=overwrite)
+        self.set_file(fobj)
             
         return self
         
@@ -798,9 +811,6 @@ class Mapping(Data):
         return self.multilines_str()[:-1]##self.__dict__.__repr__()
     # nice printing
     def __str__(self):
-        #from pprint import pformat
-        #return pformat(self.__dict__)
-        #return "length %d %s object with associated file: %s" % (len(self), self.__class__.__name__, self.get_file()) # self.multilines_str()
         cls_name = self.__class__.__module__ + '.' + self.__class__.__name__
         return cls_name+":"+str(self.__dict__)
     def display(self, tab=0, max_width=80, avoid_obj_id=None):
@@ -827,9 +837,9 @@ class Mapping(Data):
         
         string = ''
         keys = sorted([f for f in self.keys() if not f.startswith('_')])
-        for key,value in self.iteritems():
+        for key in keys:
             key = str(key)
-            if key.startswith('_'): continue
+            value = self[key]
             
             name  = '    '*tab + key + ': '
             shift = ' '*len(name)

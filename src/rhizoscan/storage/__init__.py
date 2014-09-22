@@ -12,7 +12,14 @@ FileEntry:
 FileStorage:
     Manages a set of FileObject related to an id (name)
     implements ...
-              
+   
+   
+TODO:
+  - make a URL class that manages
+      - splits of scheme, dirname, filename
+      - container
+      - FileEntry?  => open/write/exist/etc...
+  - make FileEntry static
 """
 
 import cPickle as _cPickle
@@ -23,6 +30,9 @@ from rhizoscan.misc.decorators import _property
 from rhizoscan.misc.decorators import class_or_instance_method as _cls_inst_method
 from rhizoscan.misc.path import assert_directory as _assert_directory
 
+_pjoin  = _os.path.join
+_psplit = _os.path.split
+_dirname = _os.path.dirname
 
 class Serializer(object):
     """ default serializer which use pickle
@@ -153,22 +163,39 @@ class RegisteredEntry(type):
         Create the suitable FileEntry for the given `url`
         
         If `url` is a FileEntry instance, return it
-        If `url` does not contain a scheme (eg. file://'), file type is used.
+        If `url` does not contain a scheme (eg. file://'), file type is assumed
         """
         if isinstance(url, FileEntry):
             entry = url
         else:
-            if container: base_url = container
-            else:         base_url = url
+            if container: 
+                if container is True:
+                    container, url = _psplit(url)
+                base_url = container
+            else:   
+                base_url = url
             if hasattr(base_url,'get_url'):
                 base_url = base_url.get_url()
+                
             scheme = _urlsplit(base_url)[0]
             cls    = RegisteredEntry.get(scheme)
             entry  = cls(url, container)
         
         return entry
+        
+class Containable(object):
+    """ Abstract class for storage object that can have a container """
+    
+    def set_container(self, container):
+        if container is not None:
+            container = _os.path.abspath(_urlsplit(container)[1])
+        self._container = container
+    def get_container(self):
+        self._container = getattr(self,'_container',None)  ## deprecated
+        return self._container
+            
 
-class FileEntry(object):
+class FileEntry(Containable):
     """
     Class to manage I/O for FileObject - implements IO in local HD
     
@@ -183,6 +210,10 @@ class FileEntry(object):
      
     open with mode='w' should create the file directory if necessary
     """
+    """
+    TODO:
+      - make this a static class, and store url in FileObject
+    """
     __metaclass__ = RegisteredEntry
     __scheme__ = ('file', '')  # manages local file & undefined scheme
     
@@ -190,20 +221,15 @@ class FileEntry(object):
         self.set_container(container=container)
         self.set_url(url=url)
         
-    def set_container(self, container):
-        if container is not None:
-            container = _os.path.abspath(_urlsplit(container)[1])
-        self._container = container
-    def get_container(self):
-        self._container = getattr(self,'_container',None)  ## deprecated
-        return self._container
-            
     def set_url(self, url):
         self._url = url
-    def get_url(self):
+    def get_url(self, full=True):
         from rhizoscan.misc.path import abspath
         url = self._url if hasattr(self,'_url') else self.url   ## deprecated
-        return abspath(_urlsplit(url)[1], self.get_container())
+        if full:
+            return _pjoin(self.get_container(),_urlsplit(url)[1])
+        else:
+            return _urlsplit(url)[1]
         
     def open(self, mode):
         url = self.get_url()
@@ -221,8 +247,8 @@ class FileEntry(object):
         """
         Create a FileEntry for the file `filename` in the same directory 
         """
-        dirname, selfname = _os.path.split(self.get_url())
-        sibling = _os.path.join(dirname,filename)
+        dirname, selfname = _psplit(self.get_url())
+        sibling = _pjoin(dirname,filename)
         return self.__class__(sibling)
 
 class SFTPEntry(FileEntry):
@@ -291,7 +317,7 @@ class SFTPEntry(FileEntry):
         return self.server.exists(self.urlparse.path)
     def open(self, mode):
         if 'w' in mode:
-            dirname = _os.path.dirname(self.urlparse.path)
+            dirname = _dirname(self.urlparse.path)
             if not self.server.exists(dirname):
                 self.server.mkdir(dirname)
         return self.server.open(self.urlparse.path, mode=mode)
@@ -304,8 +330,8 @@ class SFTPEntry(FileEntry):
         """
         import urlparse
         p = self.urlparse
-        dirname = _os.path.dirname(p.path)
-        sibling = _os.path.join(dirname,filename)
+        dirname = _dirname(p.path)
+        sibling = _pjoin(dirname,filename)
         sibling = urlparse.ParseResult(scheme=p.scheme, netloc=p.netloc, path=sibling, params=p.params, query=p.query, fragment=p.fragment)
         return self.__class__(sibling)
         
@@ -348,15 +374,14 @@ class FileObject(object):
     def set_container(self, container):
         self.entry.set_container(container)
         
-    def get_url(self):
-        return self.entry.get_url()
+    def get_url(self, full=True):
+        return self.entry.get_url(full=full)
     def get_container(self):
         return self.entry.get_container()
         
     def get_extension(self):
         """ return this fileObject extension """
-        from os.path import splitext
-        return splitext(self.get_url())[1]
+        return _os.path.splitext(self.get_url())[1]
         
     def exists(self):
         return self.entry.exists()
@@ -412,7 +437,7 @@ class FileObject(object):
     def _metadata(self):
         """ return metadata file and the key for this entry """
         meta_file = self.entry.sibling(FileObject.__meta_file__)
-        entry_key = _os.path.split(self.entry.get_url())[-1]  
+        entry_key = _psplit(self.entry.get_url())[-1]  
         return meta_file, entry_key
         
     def set_metadata(self, metadata, update=True):
@@ -477,7 +502,7 @@ class FileObject(object):
                 meta_head = _cPickle.load(f)
                 f.close()
 
-class FileStorage(object):
+class FileStorage(Containable):
     """
     A FileStorage allows automated generation of FileObject w.r.t to a unique id
     The interface is done using `get_file(name,data=None)`
@@ -499,6 +524,11 @@ class FileStorage(object):
             url_generator += "{}"
         self.url_generator = url_generator
         
+    def _gen_url(self, key, extension=''):
+        c = self.get_container()
+        url = self.url_generator.format(key)+extension
+        return _pjoin('' if c is None else c, url)
+        
     def get_file(self, key, data=None):
         """
         Return the FileObject related to `key`
@@ -511,7 +541,7 @@ class FileStorage(object):
             extension  = getattr(serializer,'extension', '') 
             
             # create file object, and store it
-            url = self.url_generator.format(key)+extension
+            url = self._gen_url(key=key, extension=extension)
             fobj = FileObject(url)
             self.__dict__[key] = fobj
             
@@ -523,7 +553,7 @@ class FileStorage(object):
     def __repr__(self):
         cls = self.__class__
         cls = cls.__module__ + '.' + cls.__name__
-        return cls + "('" + self.url_generator.format('{}') + "')"
+        return cls + "('" + self._gen_url('{}') + "')"
     def __str__(self):
         return self.__repr__()
 

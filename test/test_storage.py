@@ -77,7 +77,7 @@ def test_mapping_move():
         
         loader = m1.dump()
         shutil.copytree(dname1,dname2)
-        shutil.rmtree(dname1)
+        shutil.rmtree(dname1)    # delete initial data 
         
         m2 = Data.load(fname2)
         
@@ -86,6 +86,13 @@ def test_mapping_move():
         
         assert all(map(hasattr,[m2]*3,['a','b','c'])) # all keys reloaded
         assert m1.a==m2.a and m2.get('c').c==m1.c.c
+        
+        m2.set('d',Mapping(value=42),store=True)
+        
+        d_url = m2.d.get_file().get_url()
+        d_fname = os.path.splitext(m2.d.get_file().get_url(full=False))[0]
+        assert d_fname=='test_mapping_d', d_fname 
+        assert Data.load(d_url).value==42, d_url
         
     finally:
         shutil.rmtree(dname)

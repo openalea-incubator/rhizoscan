@@ -14,7 +14,7 @@ def arabidopsis_pipeline(output=None):
                 fg_smooth=1, border_width=.08,leaf_bbox=[0,0,1,.4],root_max_radius=5, verbose=1)
     
     if output:
-        d.set_storage(output)
+        d.set_file(output, storage=True)
         pipeline.run(namespace=d, store=['pmask','rmask','seed_map','tree','rsa'])
     else:
         pipeline.run(namespace=d)
@@ -67,12 +67,13 @@ def test_arabido_pipeline_no_storage():
     
 def test_arabido_pipeline_with_storage():
     import os
+    import shutil
     from tempfile import mkdtemp
     tmp = mkdtemp()
     try:
-        arabidopsis_pipeline(tmp)
+        arabidopsis_pipeline(output=os.path.join(tmp,'pipeline'))
     finally:
-        os.rmdir(tmp)
+        shutil.rmtree(tmp)
 
 def test_load_dataset():
     from rhizoscan.misc.path import abspath

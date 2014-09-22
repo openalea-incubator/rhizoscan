@@ -187,12 +187,14 @@ class Containable(object):
     """ Abstract class for storage object that can have a container """
     
     def set_container(self, container):
-        if container is not None:
+        if container is None:
+            container = ''
+        else:
             container = _os.path.abspath(_urlsplit(container)[1])
         self._container = container
     def get_container(self):
-        self._container = getattr(self,'_container',None)  ## deprecated
-        return self._container
+        c = getattr(self,'_container','')  ## deprecated
+        return '' if c is None else c
             
 
 class FileEntry(Containable):

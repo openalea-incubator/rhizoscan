@@ -8,6 +8,13 @@ def image_io(format, ser_dtype, ser_scale):
         image_io_run(format=format,ser_dtype=ser_dtype,ser_scale=ser_scale,
                      dir_name=dname)
         
+        # test IO on relative file name
+        cur_dir = os.path.abspath('')
+        os.chdir(dname)
+        image_io_run(format=format,ser_dtype=ser_dtype,ser_scale=ser_scale,
+                     dir_name='')
+        os.chdir(cur_dir)
+        
         # check when header is generated, if it is readable
         header = os.path.join(dname, '__storage__.meta')
         if os.path.exists(header):
@@ -32,7 +39,9 @@ def image_io_run(format, ser_dtype, ser_scale, dir_name):
     loader = img.dump()
     img2 = loader.load()
 
+    fobj = img.get_file()
     img.set_file(-1) # delete the file
+    assert not fobj.exists(), 'image file not removed'
     
     # assert serialization parameters are equivalent
     ser_param = ['img_dtype', 'img_scale', 'pil_format', 'pil_mode', 'pil_param', 'ser_color', 'ser_dtype', 'ser_scale']

@@ -191,9 +191,9 @@ class MinBranchingSuperpositionEvaluator(AbstractEvaluator):
     @staticmethod
     def measure(axe, builder):
         """ find axe branch segment """
+        if axe.weight==0: return None
         b_ind = axe.branch_index
-        if b_ind: return axe.segments[b_ind]
-        else:     return 0
+        return None if b_ind is None else axe.segments[b_ind] 
         
     def fit(self, builder, axes):
         from collections import Counter
@@ -210,6 +210,15 @@ class MinBranchingSuperpositionEvaluator(AbstractEvaluator):
         return param[1]
 
     def evaluate_merge(self, builder, axe1, axe2, merged):
+        ## DEBUG: check that fitted modelis same as stored ones
+        ##ev = MinBranchingSuperpositionEvaluator()
+        ##ev.fit(builder, [axe for aid,axe in builder.lateral_axes()])
+        ##c1 = builder.model.evaluators[1].param[0]
+        ##c2 = ev.param[0]
+        ##if not all(c1[k]==c2[k] for k in set(c1.keys()+c2.keys())):
+        ##    print ' ***ERROR***' ##
+        ##    import pdb
+        ##    pdb.set_trace()
         dbranch = self.axes_measurement([axe1,axe2,merged],builder)
         branch = self.param[0].copy()
         f = lambda x: filter(None,x)

@@ -135,7 +135,6 @@ def estimate_RSA(graph, model='arabidopsis', min_length=10, init_axes=None, verb
         builder.model.fit(builder, [axe for aid,axe in builder.lateral_axes()])
         builder = optim(builder=builder, update_model=True, verbose=verbose, **optim_kargs)
     
-    
     # build and return TreeGraph
     # --------------------------
     return builder.make_tree(init_axes=init_axes, init_map=init_map)

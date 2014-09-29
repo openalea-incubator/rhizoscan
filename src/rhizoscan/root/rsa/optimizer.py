@@ -35,15 +35,31 @@ def gradient(builder, update_model, constraint=True, **kargs):
 
     return builder
     
+class Processed(dict):
+    """ Record builder objects already processed by optimization"""
+    def __init__(self):
+        """ Create empty Processed object """
+        pass
+    
+    def add(self, builder):
+        """ add given `builder` """
+        self[builder.get_state()] = (builder.value(),builder)
+        
+    def best(self):
+        """ return processed (state,value,builder) with lowest value """
+        best = min(self, key=self.get)
+        return (best,) +  self[best]
+        
+DEBUG = None
  
-def _find_next(builder, queue, done, max_value, constraint):
+def _find_next(builder, queue, processed, max_value, constraint):
     """ Private method used by optimization algorithm
     
     It updates `queue` with states reachable from `builder`
     
-    return list of added state (i.e. queue key)
+    return list of added state (i.e. key added to `queue`)
     """
-    done[builder.state()] = (builder.value(),builder)
+    processed.add(builder)
     
     merges = builder.possible_merges(constraint=constraint)
     added  = []
@@ -53,7 +69,17 @@ def _find_next(builder, queue, done, max_value, constraint):
     for key,merge in merges.iteritems():
         m_state = merge['state']
         
-        if m_state in queue or m_state in done:
+        if m_state in queue or m_state in processed:
+            ##m_value = builder.evaluate_merge(merge)
+            ##if m_value<max_value:
+            ##    if m_state in queue:
+            ##        value = queue[m_state]['value']
+            ##        print 'Q:',
+            ##    else:
+            ##        value,b = processed[m_state]
+            ##        print 'P:', 
+            ##    print merge['merge_pos'], value
+                
             continue
             
         m_value = builder.evaluate_merge(merge)
@@ -77,7 +103,7 @@ def parse_all(builder, update_model, coef=1, front_width=10, max_iter=1000, cons
     #  - all *new* rechable states are stored in 'queue'
     
     queue = {}
-    done  = {}
+    processed = Processed()
     
     best_value = 'undef' # any float < str
     count = 0
@@ -88,7 +114,7 @@ def parse_all(builder, update_model, coef=1, front_width=10, max_iter=1000, cons
     
     def find_next(builder, best_value):
         max_value = coef*builder.value()
-        best, states = _find_next(builder, queue, done, max_value, constraint)
+        best, states = _find_next(builder, queue, processed, max_value, constraint)
         if best<best_value:
             best_value = best
         return best_value, states
@@ -110,16 +136,20 @@ def parse_all(builder, update_model, coef=1, front_width=10, max_iter=1000, cons
         else:
             to_process = queue.keys()
         
-        for key in to_process:
-            processed = queue.pop(key)##sort_queue[0][1])
+        all_state = set()
+        map(all_state.update,queue.keys())
+        
+        for state in to_process:
+            to_process = queue.pop(state)##sort_queue[0][1])
             
-            builder = processed['builder']
-            key     = processed['key']
-            merge   = processed['merge']
+            builder = to_process['builder']
+            key     = to_process['key']
+            merge   = to_process['merge']
             
             if verbose>1:
-                print '%4d (queue:%2d) - best %.8f >>' % (count,len(queue),best_value), key, 'last:', builder.model.history[-1:]
-            
+                print '%4d (queue:%2d) - best %.8f >>' % (count,len(queue),best_value), key, '\tlast:', builder.model.history[-1:]
+                ##print count, sorted(all_state.difference(state)), key
+       
             builder = builder.apply_merge(merge_key=key, merge=merge, update=update_model)
             best_value, added = find_next(builder, best_value)
             
@@ -127,10 +157,9 @@ def parse_all(builder, update_model, coef=1, front_width=10, max_iter=1000, cons
     
     
     # return best
-    best = dict((state,value) for state,(value,builder) in done.iteritems())
-    best = min(best, key=best.get)
+    state,value,builder = processed.best()
     
     if verbose:
-        print '  >>> iter: %d, best value: %.12f' % (count,done[best][0])
+        print '  >>> iter: %d, best value: %.12f' % (count,value)
     
-    return done[best][1]
+    return builder

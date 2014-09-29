@@ -43,6 +43,7 @@ class RSA_Builder(object):
             self.axes = {}
             self.merges = {}
             self.axe_ids = set()
+            self.state = set()
             
             # sort path w.r.t segment_order
             path_tip = {}
@@ -101,6 +102,7 @@ class RSA_Builder(object):
         # ---------
         fork.model        = self.model.copy()
         fork.axe_ids      = self.axe_ids.copy()
+        fork.state        = self.state.copy()
         fork.axe_count    = self.axe_count.copy()
         fork.segment_axes = map(set.copy, self.segment_axes)
         
@@ -261,8 +263,8 @@ class RSA_Builder(object):
         """ return the minimum number axes passing through any `segments` """
         return min(map(len,(self.get_axes_at(s) for s in segments)))
         
-    def state(self):
-        return frozenset(self.axe_ids)
+    def get_state(self):
+        return frozenset(self.state)
     def value(self):
         return self.model.value()
     # merging
@@ -297,18 +299,20 @@ class RSA_Builder(object):
         # create merge dict
         # -----------------
         merge_key = (axe1_id,axe2_id)
+        merge_pos = (axe1_id[-1],axe2_id[0])
         new_axe_id = axe1_id+axe2_id
         
-        merge_position = axe2.segments.index(merge_segment)
+        segment_index = axe2.segments.index(merge_segment)
         
-        merge = dict(axe1=axe1, axe2=axe2, merged_id=new_axe_id,
-                     position=merge_position, segment=merge_segment)
+        merge = dict(axe1=axe1, axe2=axe2, new_axe_id=new_axe_id,
+                     merge_pos=merge_pos,
+                     index=segment_index, segment=merge_segment)
 
         # create merged axe if it don't exist already
         # -----------------
         if new_axe_id not in self.axes:
             # get segments to be merged from axe2
-            axe2_end = axe2.segments[merge_position:]
+            axe2_end = axe2.segments[segment_index:]
             
             # create merged axe
             new_axe_segments = axe1.segments + axe2_end
@@ -339,7 +343,7 @@ class RSA_Builder(object):
                     # keep it if axe2 start can be removed
                     #   i.e. it is covered by at least another axe
                     axe2_start = merge['axe2'].segments
-                    axe2_start = axe2_start[:merge['position']]
+                    axe2_start = axe2_start[:merge['index']]
                     if self.min_axe_number(axe2_start)>1:
                         merges.setdefault(axe1_id,{}).setdefault(out_segment,[]).append(axe2_id)
                         
@@ -417,7 +421,7 @@ class RSA_Builder(object):
         # return "flattened" merges
         # -------------------------
         #   output[(axe1_id,axe2_id)] = 
-        #      dict(segment=..., position=..., axe_id=...)
+        #      dict(segment=..., index=..., axe_id=...)
         output = {}  
         for axe1_id, merging in merges.iteritems():
             for merge_segment, axe2_ids in merging.iteritems(): 
@@ -426,10 +430,8 @@ class RSA_Builder(object):
                     merge = merge.copy()
                     
                     # set merged state
-                    state = self.axe_ids.copy()
-                    state.remove(axe1_id)
-                    state.remove(axe2_id)
-                    state.add(merge['merged_id'])
+                    state = self.state.copy()
+                    state.add(merge['merge_pos'])
                     merge['state'] = frozenset(state)
             
                     output[key] = merge
@@ -479,7 +481,8 @@ class RSA_Builder(object):
         # -----------
         fork.remove_axe(axe1_id)
         fork.remove_axe(axe2_id)
-        fork.add_axe(merge['merged_id'])
+        fork.add_axe(merge['new_axe_id'])
+        fork.state.update(merge['state'])
 
         # update model (if required)
         # ------------

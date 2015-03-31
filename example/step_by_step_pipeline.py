@@ -1,8 +1,9 @@
+from matplotlib import pyplot as plt
+
+from rhizoscan import get_data_path
 from rhizoscan.root.pipeline import load_image, detect_petri_plate, compute_graph, compute_tree
 from rhizoscan.root.pipeline.arabidopsis import segment_image, detect_leaves
 from rhizoscan.root.graph.mtg import tree_to_mtg
-
-from matplotlib import pyplot as plt
 
 image = load_image(image_filename)
 #plt.imshow(image);

@@ -7,3 +7,4 @@ doc/_build
 src/VPlants.Rhizoscan.egg-info/
 src/rhizoscan_wralea
 
+.idea/

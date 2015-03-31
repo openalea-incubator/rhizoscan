@@ -1,16 +1,22 @@
 """ Plugin for OpenAleaLab """
-        
-        
+
 class RootEditorWidgetPlugin(object):
     """ applet plugin for RootEditor """
     name = 'RootEditor'
     alias = 'RootEditor'
 
-    def __call__(self, mainwindow):
-        """ Create widget """
-        
-        # widget
+    def __call__(self):
         from rhizoscan.root.editor import RootEditorWidget
+        return RootEditorWidget
+
+    def graft(self, **kwds):
+        mainwindow = kwds['oa_mainwin'] if 'oa_mainwin' in kwds else None
+        applet = kwds['applet'] if 'applet' in kwds else None
+        if applet is None or mainwindow is None:
+            return
+
+        # widget
+        RootEditorWidget = self()
         self._applet = RootEditorWidget()
         mainwindow.add_applet(self._applet, self.alias, area='outputs')
 
@@ -28,17 +34,23 @@ class RootEditorWidgetPlugin(object):
     def instance(self):
         # Write your code here
         pass
-    
+
 class SeedMapWidgetPlugin(object):
     """ applet plugin for RootEditor """
     name = 'SeedMapEditor'
     alias = 'SeedMapEditor'
 
-    def __call__(self, mainwindow):
-        """ Create widget """
-        
-        # widget
+    def __call__(self):
         from rhizoscan.root.image.gui.seed.seed_editor import SeedMapWidget
+        return SeedMapWidget
+
+    def graft(self, **kwds):
+        mainwindow = kwds['oa_mainwin'] if 'oa_mainwin' in kwds else None
+        applet = kwds['applet'] if 'applet' in kwds else None
+        if applet is None or mainwindow is None:
+            return
+
+        SeedMapWidget = self()
         self._applet = SeedMapWidget()
         mainwindow.add_applet(self._applet, self.alias, area='outputs')
 
@@ -57,8 +69,12 @@ class SeedMapWidgetPlugin(object):
         # Write your code here
         pass
 
-class RhizoScanLab(object):
+
+from openalea.oalab.plugins.labs.default import EmptyLab
+
+class RhizoScanLab(EmptyLab):
     name = 'rhizoscan'
+    alias = 'Rhizoscan'
     applet_names = [
         'RootEditor',
         'SeedMapEditor',
@@ -74,7 +90,9 @@ class RhizoScanLab(object):
         ]
 
 
-    def __call__(self, mainwin):
+    def __call__(self, mainwin=None):
+        if mainwin is None:
+            return self.__class__
         from openalea.vpltk.plugin import iter_plugins
         session = mainwin.session
 

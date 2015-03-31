@@ -1,0 +1,8 @@
+*.pyc
+doc/user/generated
+doc/_build
+*~src/VPlants.Rhizoscan.egg-info
+*~
+\#*\#
+src/VPlants.Rhizoscan.egg-info/
+src/rhizoscan_wralea

@@ -50,6 +50,10 @@ Then find the petri plate in the image, as a image mask
 
 Segment the root (and leaf) pixels:
 
+.. image:: tuto_script_pmask.png
+    :width: 200px
+    :align: center
+
 >>> rmask, bbox = segment_image(image,pmask,root_max_radius=5)
 >>> plt.imshow(rmask);
 

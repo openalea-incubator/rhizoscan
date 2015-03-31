@@ -42,7 +42,13 @@ First step: load the image from file:
     :width: 200px
     :align: center
 
+
 Then find the petri plate in the image, as a image mask
+
+>>> pmask, px_scale, hull = detect_petri_plate(image,border_width=25, plate_size=120, fg_smooth=1)
+>>> plt.imshow(pmask);
+
+Segment the root (and leaf) pixels:
 
 >>> rmask, bbox = segment_image(image,pmask,root_max_radius=5)
 >>> plt.imshow(rmask);

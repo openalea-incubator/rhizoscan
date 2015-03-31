@@ -7,6 +7,9 @@ from matplotlib import pyplot as plt
 image = load_image(image_filename)
 #plt.imshow(image);
 
+pmask, px_scale, hull = detect_petri_plate(image,border_width=25, plate_size=120, fg_smooth=1)
+plt.imshow(pmask);
+
 rmask, bbox = segment_image(image,pmask,root_max_radius=5)
 #plt.imshow(rmask);
 

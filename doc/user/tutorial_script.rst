@@ -38,10 +38,18 @@ First step: load the image from file:
 >>> image = load_image(image_filename)
 >>> plt.imshow(image);
 
+.. image:: tuto_script_image.png
+    :width: 200px
+    :align: center
+
 Then find the petri plate in the image, as a image mask
 
 >>> rmask, bbox = segment_image(image,pmask,root_max_radius=5)
 >>> plt.imshow(rmask);
+
+.. image:: tuto_script_rmask.png
+    :width: 200px
+    :align: center
 
 Find the seed of the root system:
 
@@ -49,20 +57,33 @@ Find the seed of the root system:
 >>> plt.imshow(seed_map);
 >>> #plt.imshow(seed_map+rmask);   # to view the seed map on top of the binary mask
 
+.. image:: tuto_script_seed_map.png
+    :width: 200px
+    :align: center
+
 Compute the graph for the root system
 
 >>> graph = compute_graph(rmask,seed_map,bbox)
 >>> graph.plot()
+
+.. image:: tuto_script_graph.png
+    :width: 200px
+    :align: center
 
 Finally, compute the RSA tree:
 
 >>> tree = compute_tree(graph, px_scale=px_scale)
 >>> tree.plot()
 
+.. image:: tuto_script_tree.png
+    :width: 200px
+    :align: center
+
 It is probably necessary to convert this RSA tree to MTG format, for interoperability:
 
 >>> from rhizoscan.root.graph.mtg import tree_to_mtg
 >>> rsa = tree_to_mtg(tree)
+
 
 Here is the full code:
 

@@ -4,6 +4,7 @@ REM Command file for Sphinx documentation
 
 set SPHINXBUILD=sphinx-build
 set BUILDDIR=_build
+set APIDIR=user/generated
 set ALLSPHINXOPTS=-d %BUILDDIR%/doctrees %SPHINXOPTS% .
 if NOT "%PAPER%" == "" (
 	set ALLSPHINXOPTS=-D latex_paper_size=%PAPER% %ALLSPHINXOPTS%
@@ -14,6 +15,7 @@ if "%1" == "" goto help
 if "%1" == "help" (
 	:help
 	echo.Please use `make ^<target^>` where ^<target^> is one of
+	echo.  api       generate api documentation by parsing the package code
 	echo.  html      to make standalone HTML files
 	echo.  dirhtml   to make HTML files named index.html in directories
 	echo.  pickle    to make pickle files
@@ -33,6 +35,11 @@ if "%1" == "clean" (
 	goto end
 )
 
+if "%1" == "api" (
+	python apidoc.py -o %APIDIR ../src/rhizoscan
+	echo.Build finished. The API rst pages are in %APIDIR.
+	goto end
+	
 if "%1" == "html" (
 	%SPHINXBUILD% -b html %ALLSPHINXOPTS% %BUILDDIR%/html
 	echo.

@@ -7,15 +7,15 @@ User Manual
 :Release: |release|
 :Date: |today|
 
-This manual aims at explaining how to use this package for image analysis of root system architecture. It thus focus on the highest-level functions designed for end-user, and requires very little experience in computer science.
+This manual explains how to use this package to analyse image of root system architecture. It thus focus on the highest-level functions designed for end-user, and requires very little experience in computer science.
 
 For a complete reference guide of all the package content, see :mod:`rhizoscan`.
 
 .. toctree::
     :maxdepth: 2
     
-    tutorial_visualea.rst
     tutorial_script.rst
+    tutorial_visualea.rst
     pipeline.rst
     database.rst
     

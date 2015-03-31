@@ -1,7 +1,7 @@
 """
 Package implementing the RootEditor
 
-The RootEditor, based on TreeEditor, is a graphical user interface for the 
+The RootEditor, based on TreeEditor, is a graphical user interface for the
 rhizoscan pipeline. It allows:
  - to process a dataset (i.e. a list of root image)
  - to configure and view each pipeline step
@@ -136,8 +136,11 @@ class RhizoScanEditorWidget(_TreeEditorWidget):
         """ create the toobar for this editor """
         tb = QtGui.QToolBar(self)
         
-        load = self._create_action(description='Load dataset', function=self.load_dataset, dialog='open')
-        run  = self._create_action(description='run rhizoscan', function=self.run_pipeline, keys=['Ctrl+R'])
+        # load = self._create_action(description='Load dataset', function=self.load_dataset, dialog='open')
+        # run  = self._create_action(description='run rhizoscan', function=self.run_pipeline, keys=['Ctrl+R'])
+        load = self._get_action(description='Load dataset', function=self.load_dataset, dialog='open')
+        run  = self._get_action(description='run rhizoscan', function=self.run_pipeline, keys=['Ctrl+R'])
+
         cbox   = QtGui.QComboBox(parent=tb)
         self.dataset_cb = cbox
         
@@ -168,7 +171,7 @@ def main():
     options, args = parser.parse_args()
     
     qapp = QtGui.QApplication([])
-    viewer = RootEditor()
+    viewer = RhizoScanEditor()
     viewer.setWindowTitle("RootEditor")
 
     if options.dataset: viewer.editor.load_dataset(options.dataset)

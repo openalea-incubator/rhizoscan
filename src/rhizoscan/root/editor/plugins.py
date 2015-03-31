@@ -1,6 +1,8 @@
 """ Plugin for OpenAleaLab """
 
+
 class RootEditorWidgetPlugin(object):
+
     """ applet plugin for RootEditor """
     name = 'RootEditor'
     alias = 'RootEditor'
@@ -35,7 +37,9 @@ class RootEditorWidgetPlugin(object):
         # Write your code here
         pass
 
+
 class SeedMapWidgetPlugin(object):
+
     """ applet plugin for RootEditor """
     name = 'SeedMapEditor'
     alias = 'SeedMapEditor'
@@ -72,6 +76,7 @@ class SeedMapWidgetPlugin(object):
 
 from openalea.oalab.plugins.labs.default import EmptyLab
 
+
 class RhizoScanLab(EmptyLab):
     name = 'rhizoscan'
     alias = 'Rhizoscan'
@@ -87,8 +92,31 @@ class RhizoScanLab(EmptyLab):
         'HistoryWidget',
         'World',
         'Plot2d',
-        ]
+    ]
 
+    layout = {
+        "children": {"0": [1, 2], "1": [5, 6]},
+        "parents": {
+            "0": None,
+            "1": 0,
+            "2": 0,
+            "5": 1,
+            "6": 1
+        },
+        "properties": {
+            "0": {
+                "amount": 0.7214854111405835,
+                "splitDirection": 2
+            },
+            "1": {
+                "amount": 0.10309278350515463,
+                "splitDirection": 2
+            },
+            "2": {"widget": {"applets": [{"name": "ShellWidget", }], }},
+            "5": {"widget": {"applets": [{"name": "ContextualMenu", }], }},
+            "6": {"widget": {"applets": [{"name": "RootEditor", }], }}
+        }
+    }
 
     def __call__(self, mainwin=None):
         if mainwin is None:

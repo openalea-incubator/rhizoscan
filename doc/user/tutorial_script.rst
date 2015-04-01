@@ -90,6 +90,16 @@ It is probably necessary to convert this RSA tree to MTG format, for interoperab
 >>> from rhizoscan.root.graph.mtg import tree_to_mtg
 >>> rsa = tree_to_mtg(tree)
 
+To save this (root) mtg in a `rsml`_ file:
+
+>>> from rsml import mtg2rsml
+>>> from rsml.continuous import discrete_to_continuous
+>>>
+>>> rsa_cont = discrete_to_continuous(rsa.copy())
+>>> mtg2rsml(rsa_cont,'some_file.rsml')
+
+.. _rsml: http://rootsystemml.github.io/
+
 
 Here is the full code:
 

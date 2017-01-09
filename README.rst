@@ -64,4 +64,5 @@ License
 Authors
 -------
 
-.. include:: AUTHORS.txt
+Julien Diener (https://github.com/julien-diener)
+

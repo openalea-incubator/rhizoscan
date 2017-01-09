@@ -1,3 +1,8 @@
+.. image:: https://readthedocs.org/projects/rhizoscan/badge/?version=latest
+:target: http://rhizoscan.readthedocs.io/en/latest/?badge=latest
+:alt: Documentation Status
+
+
 =========
 RhizoScan
 =========

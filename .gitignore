@@ -1,15 +1,3 @@
-*.pyc
-doc/user/generated
-doc/_build
-*~src/VPlants.Rhizoscan.egg-info
-*~
-\#*\#
-src/VPlants.Rhizoscan.egg-info/
-src/rhizoscan_wralea
-
-.idea/
-
-
 # Python files
 *.py[cod]
 
@@ -30,12 +18,21 @@ src/rhizoscan_wralea
 .coverage
 cover
 
-# local directory
-local
-CHESSBOARD_PhenoArch_2013_sv_face1
-data_set_0962_A310_ARCH2013-05-13
+# Notebook
 .ipynb_checkpoints
+
+
+#Wralea
+rhizoscan_wralea
+
+# Local
+local
 .idea
+
+# Documentation
+_build
+_templates
+_static
 
 # Packages
 *.egg

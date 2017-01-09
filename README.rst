@@ -62,6 +62,6 @@ License
 **RhizoScan** is released under a `Cecill-C <http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html> license.
 
 Authors
-=======
+-------
 
-.. include:: ./AUTHORS.txt
+.. include:: AUTHORS.txt

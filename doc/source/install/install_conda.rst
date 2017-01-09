@@ -55,5 +55,6 @@ See : http://conda.pydata.org/miniconda.html
     git clone https://github.com/VirtualPlants/rhizoscan
     cd rhizoscan
     python setup.py develop
-    cd test nosetests
+    cd test 
+    nosetests
 

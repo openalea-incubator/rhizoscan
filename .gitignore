@@ -8,3 +8,76 @@ src/VPlants.Rhizoscan.egg-info/
 src/rhizoscan_wralea
 
 .idea/
+
+
+# Python files
+*.py[cod]
+
+# C extensions
+*.so
+*.dll
+*.dylib
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+
+# Compiled Object files
+*.os
+
+# Coverage
+.coverage
+cover
+
+# local directory
+local
+CHESSBOARD_PhenoArch_2013_sv_face1
+data_set_0962_A310_ARCH2013-05-13
+.ipynb_checkpoints
+.idea
+
+# Packages
+*.egg
+*.egg-info
+dist
+build
+build-scons
+eggs
+parts
+bin
+var
+sdist
+develop-eggs
+.installed.cfg
+lib
+lib64
+__pycache__
+*.pth
+
+# Installer logs
+pip-log.txt
+.amlog
+.sconsign.dblite
+
+# Unit test / coverage reports
+.coverage
+.tox
+nosetests.xml
+
+# Translations
+*.mo
+
+# Vim files
+*.swp
+*.*~
+
+# Mr Developer
+.mr.developer.cfg
+.project
+.pydevproject
+.settings
+.idea
+
+# svn
+.svn

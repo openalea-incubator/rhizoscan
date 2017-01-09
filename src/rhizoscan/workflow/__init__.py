@@ -1,30 +1,31 @@
 """ 
 Some stuff to add annotation to functions and allow
 
-todo? 
+todo :
+
 change the general node system to follow the func_annotation as in PEP3107?
-  - node renamed to annotate
-  - rename outputs by 'return'
-  - set input directly as attribute
+    - node renamed to annotate
+    - rename outputs by 'return'
+    - set input directly as attribute
         => what about conflict with other annotated name!!!
-  - annotate decorator only add `func_annotation`to functions (to method.im_func!)
-  - add annotate_class: 
+    - annotate decorator only add `func_annotation`to functions (to method.im_func!)
+    - add annotate_class:
         => annotate __init__ but with class name
         => (&find annotated methods?)
-  - and annotate_method (or use annotated class parsing?)
-  - ...
+    - and annotate_method (or use annotated class parsing?)
+    - ...
   
 OR
 
 change node to simply annotate function(...) and use get/set _functions_
-  - don't attach get/set/copy to annotated function
-  - keep get/set/... as static
-      => rename get/set as g/set_attribute - in use: node.get_attribute(....)
-  - add class_node decorator:
-      => annotate class __init__ but with class `name`
-      => look for annotated method (which would only be their im_func)
-           rename [class_name].--- => what about oa finding it?
-           what about declaration which is called by node? => make a method_node decorator without?
+    - don't attach get/set/copy to annotated function
+    - keep get/set/... as static
+        => rename get/set as g/set_attribute - in use: node.get_attribute(....)
+    - add class_node decorator:
+        => annotate class __init__ but with class `name`
+        => look for annotated method (which would only be their im_func)
+        rename [class_name].--- => what about oa finding it?
+        what about declaration which is called by node? => make a method_node decorator without?
 """
 
 _workflows = []

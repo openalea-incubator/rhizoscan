@@ -2,9 +2,9 @@
 RhizoScan
 =========
 
-.. contents::
-
 RhizoScan provide a set of tool to analyse 2D images of root system.
+
+.. contents::
 
 
 What is RhizoScan ?
@@ -54,7 +54,4 @@ Documentation
 License
 -------
 
-**RhizoScan** is released under a Cecill-C license.
-
-.. note:: `Cecill-C <http://www.cecill.info/licences/
-    Licence_CeCILL-C_V1-en.html>`_ license is a LGPL compatible license.
+**RhizoScan** is released under a `Cecill-C <http://www.cecill.info/licences/ license.

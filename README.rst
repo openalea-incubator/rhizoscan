@@ -54,7 +54,7 @@ Installation
 Documentation
 -------------
 
-...
+http://rhizoscan.readthedocs.io
 
 License
 -------

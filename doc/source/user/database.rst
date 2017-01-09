@@ -35,7 +35,7 @@ Database descriptor:
 
 To understand how to make a database `ini` file, let's look at the exemple in ``[rhisoscan-dir]/test/data/pipeline/arabidopsis/database.ini``:
 
-.. include:: ../../test/data/pipeline/arabidopsis/database.ini
+.. include:: ../../../test/data/pipeline/arabidopsis/database.ini
     :literal:
 
 With folder content::

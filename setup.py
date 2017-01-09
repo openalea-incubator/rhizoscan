@@ -112,23 +112,23 @@ setup(
 
     # package installation
     packages=packages,
-    package_dir= package_dir,
+    package_dir=package_dir,
 
-    create_namespaces = False,
-    zip_safe= False,
+    create_namespaces=False,
+    zip_safe=False,
 
     # Dependencies
-    setup_requires = setup_requires,
-    install_requires = install_requires,
-    dependency_links = dependency_links,
+    setup_requires=setup_requires,
+    install_requires=install_requires,
+    dependency_links=dependency_links,
 
     # Eventually include data in your package
     # (flowing is to include all versioned files other than .py)
-    include_package_data = True,
+    include_package_data=True,
     # (you can provide an exclusion dictionary named exclude_package_data to remove parasites).
     # alternatively to global inclusion, list the file to include
-    package_data = {'': ['*.png','*.jpg', '*.data', '*.ini' ],},
-    share_dirs={'test':'test'},
+    package_data={'': ['*.png', '*.jpg', '*.data', '*.ini'], },
+    share_dirs={'test': 'test'},
 
     # postinstall_scripts = ['',],
 

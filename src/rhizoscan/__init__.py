@@ -3,14 +3,17 @@ The RhizoScan package is divided in a few subpackages. The higher level
 functionalities related to the analaysis of root system architecture from images
 can be found in the :mod:`rhizoscan.root` Package.
 
-.. module:: rhizoscan
+
+
 
 .. _api-rhizoscan:
 
 Rhizoscan packages API
 ----------------------
+.. currentmodule:: rhizoscan
 
 .. autosummary::
+   :toctree: generated/
 
    root       - root structure analysis from images
    ndarray    - general nd-array stuff
@@ -18,7 +21,6 @@ Rhizoscan packages API
    workflow   - low-level data structures
    geometry   - linear algebra algorithm related to (homogeneous) geometry 
    gui        - graphical user interface basics
-   tool       - generic and unclassified tools
 
 
 .. udpate: 09/05/13

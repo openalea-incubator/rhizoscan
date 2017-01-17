@@ -1,3 +1,6 @@
+from cv2 import erode as _erode
+from sklearn.cluster import KMeans as _Kmean
+
 import numpy as _np
 import scipy as _sp
 from scipy import ndimage as _nd
@@ -33,10 +36,11 @@ def segment_image(image, pmask=None, root_max_radius=15, min_dimension=50, smoot
         bbox  = _nd.find_objects(pmask)[0]
         img   = image[bbox]
         pmask = pmask[bbox]
+
     else:
         img  = image
         bbox = map(slice,[0,0],image.shape)
-    
+
     if smooth:
         if pmask is None:
             img  = _nd.gaussian_filter(img, sigma=smooth)
@@ -44,13 +48,13 @@ def segment_image(image, pmask=None, root_max_radius=15, min_dimension=50, smoot
             smooth_img  = _nd.gaussian_filter(img*pmask, sigma=smooth)
             smooth_img /= _np.maximum(_nd.gaussian_filter(pmask.astype('f'),sigma=smooth),2**-10)
             img[pmask]  = smooth_img[pmask]
-        
+
     # background removal
     _print_state(verbose,'remove background')
     img = _remove_background(img, distance=root_max_radius, smooth=1)
     if pmask is not None:
         img *= _nd.binary_erosion(pmask,iterations=root_max_radius)
-    
+
     # image binary segmentation
     _print_state(verbose,'segment binary mask')
     rmask = _segment_root(img)
@@ -68,7 +72,46 @@ def segment_image(image, pmask=None, root_max_radius=15, min_dimension=50, smoot
     
     return rmask, bbox
 
-    
+
+def detect_leaves_with_k_mean(image,
+                              bounding_box=None,
+                              erode_iteration=0,
+                              plant_number=5):
+
+    image = image.astype(_np.int8) * 255
+
+    if bounding_box is not None:
+        wbound = [bounding_box[0], bounding_box[2]]
+        hbound = [bounding_box[1], bounding_box[3]]
+        wbound = [int(w * image.shape[1]) for w in wbound]
+        hbound = [int(h * image.shape[0]) for h in hbound]
+        image[:, :wbound[0]] = 0
+        image[:, wbound[1]:] = 0
+        image[:hbound[0], :] = 0
+        image[hbound[1]:, :] = 0
+
+    if erode_iteration > 0:
+        kernel = _np.ones((3, 3), _np.uint8)
+        image = _erode(image, kernel, iterations=erode_iteration)
+
+    x, y = _np.where(image > 0)
+
+    pts = list()
+    for xx, yy in zip(x, y):
+        pts.append((xx, yy))
+
+    pts = _np.array(pts, dtype=float)
+
+    kmeans = _Kmean(n_clusters=plant_number).fit(pts)
+    label = kmeans.labels_
+
+    pts = pts.astype(int)
+
+    for (x, y), label in zip(list(pts), label):
+        image[x, y] = int(label) + 1
+
+    return image
+
 # detect leaves:
 # --------------
 @_node('seed_map', OA_hide=['sort'])

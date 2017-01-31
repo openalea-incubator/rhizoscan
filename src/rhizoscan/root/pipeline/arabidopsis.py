@@ -1,5 +1,5 @@
 from cv2 import erode as _erode
-from sklearn.cluster import KMeans as _Kmean
+from sklearn.cluster import KMeans as _Kmeans
 
 import numpy as _np
 import scipy as _sp
@@ -73,7 +73,7 @@ def segment_image(image, pmask=None, root_max_radius=15, min_dimension=50, smoot
     return rmask, bbox
 
 
-def detect_leaves_with_k_mean(image,
+def detect_leaves_with_kmeans(image,
                               bounding_box=None,
                               erode_iteration=0,
                               plant_number=5):
@@ -102,7 +102,7 @@ def detect_leaves_with_k_mean(image,
 
     pts = _np.array(pts, dtype=float)
 
-    kmeans = _Kmean(n_clusters=plant_number).fit(pts)
+    kmeans = _Kmeans(n_clusters=plant_number).fit(pts)
     label = kmeans.labels_
 
     pts = pts.astype(int)

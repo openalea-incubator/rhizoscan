@@ -1,10 +1,10 @@
-==============================
-Installation on Conda (Ubuntu)
-==============================
+=================================
+Installation on Ubuntu with Conda
+=================================
 
 .. contents::
 
-1. Download miniconda
+1. Download and install miniconda
 ---------------------
 
 See : http://conda.pydata.org/miniconda.html
@@ -20,13 +20,13 @@ See : http://conda.pydata.org/miniconda.html
     source activate rhizoscan
 
 
-3. Install conda dependencies
------------------------------
+3. Install Rhizoscan dependencies
+---------------------------------
 
 .. code:: shell
 
     conda install sphinx jupyter nose coverage anaconda-client
-    conda install numpy scipy matplotlib scikit-image opencv pil pillow
+    conda install numpy scipy matplotlib scikit-image opencv pil pillow scikit-learn
     conda install -c openalea openalea.mtg openalea.vpltk openalea.visualea openalea.core
 
 3.1 Download & install TreeEditor

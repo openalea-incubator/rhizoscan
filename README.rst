@@ -26,7 +26,8 @@ Requirements
 * NumPy
 * SciPy
 * Matplotlib
-* Scikit.Image
+* Scikit-image
+* Scikit-learn
 * PIL or Pillow
 * OpenCV
 

@@ -84,11 +84,16 @@ from rhizoscan.root.rsa import estimate_RSA as _estimate_RSA
 @_node('graph',OA_hide=['verbose'])
 def compute_graph(rmask, seed_map, bbox=None, verbose=False):
     _print_state(verbose,'compute mask linear decomposition')
-    sskl, nmap, smap, seed = _linear_label(mask=rmask, seed_map=seed_map, compute_segment_map=True)
+    sskl, nmap, smap, seed = _linear_label(mask=rmask,
+                                           seed_map=seed_map,
+                                           compute_segment_map=True)
     
     # make "image-graph"
     _print_state(verbose,'compute graph representation of mask decomposition')
-    im_graph = _image_graph(segment_skeleton=sskl, node_map=nmap, segment_map=smap, seed=seed)
+    im_graph = _image_graph(segment_skeleton=sskl,
+                            node_map=nmap,
+                            segment_map=smap,
+                            seed=seed)
     
     # make polyline graph
     _print_state(verbose,'compute graph of roots')

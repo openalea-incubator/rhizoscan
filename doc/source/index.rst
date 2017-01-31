@@ -35,19 +35,6 @@ Documentation
     User Manual <user/manual.rst>
     Reference Guide <reference/index.rst>
 
-.. note:: To get started:
-
-    - With the graphical user interface - see :ref:`rhizoscan_visualea_tuto`
-    - With the python programming environment - see :ref:`rhizoscan_script_tuto`
-
-
-.. - A `PDF <../latex/rhizoscan.pdf>`_ version of |rhizoscan| documentation is available.
-
-.. seealso::
-
-   More documentation can be found on the `openalea <http://openalea.gforge.inria.fr/dokuwiki/doku.php?id=packages:vplants:rhizoscan:rhizoscan>`__ wiki.
-
-
 Authors
 =======
 

@@ -9,7 +9,7 @@ from rhizoscan.root.pipeline import (
 
 from rhizoscan.root.pipeline.arabidopsis import (
     segment_image,
-    detect_leaves_with_k_mean)
+    detect_leaves_with_kmeans)
 
 from rhizoscan.root.graph.mtg import (
     tree_to_mtg,
@@ -75,7 +75,7 @@ def run(image_filename, have_petri_plate=False, verbose=False):
     root_min_radius = 3
     plant_number = 5
 
-    seed_map = detect_leaves_with_k_mean(rmask,
+    seed_map = detect_leaves_with_kmeans(rmask,
                                          erode_iteration=0,
                                          bounding_box=[0.05, 0.06, 0.90, 0.10],
                                          plant_number=plant_number)
@@ -124,7 +124,6 @@ def main():
 
     for filename in images_filename:
         run(filename, verbose=True)
-
 
 if __name__ == "__main__":
     main()

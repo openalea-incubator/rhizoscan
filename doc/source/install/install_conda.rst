@@ -51,7 +51,7 @@ See : http://conda.pydata.org/miniconda.html
 
 .. code:: shell
 
-    git clone https://github.com/VirtualPlants/treeeditor
+    git clone https://github.com/openalea-incubator/treeeditor
     cd treeeditor
     python setup.py develop --prefix=$CONDA_PREFIX
     cd ..
@@ -61,17 +61,14 @@ See : http://conda.pydata.org/miniconda.html
 
 .. code:: shell
 
-    git clone https://github.com/RootSystemML/RSML-conversion-tools
-    cd RSML-conversion-tools/python/rsml
-    python setup.py develop --prefix=$CONDA_PREFIX
-    cd ../../..
+    conda install -c openalea -c openalea/label/unstable rsml
 
 4. Install & test Rhizoscan
 ---------------------------
 
 .. code:: shell
 
-    git clone https://github.com/VirtualPlants/rhizoscan
+    git clone https://github.com/openalea-incubator/rhizoscan
     cd rhizoscan
     python setup.py develop --prefix=$CONDA_PREFIX
     nosetests test

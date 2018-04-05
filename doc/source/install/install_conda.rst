@@ -51,11 +51,8 @@ See : http://conda.pydata.org/miniconda.html
 
 .. code:: shell
 
-    git clone https://github.com/openalea-incubator/treeeditor
-    cd treeeditor
-    python setup.py develop --prefix=$CONDA_PREFIX
-    cd ..
-
+    conda install -c openalea -c openalea/label/unstable openalea.treeeditor
+    
 3.2 Download & install RSML-conversion-tools
 ............................................
 

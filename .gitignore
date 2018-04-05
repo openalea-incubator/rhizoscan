@@ -1,3 +1,9 @@
+doc/user/generated
+doc/_build
+*~
+\#*\#
+src/rhizoscan_wralea
+
 # Python files
 *.py[cod]
 
@@ -62,6 +68,9 @@ pip-log.txt
 .tox
 nosetests.xml
 
+# Designer files
+*visualea/src/visualea/ui_*
+
 # Translations
 *.mo
 
@@ -78,3 +87,7 @@ nosetests.xml
 
 # svn
 .svn
+
+# temporary files
+*._icon.png
+

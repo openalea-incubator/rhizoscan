@@ -40,8 +40,8 @@ Requirements
 * OpenAlea.deploy (https://github.com/openalea/deploy)
 * OpenAlea.core (https://github.com/openalea/core)
 
-* TreeEditor (https://github.com/VirtualPlants/treeeditor)
-* RSML-conversion-tools (https://github.com/RootSystemML/RSML-conversion-tools)
+* TreeEditor (https://github.com/openalea-incubator/treeeditor)
+* RSML-conversion-tools (https://github.com/openalea/RSML)
 
 
 Installation

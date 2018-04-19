@@ -22,7 +22,7 @@ trees = []
 failure = []
 for img in images:
     try:
-        tree= image_pipeline_no_frame(img)
+        tree = image_pipeline_no_frame(img)
         trees.append(tree)
     except:
         # mode debug

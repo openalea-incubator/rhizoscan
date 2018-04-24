@@ -1,1 +1,0 @@
-This VPlant package provide a set of tool to analyse 2D images of root system. The main goal is to allow extraction of Root System Architecture (RSA) as Multiscale Tree Graph (MTG) from images and image sets. It also provides typical mesurement analysis, such as root axes length (primary, secondary, total) and comparative plots.

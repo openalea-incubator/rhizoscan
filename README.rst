@@ -60,7 +60,7 @@ http://rhizoscan.readthedocs.io
 License
 -------
 
-**RhizoScan** is released under a `Cecill-C <http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html> license.
+**RhizoScan** is released under a `Cecill-C <http://www.cecill.info/licences/Licence_CeCILL-C_V1-en.html>`_ license.
 
 Authors
 -------

@@ -29,9 +29,10 @@ def main():
     # Segmentation root and leaf
     plant_number = 5
     bbox = (5000, 660, 750, 5500)
+    open_iteration = 10 # 7 for small and medium root
 
     root_mask, leaf_mask = rzs_arabido2.segment_root_and_leaf(
-        image, bbox=bbox, plant_number=plant_number)
+        image, bbox=bbox, plant_number=plant_number, open_iteration=open_iteration)
     show_image(root_mask + leaf_mask)
 
     # ==========================================================================

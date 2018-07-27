@@ -71,13 +71,13 @@ def segment_root(image, bbox=(5000, 660, 750, 5500), plant_number=5):
     return rmask.astype(numpy.bool)
 
 
-def segment_leaf(root_mask, plant_number=5):
+def segment_leaf(root_mask, plant_number=5, open_iteration=10):
     # Kept biggest connected component
     kernel = np.ones((4, 4))
     open_root_mask = cv2.morphologyEx(root_mask.astype(np.uint8),
                                       cv2.MORPH_OPEN,
                                       kernel,
-                                      iterations=10)
+                                      iterations=open_iteration)
 
     x, y = numpy.where(open_root_mask > 0)
     pts = list()
@@ -85,7 +85,9 @@ def segment_leaf(root_mask, plant_number=5):
         pts.append((xx, yy))
     pts = numpy.array(pts, dtype=float)
 
-    kmeans = KMeans(n_clusters=plant_number).fit(pts)
+    kmeans = KMeans(n_clusters=plant_number).fit(
+        pts[:, 1].reshape(pts.shape[0], 1))
+    
     label = kmeans.labels_
 
     pts = pts.astype(int)
@@ -95,7 +97,8 @@ def segment_leaf(root_mask, plant_number=5):
     return open_root_mask.astype(numpy.uint8)
 
 
-def segment_root_and_leaf(image, bbox=(5000, 660, 750, 5500), plant_number=5):
+def segment_root_and_leaf(image, bbox=(5000, 660, 750, 5500), plant_number=5,
+                          open_iteration=10):
     """
 
     Parameters
@@ -113,7 +116,8 @@ def segment_root_and_leaf(image, bbox=(5000, 660, 750, 5500), plant_number=5):
                              plant_number=plant_number)
 
     leaf_mask = segment_leaf(root_mask,
-                             plant_number=plant_number)
+                             plant_number=plant_number,
+                             open_iteration=open_iteration)
 
     return root_mask, leaf_mask
 

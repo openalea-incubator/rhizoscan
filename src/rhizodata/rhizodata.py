@@ -46,7 +46,7 @@ rhizodata can also print all the actions without processing it
 
     input_dir = opts.input_dir
     output_dir = opts.input_dir
-    img_pattern = opts/pattern
+    img_pattern = opts.pattern
 
     simulate = opts.simulate
 

@@ -14,16 +14,14 @@ def my_cmp(x, y):
         return _id
     return cmp(index(x), index(y))
 
-def get_images(d=image_folder):
+def get_images(d):
     _dir = Path(d)
     images = [_dir/img for img in os.listdir(d) if img.endswith(".jpg")]
     images = sorted(images, cmp=my_cmp)
     return images
 
-images = get_images()
 
-
-def video(images=images, video_name=video_name, ratio=10):
+def video(images, video_name, ratio=10):
     print(images[0])
     frame = cv2.imread(str(images[0]))
     height, width, layers = frame.shape
@@ -56,3 +54,8 @@ def video_manips(d='result'):
             #print _images
             video(images=_images, video_name=video_name)
             print('Generate ', video_name)
+
+if __name__ == '__main__':
+
+
+    images = get_images()

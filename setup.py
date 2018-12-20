@@ -41,15 +41,12 @@ for key, value in metadata.items():
     print '\t', key + ':\t', value
 
 # Packages list, namespace and root directory of packages
-namespace = metadata['namespace']
-
+#namespace = metadata['namespace']
 
 pkg_root_dir = 'src'
 packages = [pkg for pkg in find_packages(pkg_root_dir)]
 top_pkgs = [pkg for pkg in packages if len(pkg.split('.')) < 2]
-package_dir = dict([('', pkg_root_dir)] +
-                   [(namespace + "." + pkg, pkg_root_dir + "/" + pkg)
-                    for pkg in top_pkgs])
+package_dir = dict([('', 'src')])
 
 
 # setup dependencies stuff
@@ -62,7 +59,10 @@ dependency_links = ['http://openalea.gforge.inria.fr/pi']
 src_abs_path = os.path.abspath('src')
 sys.path.insert(0, src_abs_path)
 
-entry_points = {'gui_scripts': ['rhizoscaneditor = rhizoscan.root.editor:main']}
+entry_points = {'gui_scripts':
+                ['rhizoscaneditor = rhizoscan.root.editor:main']
+                }
+entry_points['console_scripts'] = ['rhizodata = rhizodata.rhizodata:main']
 
 try:
     import rhizoscan
@@ -71,7 +71,7 @@ try:
     clean_wralea_directory(os.path.join(src_abs_path,'rhizoscan_wralea'))
 
     # generate wralea packages
-    entry =  wrap_package(rhizoscan,entry_name='rhizoscan', verbose=0)
+    entry = wrap_package(rhizoscan, entry_name='rhizoscan', verbose=0)
     print('\n wralea entry found:\n' + '\n'.join(entry) + '\n')
 
     if entry:
@@ -89,12 +89,13 @@ except ImportError as e:
 
 
 # add OpenAleaLab RootEditor widget
-entry_points['oalab.applet'] =\
-    ['RootEditorApp = rhizoscan.root.editor.plugins:RootEditorWidgetPlugin',
+entry_points['oalab.applet'] = [
+    'RootEditorApp = rhizoscan.root.editor.plugins:RootEditorWidgetPlugin',
     ],
     # 'SeedMapEditor = rhizoscan.root.editor.plugins:SeedMapWidgetPlugin'],
-entry_points['oalab.lab'] =\
-    ['RhizoScanLab = rhizoscan.root.editor.plugins:RhizoScanLab']
+entry_points['oalab.lab'] = [
+    'RhizoScanLab = rhizoscan.root.editor.plugins:RhizoScanLab',
+    ]
 
 
 # call setup
@@ -132,7 +133,6 @@ setup(
 
     # postinstall_scripts = ['',],
 
-    # Declare scripts and wralea as entry_points (extensions) of your package 
+    # Declare scripts and wralea as entry_points (extensions) of your package
     entry_points = entry_points,
-    )
-
+)

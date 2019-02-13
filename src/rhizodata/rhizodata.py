@@ -51,10 +51,11 @@ rhizodata can also print all the actions without processing it
 
 
     input_dir = opts.input_dir
-    output_dir = opts.input_dir
+    output_dir = opts.output_dir
     img_pattern = opts.pattern
 
     simulate = opts.simulate
 
     env = reorder.DataEnv(input_dir, output_dir, img_pattern, simulate)
+    env.process()
 

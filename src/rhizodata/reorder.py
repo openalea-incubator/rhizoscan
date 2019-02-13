@@ -52,12 +52,12 @@ class DataEnv(object):
 
         seqs = self.input_dir.glob(self.sequence_dir_name)
         if not seqs:
-            print('WARNING : No Sequence directories in '%self.input_dir)
+            print('WARNING : No Sequence directories in %s'%self.input_dir)
             status = 1
 
         visus = self.input_dir.glob(self.visu_dir_name)
         if not visus:
-            print('WARNING : No Visualization directories in '%self.input_dir)
+            print('WARNING : No Visualization directories in %s'%self.input_dir)
             status = 1
 
         return status
@@ -89,7 +89,7 @@ class DataEnv(object):
         """ Return the directories sorted by date.
         """
         image_dir = self.input_dir
-        dirs = d.glob(sequence_dir_name)
+        dirs = image_dir.glob(sequence_dir_name)
 
         dirs = sorted(dirs, cmp=my_cmp)
         print("List of image dirs: ",)
@@ -108,7 +108,7 @@ class DataEnv(object):
             result[b] = []
 
         for _d in dirs:
-            for f in _d.glob(img_pattern):
+            for f in _d.glob(self.img_pattern):
                 result[box_number(f)].append(f)
 
         print(result)

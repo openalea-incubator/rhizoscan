@@ -1,4 +1,10 @@
-"""Script to run versionclimber from a configuration file."""
+"""Script to run versionclimber from a configuration file.
+
+Data are organised by Sequences (a time point) with different boxes.
+We want to group the files by box with the different sequences (time points).
+
+
+"""
 
 from __future__ import absolute_import
 from __future__ import print_function
@@ -50,4 +56,5 @@ rhizodata can also print all the actions without processing it
 
     simulate = opts.simulate
 
-    print('Done!!!')
+    env = reorder.DataEnv(input_dir, output_dir, img_pattern, simulate)
+

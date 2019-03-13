@@ -74,7 +74,7 @@ class DataEnv(object):
         if not self.output_dir:
             print("mkdir %s"%str(self.output_dir))
             if run:
-                self.output_dir.mkdir()
+                self.output_dir.makedirs()
 
         s_dirs = self.get_seq_dirs(self.sequence_dir_name)
         s_dict = self.reordering(s_dirs)
@@ -127,7 +127,7 @@ class DataEnv(object):
             print('mkdir %s'%(_d))
             if not _d.isdir():
                 if run:
-                    _d.mkdir()
+                    _d.makedirs()
                 print('Mkdir ', _d)
             for f in images[b]:
                 print('Move file %s to %s'%(f, _d/f.name))

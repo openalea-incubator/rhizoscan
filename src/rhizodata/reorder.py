@@ -37,7 +37,8 @@ class DataEnv(object):
         self.sequence_dir_name = 'Seq*'
         self.visu_dir_name = 'Visu*'
 
-        status= self.check()
+        self.status= self.check()
+
 
     def check(self):
         status = 0

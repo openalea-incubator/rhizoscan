@@ -163,13 +163,13 @@ def save_manips(input='Christophe', output='result'):
     output = Path(output)
 
     if not output.isdir():
-        output.mkdir()
+        output.makedirs()
 
     for manip in manips:
         mn = manip.name
         res_manip = output/mn
         if not res_manip.isdir():
-            res_manip.mkdir()
+            res_manip.makedirs()
 
         save_all(manip, output_dir=res_manip)
 

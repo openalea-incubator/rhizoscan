@@ -39,7 +39,7 @@ from rhizoscan.root.image.seed import _cluster_seed
 # In[ ]:
 
 
-image_filename ='example/Seq 8_Boite 00002_graphe.JPG'
+image_filename ='openalea-incubator/rhizoscan/example/Seq 8_Boite 00002_graphe.JPG'
 #image_filename = ''
 Image(image_filename)
 

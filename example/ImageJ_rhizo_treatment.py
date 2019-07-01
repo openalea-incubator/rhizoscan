@@ -39,7 +39,7 @@ from rhizoscan.root.image.seed import _cluster_seed
 # In[ ]:
 
 
-image_filename ='C:/Users/FORTFER/Desktop/Dossier donnees analysees/Seq 8_Boite 00002_filtre.jpg'
+image_filename ='https://github.com/fortfe/rhizoscan/blob/fort_scripts/example/Seq%208_Boite%2000002_graphe.JPG'
 #image_filename = ''
 Image(image_filename)
 
